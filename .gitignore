@@ -30,3 +30,12 @@ results/
 .idea/
 *.swp
 .DS_Store
+
+# Claude Code: kişisel dosyalar (paylaşılan .claude/settings.json hariç)
+.claude/*
+!.claude/settings.json
+CLAUDE.local.md
+
+# Ortam değişkeni dosyaları (şifre/token içerebilir)
+.env
+.env.*

@@ -1,0 +1,15 @@
+{
+  "permissions": {
+    "deny": [
+      "Bash(sudo:*)",
+      "Bash(apt upgrade:*)",
+      "Bash(apt-get upgrade:*)",
+      "Bash(apt dist-upgrade:*)",
+      "Bash(apt-get dist-upgrade:*)",
+      "Bash(apt full-upgrade:*)",
+      "Bash(apt autoremove:*)",
+      "Bash(apt-get autoremove:*)",
+      "Bash(git push:*)"
+    ]
+  }
+}
