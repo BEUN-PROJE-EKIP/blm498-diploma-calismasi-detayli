@@ -15,7 +15,7 @@ Kaynak: proje el kitabı v1.3.2 (Çalışma Takvimi, Yöntem, Risk Yönetimi) ve
 
 - [x] **K1** · w2 · Ubuntu 24.04, ROS 2 Jazzy, Gazebo Harmonic 8.15, PX4 v1.16.0, MAVSDK-Python 3.17.4 + mavsdk_server kurulumu; Gazebo grafik arayüzsüz, yalnız sunucu modunda çalışır · FR-31 · Bitti: `verify_all.sh` hepsi `(+)`, sıfırdan kurulum yeniden üretildi
 - [x] **K2a** · w1 · Ortam kilidi: sürümler (`versions.env`), Python kilidi (pip `-c`, PyTorch/Ultralytics dahil), PX4 commit kaydı, SHA-256 özet listesi, kurulum raporu · FR-31 · Bitti: `lock_ozet.sh --check` `(+)`, venv kilitle birebir aynı
-- [ ] **K2b** · w1 · Ortam kilidi: apt paketlerinin ve NVIDIA sürücüsü/CUDA bileşenlerinin **tam sürüm listesi** kaydı · FR-31 · Bitti: liste depoda ve `lock_ozet`'e dahil
+- [x] **K2b** · w1 · Ortam kilidi: apt paketlerinin ve NVIDIA sürücüsü/CUDA bileşenlerinin **tam sürüm listesi** kaydı · FR-31 · Bitti: liste depoda ve `lock_ozet`'e dahil
 - [x] **K3** · w1 · NVIDIA sürücüsü, CUDA ve PyTorch CUDA derlemesi uyum testi (RTX 5070, sm_120) · GŞÖA 6.2 · Bitti: `torch.cuda` GPU matris çarpımı CPU ile uyuşuyor, sürüm sabit
 - [x] **K4** · w1 · Ultralytics (8.4.210) ve MAVSDK-Python (3.17.4) sürümlerinin birlikte çalışma testinde sabitlenmesi · FR-31 · Bitti: sürümler `versions.env` ve kilitte, duman testleri geçti
 - [x] **K5** · w1 · gz-transport Python bağlamalarının çalıştığının doğrulanması (gerçek mesaj alışverişi) · GŞÖA 5.3 · Bitti: `/clock` ve `Image` gidiş-dönüş testi geçti (`protobuf` 7.36.2)
