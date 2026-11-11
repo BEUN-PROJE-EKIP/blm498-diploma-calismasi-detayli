@@ -19,7 +19,7 @@ COMPONENT_NAME="Çalışma zamanı duman testleri"
 require_not_root
 load_versions
 
-export LC_NUMERIC=C   # tr_TR ondalık virgülü tuzağı (R-010)
+export LC_NUMERIC=C   # tr_TR ondalık virgülü tuzağı
 
 # Ctrl-C / SIGTERM: normal çıkışa çevir ki EXIT tuzağı (exit_hook) süreçleri öldürsün.
 trap 'exit 130' INT
