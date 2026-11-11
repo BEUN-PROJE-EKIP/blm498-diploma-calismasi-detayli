@@ -2,7 +2,7 @@
 
 Bilgisayar Mühendisliği Proje Tasarımı dersi projesi.
 
-**[Proje nedir?](#proje-nedir) · [Kurulum öncesi](#kurulum-öncesi) · [Kurulum](#kurulum) · [Ne kadarı bitti?](#ne-kadarı-bitti) · [Mimari](#mimari) · [Sorun mu var?](#sorun-mu-var)**
+**[Proje nedir?](#proje-nedir) · [Kurulum öncesi](#kurulum-öncesi) · [Kurulum](#kurulum) · [Ne kadarı bitti?](#ne-kadarı-bitti) · [Mimari](#mimari) · [Sorun mu var?](#sorun-mu-var) · [Katkı vermek istiyorum](#katkı-vermek-istiyorum)**
 
 ---
 
@@ -160,6 +160,14 @@ En sonda şu satırı görmelisin:
 ```
 
 Gazebo, PX4 ve ROS 2'yi birkaç dakika kısaca çalıştırıp birlikte çalıştıklarını sınar. Pencere açmaz. Sonunda `18 başarılı, 0 başarısız` yazmalı.
+
+**Projeyi kullanırken her yeni terminalde:** ROS 2 ve projenin Python ortamı kendiliğinden açılmaz. Her yeni Konsole'da, proje klasöründeyken şunu çalıştır:
+
+```bash
+source setup/env.sh
+```
+
+Bu, o terminalde `ros2` komutlarını ve projenin Python ortamını etkinleştirir.
 
 **Bilgisayarı yeniden başlatırsan:** ağı yavaşlatan ayar silinir. Tekrar açmak için:
 
@@ -362,6 +370,16 @@ Normal. Şunu çalıştır: `./setup/60_ag_emulasyon_tc.sh`
 
 ---
 
+## Katkı vermek istiyorum
+
+1. Önce kurulumu bitir (yukarıdaki dört adım).
+2. [`planlama/gelistirme_agaci.md`](planlama/gelistirme_agaci.md) dosyasından bir madde seç ve ekibe haber ver.
+3. Kendi dalında çalış, bitince Pull Request aç. `main` dalına doğrudan push yoktur.
+
+Adımların hepsi, kurallar ve yapay zekâ asistanıyla çalışma notları: **[CONTRIBUTING.md](CONTRIBUTING.md)**
+
+---
+
 ## Sınırlar
 
 - Her şey **simülasyondadır**: gerçek uçuş ya da gömülü donanım doğrulaması yok.
@@ -376,7 +394,7 @@ Normal. Şunu çalıştır: `./setup/60_ag_emulasyon_tc.sh`
 |---|---|
 | `setup/` | Kurulum ve kontrol betikleri |
 | `config/` | Deney ayarları (adresler, portlar, ağ hızı) |
-| `planlama/` | Hedef ağacı ve mimari şemalar |
+| `planlama/` | Hedef ağacı, mimari şemalar, iş bölümü |
 | `araclar/` | Küçük yardımcı araçlar (ilerleme hesabı) |
 | `docs/` | Kaynak belgeler (PDF) |
 
