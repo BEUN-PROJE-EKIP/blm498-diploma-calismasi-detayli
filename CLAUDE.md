@@ -37,6 +37,6 @@ Bu depo, **"Afet Bölgelerinde Haberleşme Altyapısından Bağımsız Olarak Ç
 
 ## Git akışı
 
-- `main` dalına doğrudan commit veya push yok. Her iş kendi dalında yapılır (`ad/konu`), sonra Pull Request açılır ve **incelendikten sonra** birleştirilir. Ayrıntı: `CONTRIBUTING.md`.
+- `main` dalına doğrudan commit veya push yok; GitHub'da `main` korumalıdır (PR ve en az 1 onay zorunlu, doğrudan push ve force push reddedilir). Her iş kendi dalında yapılır (`ad/konu`), sonra Pull Request açılır ve **incelendikten sonra** birleştirilir. Ayrıntı: `CONTRIBUTING.md`.
 - PR'dan önce: `./setup/verify_all.sh` hepsi `(+)`; `setup/` veya `config/` değiştiyse `./setup/lock_ozet.sh --check`.
 - Bir ağaç maddesini bitirdiysen maddeyi `[x]` yap ve `python3 araclar/ilerleme.py --yaz` ile README'deki ilerleme bölümünü yenile.

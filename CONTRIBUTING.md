@@ -49,11 +49,11 @@ GitHub'da repo sayfasında "Compare & pull request" düğmesine bas. Açılan ş
 
 **5. İnceleme ve birleştirme**
 
-İşi proje sahibi inceler. Not bırakırsa düzeltip aynı dala yeni commit at. Onaylanınca "Squash and merge" ile birleştirilir ve dal silinir. Sonra yerelde `git checkout main && git pull` yap.
+İşi proje sahibi inceler (PR'ı açan kişi kendi PR'ını **onaylayamaz**, başka biri onaylamalı). Not bırakırsa düzeltip aynı dala yeni commit at. Onaylanınca "Squash and merge" ile birleştirilir ve dal silinir. Sonra yerelde `git checkout main && git pull` yap.
 
 ## Kurallar
 
-- **`main`'e doğrudan push yok.** Her şey PR ile girer.
+- **`main` GitHub'da korumalıdır:** doğrudan push, silme ve zorla push (force push) reddedilir. Her şey PR ile girer ve en az **1 onay** ister.
 - **Bir PR = bir madde.** Küçük PR kolay incelenir.
 - **Ölçüt sağlanmadan maddeyi işaretleme.** Yüzde, kanıttır.
 - **Kilitli değerlere dokunma:** 25 Mbit/s ağ profili, çıkarım ayarları (güven 0,25, `nms=False`, `max_det` 300, FP32, batch=1), karar kuralları. Pilot sonrası kilitlenecek değerleri (ör. kuyruk sınırı) ancak ekipçe karar verilince değiştir.
@@ -69,12 +69,10 @@ Depodaki [`CLAUDE.md`](CLAUDE.md) asistanın uyacağı kuralları içerir ve her
 
 Kişisel ayarların (`.claude/settings.local.json`, `CLAUDE.local.md`) depoya girmez; `.gitignore` bunları dışarıda tutar.
 
-## Bilgisayarında `main` koruması yoksa (isteğe bağlı güvenlik)
+## İstersen: yerel koruma (isteğe bağlı)
 
-`main`'e yanlışlıkla doğrudan push etmeni engelleyen küçük bir kanca hazırdır. Tek seferlik aç:
+GitHub zaten `main`'e doğrudan push'u reddeder. Hatayı daha bilgisayarında, GitHub'a gitmeden görmek istersen tek seferlik aç:
 
 ```bash
 git config core.hooksPath .githooks
 ```
-
-Bundan sonra `git push origin main` reddedilir. Dal gönderme (`git push -u origin ad/konu`) etkilenmez.
