@@ -8,6 +8,9 @@ if [[ "${BASH_SOURCE[0]}" == "$0" ]]; then
     exit 1
 fi
 
+# shellcheck source=ortam.sh
+source "$SETUP_DIR/lib/ortam.sh"
+
 REPORT_FILE="$GENERATED_DIR/kurulum_raporu.md"
 
 # _sed_escape <metin> : sed düzenli ifadesinde sabit metin olarak kullanılabilsin
@@ -27,6 +30,29 @@ _report_sanitize() {
 # _pip_ver <paket> : venv'deki kurulu sürüm (PIP_FREEZE değişkeninden); yoksa boş
 _pip_ver() {
     awk -F'==' -v p="$(printf '%s' "$1" | tr 'A-Z_' 'a-z-')" '{ n = tolower($1); gsub(/_/, "-", n); if (n == p && !f) { print $2; f = 1 } }' <<< "${PIP_FREEZE:-}"
+}
+
+# _report_env_record : apt ve NVIDIA/CUDA kayıtlarının şu anki durumla farkını tek satırda özetler
+_report_env_record() {
+    local tmp d n m
+    if [[ -f "$ORTAM_APT_FILE" ]]; then
+        tmp="$(mktemp)"
+        ortam_apt_now > "$tmp"
+        n="$(wc -l < "$ORTAM_APT_FILE")"
+        d="$(ortam_apt_diff "$ORTAM_APT_FILE" "$tmp")"
+        rm -f "$tmp"
+        m=0; if [[ -n "$d" ]]; then m="$(wc -l <<< "$d")"; fi
+        echo "- apt kaydı: $n paket, kilitle fark: $m"
+    else
+        echo "- apt kaydı: kayıt yok"
+    fi
+    if [[ -f "$ORTAM_NV_FILE" ]]; then
+        local rec now
+        rec="$(sed -n 1p "$ORTAM_NV_FILE")"; now="$(ortam_nvidia_now | sed -n 1p)"
+        if [[ "$rec" == "$now" ]]; then echo "- NVIDIA/CUDA kaydı: $rec (kayıtla aynı)"; else echo "- NVIDIA/CUDA kaydı: $rec; şimdi: $now (FARKLI)"; fi
+    else
+        echo "- NVIDIA/CUDA kaydı: kayıt yok"
+    fi
 }
 
 _report_body() { # _report_body <kip> <toplam_sn>
@@ -102,6 +128,10 @@ _report_body() { # _report_body <kip> <toplam_sn>
     done
     cuda_inst="$(set +u; source "$GENERATED_DIR/hardware.env" 2>/dev/null; echo "${HW_CUDA_VERSION:-}")"
     echo "| CUDA | ≥ $CUDA_MIN | ${cuda_inst:-okunamadı} |"
+    echo
+    echo "## Ortam kaydı"
+    echo
+    _report_env_record
     echo
     echo "## Adımlar"
     echo

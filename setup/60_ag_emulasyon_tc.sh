@@ -89,6 +89,11 @@ load_deney_config() {
     # sığacak büyüklükte olmasını ister; kova tek pakete tam sığarsa paket sürekli bölünür/bekler ve hız
     # hedefin altına düşer. 2 × MTU, 25 Mbit/s'te ilk 2.5 sn'lik ölçümde ~%1,6'lık başlangıç taşması demektir (±%15 payın içinde).
     BURST="$(( 2 * LO_MTU ))"
+    # Kuyruk boşalma beklemesinin üst sınırı yapılandırmadan türetilir (sabit yazılmaz): dolu bir kuyruğun boşalma süresi
+    # = kuyruk_bayt × 8 / hız. 4 MiB ve 25 Mbit/s için ≈ 1,34 sn; üstüne 2 sn pay (100 ms'lik okumalar, sayacın iki okumada
+    # durağanlaşması). Küçük kuyruklarda eski 3 sn tabanı korunur.
+    WAIT_MAX_MS=$(( LINK_QUEUE_BYTES * 8 / (LINK_RATE_MBIT * 1000) + 2000 ))
+    if [[ "$WAIT_MAX_MS" -lt 3000 ]]; then WAIT_MAX_MS=3000; fi
 }
 
 # --- Durum okuma (sudo gerekmez) ---------------------------------------------
@@ -188,8 +193,10 @@ class_stats() {
 # wait_limiter_idle : sınırlayıcı kuyruğu (1:10) boşalana kadar bekler. Boşalma = 'backlog 0b' VE 'Sent' sayacı
 # arka arkaya iki okumada (100 ms arayla) değişmemiş. Bir önceki soket testinin bfifo'da bıraktığı veri
 # 25 Mbit/s hızla (≈ 80 ms) boşalırken sayaç hâlâ artar; bekleme bu yarışı ortadan kaldırır.
-# En çok 3 sn; zaman aşımında (!) yazıp döner (dönüş 0). Bekleme süresi WAIT_MS değişkenine (ms) yazılır.
+# En çok WAIT_MAX_MS (yapılandırmadan türetilir: kuyruk boşalma süresi + 2 sn, en az 3 sn); zaman aşımında (!) yazıp döner
+# (dönüş 0). Bekleme süresi WAIT_MS değişkenine (ms) yazılır.
 WAIT_MS=0
+WAIT_MAX_MS=3000
 wait_limiter_idle() {
     # EPOCHREALTIME ondalık ayracı yerel ayara bağlıdır (tr_TR: virgül); [.,] ikisini de sıyırır → mikrosaniye tamsayısı
     local t0 now prev="" cur sent bl
@@ -200,8 +207,8 @@ wait_limiter_idle() {
         now="${EPOCHREALTIME/[.,]/}"; now=$(( now / 1000 ))
         WAIT_MS=$(( now - t0 ))
         if [[ "$bl" == "0b" && "$sent" == "$prev" ]]; then return 0; fi
-        if [[ "$WAIT_MS" -ge 3000 ]]; then
-            log_warn "Sınırlayıcı kuyruğu 3 sn içinde boşalmadı (backlog $bl); devam ediliyor"
+        if [[ "$WAIT_MS" -ge "$WAIT_MAX_MS" ]]; then
+            log_warn "Sınırlayıcı kuyruğu $((WAIT_MAX_MS / 1000)) sn içinde boşalmadı (backlog $bl); devam ediliyor"
             return 0
         fi
         prev="$sent"
@@ -397,7 +404,7 @@ verify_component() {
     else
         log_fail "Sınıf $LIMIT_CLASS beklenen yapıda değil (rate=ceil=${LINK_RATE_MBIT}Mbit, parent $OPEN_CLASS, burst ≥ $LO_MTU)"
     fi
-    if leaf_ok; then log_ok "Yaprak bfifo, limit $LINK_QUEUE_BYTES B"; else log_fail "Yaprak bfifo yok veya limit $LINK_QUEUE_BYTES B değil"; fi
+    if leaf_ok; then log_ok "Yaprak bfifo, limit $LINK_QUEUE_BYTES B"; else log_fail "Yaprak bfifo yok veya limit $LINK_QUEUE_BYTES B değil (bulunan: '$(tc_field "$(leaf_line)" limit)')"; fi
     if filter_ok; then log_ok "Süzgeç: dst $SWARM_NET ($FILTER_MATCH) -> $LIMIT_CLASS"; else log_fail "Süzgeç yok veya hedefi yanlış (beklenen: $FILTER_MATCH -> $LIMIT_CLASS)"; fi
     local qd_all
     qd_all="$(tc qdisc show dev "$DEV" 2>/dev/null || true)"   # önce değişkene: grep -q + pipefail → SIGPIPE
@@ -417,6 +424,10 @@ verify_component() {
     fi
 
     # (a) Sürü ağı: ~LINK_RATE_MBIT, sayaç artar
+    # Ölçüm penceresi (2,5 sn): hız, alıcıda ilk veri parçasından itibaren teslim edilen baytlardan hesaplanır. Darboğaz (1:10)
+    # ilk paketten itibaren meşgul olduğundan, kuyruğun (ör. 4 MiB) dolmasını beklemek gerekmez; teslim hızı kuyruk boyutundan
+    # bağımsız olarak hedef hıza oturur. Kuyruk büyüdükçe değişen tek şey testten sonra kuyrukta kalan veridir (boşalma süresi
+    # ≈ kuyruk_bayt × 8 / hız); bu, bir sonraki testten önceki wait_limiter_idle ile beklenir (üst sınır WAIT_MAX_MS).
     local secs=2.5 wait_a wait_b
     wait_limiter_idle; wait_a="$WAIT_MS"
     c0="$(class_sent_bytes "$LIMIT_CLASS" || true)"
