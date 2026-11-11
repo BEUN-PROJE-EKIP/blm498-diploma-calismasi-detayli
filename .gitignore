@@ -1,0 +1,32 @@
+# Makineye özel üretilen dosyalar (donanım raporu vb.)
+.generated/
+
+# Python
+.venv/
+.venv-px4/
+venv/
+__pycache__/
+*.pyc
+
+# Kurulum sırasında indirilen/derlenen büyük bileşenler
+third_party/
+build/
+PX4-Autopilot/
+
+# Model ağırlıkları, eğitim çıktıları, veri kümeleri (SHA-256 listesi ayrıca tutulur)
+*.pt
+*.onnx
+runs/
+datasets/
+data/
+
+# Koşu kayıtları ve günlükler (ana deney kayıtları ayrıca arşivlenir)
+logs/
+*.log
+results/
+
+# Editör / sistem
+.vscode/
+.idea/
+*.swp
+.DS_Store
