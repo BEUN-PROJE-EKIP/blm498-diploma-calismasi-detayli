@@ -1,0 +1,12 @@
+# Biçim: dosya | doğrulayıcı çıktısında bulunması gereken metin | (isteğe bağlı) ek argümanlar
+# Her bozuk örnek reddedilmeli (çıkış kodu 1) ve çıktı belirtilen nedeni içermeli.
+sahne_test_14_insan.json | test bölümünde 15 insan olmalı
+sahne_yakin_hedefler.json | merkezleri arası
+sahne_alan_disi.json | alan dışında
+sahne_egitimde_test_varyanti.json | yalnız test bölümünde kullanılabilir
+sahne_bolum_gecersiz.json | değerlerinden biri olmalı
+bolge_cakisan.json | bölgeleri çakışıyor
+rota_ortusme_yetersiz.json | komşu izlerinin örtüşmesi
+rota_irtifa_25.json | sabit irtifa 30 m olmalı
+kalibrasyon_fx_tutarsiz.json | HFOV ve çözünürlükten türetilen
+hedef_listesi_uyumsuz.json | birebir aynı değil | --sahne config/ornek/sahne_ornek_test.json

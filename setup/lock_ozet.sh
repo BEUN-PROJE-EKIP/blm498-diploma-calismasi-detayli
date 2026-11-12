@@ -4,7 +4,8 @@
 #   (argümansız)  listeyi üretir/günceller (aynı girdi → bayt bayt aynı çıktı; tarih/makine adı yok); sonda doğrular
 #   --dry-run     hiçbir şey yazmaz; neyin yazılacağını söyler
 #   --check       yalnız denetim (--verify ile aynı): her özeti doğrular, fark/eksik/fazla dosyaları (-) ile yazar; fark varsa çıkış 1
-# Kapsam: setup/versions.env, config/deney.env, setup/*.sh, setup/lib/*.sh, setup/locks/*.txt (sha256sums.txt hariç).
+# Kapsam: setup/versions.env, config/deney.env, config/ornek/*.json, config/ornek/bozuk/* (sözleşme örnekleri), setup/*.sh, setup/lib/*.sh,
+# setup/locks/*.txt (sha256sums.txt hariç).
 # PX4 etiketi+commit özeti setup/locks/px4-commit.txt içindedir ve bu sayede kapsanır.
 set -Eeuo pipefail
 # shellcheck source=lib/common.sh
@@ -31,7 +32,7 @@ list_files() {
         cd "$ROOT_DIR"
         shopt -s nullglob
         local f
-        for f in setup/versions.env config/deney.env setup/*.sh setup/lib/*.sh setup/locks/*.txt; do
+        for f in setup/versions.env config/deney.env config/ornek/*.json config/ornek/bozuk/* setup/*.sh setup/lib/*.sh setup/locks/*.txt; do
             [[ "$f" == "$LOCK_REL" ]] && continue
             [[ -f "$f" ]] && printf '%s\n' "$f"
         done | LC_ALL=C sort -u
