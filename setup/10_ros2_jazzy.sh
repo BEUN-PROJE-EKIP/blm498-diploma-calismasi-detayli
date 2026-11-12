@@ -92,8 +92,25 @@ install_component() {
 # --- Doğrulama ---------------------------------------------------------------
 in_env() { bash -c 'source "$1" 2>/dev/null; shift; "$@"' _ "$ENV_SH" "$@"; }
 
+# `ros2 doctor` kendiliğinden bir ros2 daemon başlatır (ros2 --help, colcon, rosdep başlatmaz; deneyle doğrulandı) ve daemon
+# betik bittikten sonra da yaşar. Daemon profil dışı bir DDS katılımcısıdır: çoklu yayın keşif duyuruları sınırlayıcıya (60)
+# girer ve ölçümleri bozar. Bu yüzden betiğin başlattığı daemon, çağrıdan hemen sonra ve her çıkışta durdurulur.
+# Kullanıcının betikten önce zaten çalışan daemon'una dokunulmaz.
+daemon_alive() { pgrep -f '[r]os2-daemon' >/dev/null 2>&1; }
+DAEMON_PRE=0
+if daemon_alive; then DAEMON_PRE=1; fi
+stop_own_daemon() {
+    [[ "$DAEMON_PRE" -eq 0 ]] || return 0
+    daemon_alive || return 0
+    in_env ros2 daemon stop >/dev/null 2>&1 || true
+    local i
+    for ((i = 0; i < 40; i++)); do daemon_alive || return 0; sleep 0.25; done
+    return 0
+}
+
 rmw_report_ok() {
     local rep; rep="$(in_env ros2 doctor --report 2>/dev/null || true)"
+    stop_own_daemon
     grep -q 'rmw_fastrtps_cpp' <<< "$rep"
 }
 
@@ -127,7 +144,7 @@ rclpy_venv_combo() {
     in_env python -c 'import sys, rclpy, numpy, torch, ultralytics; print("rclpy tamam; numpy", numpy.__version__, "torch", torch.__version__, "ultralytics", ultralytics.__version__, "python", sys.version.split()[0])'
 }
 
-exit_hook() { smoke_cleanup; }
+exit_hook() { smoke_cleanup; stop_own_daemon; }
 
 verify_component() {
     local src_ver pkg
@@ -152,6 +169,8 @@ verify_component() {
     check "colcon --help çalışıyor" in_env colcon --help
     check "rosdep --version çalışıyor" in_env rosdep --version
     check "ros2 doctor --report RMW olarak rmw_fastrtps_cpp gösteriyor" rmw_report_ok
+    # shellcheck disable=SC2016  # tek tırnak bilerek: $1 alt kabukta açılır
+    check "ros2 daemon betik sonunda çalışmıyor (başlatılan daemon durduruldu)" bash -c '! pgrep -f "[r]os2-daemon" >/dev/null || [[ "$1" == 1 ]]' _ "$DAEMON_PRE"
     check "Konuş/dinle duman testi (talker→listener, ROS_DOMAIN_ID=77, 'I heard')" smoke_talker_listener
     smoke_cleanup
     if [[ -x "$ROOT_DIR/.venv/bin/python" ]]; then

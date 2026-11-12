@@ -1,0 +1,84 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  config/fastdds_profil.xml — tüm DDS katılımcılarının (3 araç + yer istasyonu) ortak tek Fast DDS profili.
+  Şema: Fast DDS 2.14 (ros-jazzy-fastrtps 2.14.x), XML profil biçimi.
+
+  Belge kuralları:
+    - Yerleşik taşımalar kapalı; yalnız UDPv4 (paylaşımlı bellek yok).
+    - Data-sharing ve intraprocess teslimi kapalı: mesaj her zaman UDP üzerinden gider.
+    - Katılımcı yalnız sürü ağı (10.10.0.0/24) adreslerini kullanır.
+    - Keşif SIMPLE; çoklu yayın konumu TANIMLANMAZ; eşler sabit tek yayın listesidir.
+
+  Adres kaynağı: config/deney.env (UAV1_ADDR, UAV2_ADDR, UAV3_ADDR, GCS_ADDR). Bu dosyadaki adresler
+  onun kopyasıdır; tutarlılık setup/dds_profil_dogrula.sh betiğinin verify kipiyle denetlenir.
+
+  Beyaz liste dört sürü adresinin hepsidir: aynı makinede (lo) iki katılımcı yalnız kendi adresi beyaz listedeyse
+  birbirini bulamaz (Fast DDS yerel uzak konumu 127.0.0.1'e çevirip düşürür). Süreç başına yerel adres:
+  her süreç SWARM_BIND_ADDR ortam değişkeniyle yalnız İLAN EDİLEN konumunu seçer
+  (Fast DDS XML'deki ${DEĞİŞKEN} yer tutucusu). Profil dosyası tektir. Değişken tanımsızsa Fast DDS yalnız bir hata satırı
+  basar ve profili HİÇ yüklemeden varsayılan ayarlara düşer; bu yüzden değişkeni başlatıcı her zaman açıkça verir.
+-->
+<profiles xmlns="http://www.eprosima.com/XMLSchemas/fastRTPS_Profiles">
+
+  <transport_descriptors>
+    <transport_descriptor>
+      <transport_id>swarm_udp4</transport_id>
+      <type>UDPv4</type>
+      <interfaceWhiteList>
+        <address>10.10.0.1</address>
+        <address>10.10.0.2</address>
+        <address>10.10.0.3</address>
+        <address>10.10.0.10</address>
+      </interfaceWhiteList>
+    </transport_descriptor>
+  </transport_descriptors>
+
+  <participant profile_name="swarm_participant" is_default_profile="true">
+    <rtps>
+      <!-- İlan edilen veri konumu yalnız sürecin kendi adresi. -->
+      <defaultUnicastLocatorList>
+        <locator><udpv4><address>${SWARM_BIND_ADDR}</address></udpv4></locator>
+      </defaultUnicastLocatorList>
+      <useBuiltinTransports>false</useBuiltinTransports>
+      <userTransports>
+        <transport_id>swarm_udp4</transport_id>
+      </userTransports>
+      <builtin>
+        <discovery_config>
+          <discoveryProtocol>SIMPLE</discoveryProtocol>
+        </discovery_config>
+        <!-- İlan edilen keşif konumu yalnız sürecin kendi adresi; açık verilince varsayılan 239.255.0.1 alıcı soketi ve grup üyeliği de açılmaz. -->
+        <metatrafficUnicastLocatorList>
+          <locator><udpv4><address>${SWARM_BIND_ADDR}</address></udpv4></locator>
+        </metatrafficUnicastLocatorList>
+        <initialPeersList>
+          <locator><udpv4><address>10.10.0.1</address></udpv4></locator>
+          <locator><udpv4><address>10.10.0.2</address></udpv4></locator>
+          <locator><udpv4><address>10.10.0.3</address></udpv4></locator>
+          <locator><udpv4><address>10.10.0.10</address></udpv4></locator>
+        </initialPeersList>
+      </builtin>
+    </rtps>
+  </participant>
+
+  <publisher profile_name="swarm_publisher" is_default_profile="true">
+    <qos>
+      <data_sharing>
+        <kind>OFF</kind>
+      </data_sharing>
+    </qos>
+  </publisher>
+
+  <subscriber profile_name="swarm_subscriber" is_default_profile="true">
+    <qos>
+      <data_sharing>
+        <kind>OFF</kind>
+      </data_sharing>
+    </qos>
+  </subscriber>
+
+  <library_settings>
+    <intraprocess_delivery>OFF</intraprocess_delivery>
+  </library_settings>
+
+</profiles>

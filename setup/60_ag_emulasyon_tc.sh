@@ -1,10 +1,11 @@
 #!/usr/bin/env bash
 # 60_ag_emulasyon_tc.sh — Ağ emülasyonu (tc): loopback üzerinde sürü ağı (SWARM_NET) ve tek ortak kapasite sınırlayıcı (LINK_RATE_MBIT).
 # Kullanım: ./60_ag_emulasyon_tc.sh [--dry-run | --verify | --remove | -h]
-#   (argümansız)  4 adresi lo'ya /32 ekler; lo'ya htb kök + 1:10 sınırlayıcı sınıf + bfifo + u32 süzgeç kurar (sudo); sonda doğrular
+#   (argümansız)  4 adresi lo'ya /32 ekler; lo'ya htb kök + 1:10 sınırlayıcı sınıf + bfifo + iki u32 süzgeç (SWARM_NET ve DDS_MCAST_ADDR) kurar (sudo); sonda doğrular
 #   --dry-run     hiçbir şey değiştirmez; yapacağı ip/tc komutlarını yazar
-#   --verify      yalnız denetim (sudo gerekmez): adresler, tc yapısı, sayaçlar, iki kısa soket testi (a: sürü ağı sınırlı, b: 127.0.0.1 sınırsız)
+#   --verify      yalnız denetim (sudo gerekmez): adresler, tc yapısı, sayaçlar, üç kısa test (a: sürü ağı sınırlı, b: 127.0.0.1 sınırsız, c: DDS_MCAST_ADDR'e giden UDP 1:10'a yakalanır, 127.0.0.1'e giden yakalanmaz)
 #   --remove      bu betiğin eklediği her şeyi geri alır (htb kök, adresler; sudo)
+# İki u32 süzgeç kuralı: (1) dst SWARM_NET -> 1:10, (2) dst DDS_MCAST_ADDR/32 -> 1:10 (Fast DDS keşif duyuruları profille kapatılamadığından D'ye alınır).
 # Yapılandırma: config/deney.env (DENEY_ENV ortam değişkeniyle başka dosya verilebilir). Sabit ek gecikme / kasıtlı paket kaybı YOK (netem kullanılmaz).
 # Kalıcı değildir: yeniden başlatmada install_all.sh yeniden uygular.
 set -Eeuo pipefail
@@ -32,7 +33,8 @@ OPEN_CLASS="1:1"      # varsayılan sınıf: sınırlanmayan her şey (127.0.0.1
 LIMIT_CLASS="1:10"    # ortak kapasite sınırlayıcı
 LEAF_HANDLE="10:"
 OPEN_RATE="100gbit"   # "sınırsız" sayılacak yüksek hız
-FILTER_PRIO=1
+FILTER_PRIO=1         # dst SWARM_NET -> sınırlayıcı
+FILTER_PRIO_MC=2      # dst DDS_MCAST_ADDR (keşif çoklu yayını) -> sınırlayıcı
 
 fail_stop() { log_fail "$1"; component_failed "$COMPONENT_NAME"; exit 1; }
 
@@ -70,7 +72,7 @@ load_deney_config() {
     # shellcheck disable=SC1090
     source "$DENEY_ENV"
     local k
-    for k in SWARM_NET UAV1_ADDR UAV2_ADDR UAV3_ADDR GCS_ADDR LINK_RATE_MBIT LINK_QUEUE_BYTES; do
+    for k in SWARM_NET UAV1_ADDR UAV2_ADDR UAV3_ADDR GCS_ADDR DDS_MCAST_ADDR LINK_RATE_MBIT LINK_QUEUE_BYTES; do
         [[ -n "${!k:-}" ]] || fail_stop "Yapılandırmada '$k' tanımlı değil: $DENEY_ENV"
     done
     [[ "$LINK_RATE_MBIT" =~ ^[1-9][0-9]*$ ]] || fail_stop "LINK_RATE_MBIT pozitif tamsayı olmalı: '$LINK_RATE_MBIT'"
@@ -82,7 +84,9 @@ load_deney_config() {
     for a in "${ADDRS[@]}"; do
         ip_in_net "$a" "$SWARM_NET" || fail_stop "Adres SWARM_NET ($SWARM_NET) içinde değil veya geçersiz: '$a'"
     done
+    ip_to_int "$DDS_MCAST_ADDR" >/dev/null || fail_stop "DDS_MCAST_ADDR geçerli bir a.b.c.d olmalı: '$DDS_MCAST_ADDR'"
     FILTER_MATCH="$(net_match_hex "$SWARM_NET")"
+    FILTER_MATCH_MC="$(net_match_hex "$DDS_MCAST_ADDR/32")"
     LO_MTU="$(cat "/sys/class/net/$DEV/mtu" 2>/dev/null || true)"
     [[ "$LO_MTU" =~ ^[0-9]+$ ]] || fail_stop "$DEV arayüzünün MTU değeri okunamadı"
     # burst/cburst = 2 × MTU: htb, belirteç kovasının en az bir paket (lo'da 65536 B'a kadar GSO/"büyük" paket)
@@ -156,12 +160,14 @@ leaf_ok() {
     lim="$(tc_size_bytes "$(tc_field "$l" limit)")" || return 1
     [[ "$lim" -eq "$LINK_QUEUE_BYTES" ]]
 }
-filter_text() { tc filter show dev "$DEV" parent "$ROOT_HANDLE" 2>/dev/null || true; }
-filter_any() { [[ -n "$(filter_text)" ]]; }
-filter_ok() {
-    local t; t="$(filter_text)"
-    grep -q "flowid $LIMIT_CLASS" <<< "$t" && grep -q "match $FILTER_MATCH at 16" <<< "$t"
+filter_text() { tc filter show dev "$DEV" parent "$ROOT_HANDLE" prio "$1" 2>/dev/null || true; } # filter_text <prio>
+filter_any() { [[ -n "$(filter_text "$1")" ]]; }                                                 # filter_any <prio>
+filter_has() { # filter_has <prio> <eşleşme_hex> : o önceliğin kuralı 1:10'a gidiyor ve eşleşmesi beklenen
+    local t; t="$(filter_text "$1")"
+    grep -q "flowid $LIMIT_CLASS" <<< "$t" && grep -q "match $2 at 16" <<< "$t"
 }
+filter_ok() { filter_has "$FILTER_PRIO" "$FILTER_MATCH"; }
+filter_mc_ok() { filter_has "$FILTER_PRIO_MC" "$FILTER_MATCH_MC"; }
 root_default_ok() { local l; l="$(root_qdisc_line)"; [[ "$(tc_field "$l" default)" == "0x1" ]]; }
 
 # tc -s class show : sınıfın 'Sent N bytes' sayacı (okunamazsa boş + dönüş 1)
@@ -291,6 +297,24 @@ print(f"{res['total'] * 8 / res['secs'] / 1e6:.2f} {res['total']}")
 PY
 }
 
+# udp_send_test <hedef_adres> <adet> <yük_bayt> : hedefe (port 9, alıcı gerekmez) adet datagram yollar; çoklu yayın hedefi için
+# çıkış arayüzü lo (IP_MULTICAST_IF=127.0.0.1) seçilir. Hata olursa 1 ve stderr'e neden.
+udp_send_test() {
+    python3 -I - "$1" "$2" "$3" <<'PY'
+import socket, sys
+dst, n, size = sys.argv[1], int(sys.argv[2]), int(sys.argv[3])
+try:
+    s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    s.setsockopt(socket.IPPROTO_IP, socket.IP_MULTICAST_IF, socket.inet_aton("127.0.0.1"))
+    s.setsockopt(socket.IPPROTO_IP, socket.IP_MULTICAST_LOOP, 0)
+    for _ in range(n):
+        s.sendto(b"\0" * size, (dst, 9))
+except OSError as e:
+    print(f"UDP gönderimi başarısız ({dst}): {e}", file=sys.stderr)
+    sys.exit(1)
+PY
+}
+
 # --- Kurulum / geri alma -----------------------------------------------------
 install_component() {
     have_cmd ip || fail_stop "'ip' komutu bulunamadı (iproute2)"
@@ -348,11 +372,22 @@ install_component() {
     if filter_ok; then
         log_ok "Süzgeç zaten kurulu (dst $SWARM_NET -> $LIMIT_CLASS)"
     else
-        if filter_any; then
+        if filter_any "$FILTER_PRIO"; then
             sudo_run "Eski süzgeç siliniyor (yapı farklı)" tc filter del dev "$DEV" parent "$ROOT_HANDLE" prio "$FILTER_PRIO"
         fi
         sudo_run "Süzgeç ekleniyor (dst $SWARM_NET -> $LIMIT_CLASS)" \
             tc filter add dev "$DEV" parent "$ROOT_HANDLE" protocol ip prio "$FILTER_PRIO" u32 match ip dst "$SWARM_NET" flowid "$LIMIT_CLASS"
+    fi
+
+    # 6) İkinci süzgeç: Fast DDS keşif çoklu yayını (dst DDS_MCAST_ADDR) -> 1:10 (D'ye alınır)
+    if filter_mc_ok; then
+        log_ok "Süzgeç zaten kurulu (dst $DDS_MCAST_ADDR -> $LIMIT_CLASS)"
+    else
+        if filter_any "$FILTER_PRIO_MC"; then
+            sudo_run "Eski çoklu yayın süzgeci siliniyor (yapı farklı)" tc filter del dev "$DEV" parent "$ROOT_HANDLE" prio "$FILTER_PRIO_MC"
+        fi
+        sudo_run "Süzgeç ekleniyor (dst $DDS_MCAST_ADDR -> $LIMIT_CLASS)" \
+            tc filter add dev "$DEV" parent "$ROOT_HANDLE" protocol ip prio "$FILTER_PRIO_MC" u32 match ip dst "$DDS_MCAST_ADDR/32" flowid "$LIMIT_CLASS"
     fi
 }
 
@@ -406,6 +441,7 @@ verify_component() {
     fi
     if leaf_ok; then log_ok "Yaprak bfifo, limit $LINK_QUEUE_BYTES B"; else log_fail "Yaprak bfifo yok veya limit $LINK_QUEUE_BYTES B değil (bulunan: '$(tc_field "$(leaf_line)" limit)')"; fi
     if filter_ok; then log_ok "Süzgeç: dst $SWARM_NET ($FILTER_MATCH) -> $LIMIT_CLASS"; else log_fail "Süzgeç yok veya hedefi yanlış (beklenen: $FILTER_MATCH -> $LIMIT_CLASS)"; fi
+    if filter_mc_ok; then log_ok "Süzgeç: dst $DDS_MCAST_ADDR ($FILTER_MATCH_MC) -> $LIMIT_CLASS (keşif çoklu yayını)"; else log_fail "Çoklu yayın süzgeci yok veya hedefi yanlış (beklenen: $FILTER_MATCH_MC -> $LIMIT_CLASS)"; fi
     local qd_all
     qd_all="$(tc qdisc show dev "$DEV" 2>/dev/null || true)"   # önce değişkene: grep -q + pipefail → SIGPIPE
     if grep -q netem <<< "$qd_all"; then
@@ -468,6 +504,30 @@ verify_component() {
         fi
     else
         log_fail "(b) 127.0.0.1 soket testi çalışmadı: $out"
+    fi
+
+    # (c) Yakalama kanıtı: DDS_MCAST_ADDR'e (herhangi bir port) bilinen sayıda UDP datagram -> 1:10 sayacı, gönderilen bayt (IP başlığı dahil)
+    # kadar artar; aynı gönderim 127.0.0.1'e yapılınca artmaz (karşılaştırma). Alıcı gerekmez (UDP).
+    local n_pkt=50 payload=100 expect cap0 cap1 cap2
+    expect=$(( n_pkt * (payload + 28) ))   # 20 B IP + 8 B UDP başlığı
+    wait_limiter_idle
+    cap0="$(class_sent_bytes "$LIMIT_CLASS" || true)"
+    if udp_send_test "$DDS_MCAST_ADDR" "$n_pkt" "$payload"; then
+        cap1="$(class_sent_bytes "$LIMIT_CLASS" || true)"
+        udp_send_test 127.0.0.1 "$n_pkt" "$payload" || true
+        cap2="$(class_sent_bytes "$LIMIT_CLASS" || true)"
+        if [[ -n "$cap0" && -n "$cap1" && "$(( cap1 - cap0 ))" -ge "$expect" ]]; then
+            log_ok "(c) $DDS_MCAST_ADDR'e $n_pkt × $payload B UDP: $LIMIT_CLASS sayacı +$(( cap1 - cap0 )) bayt (beklenen ≥ $expect, IP başlığı dahil)"
+        else
+            log_fail "(c) $DDS_MCAST_ADDR'e giden UDP $LIMIT_CLASS sayacına girmedi (önce: '${cap0:-yok}', sonra: '${cap1:-yok}', beklenen artış ≥ $expect)"
+        fi
+        if [[ -n "$cap1" && -n "$cap2" && "$cap2" -eq "$cap1" ]]; then
+            log_ok "(c) karşılaştırma: aynı gönderim 127.0.0.1'e: $LIMIT_CLASS sayacı değişmedi (fark 0)"
+        else
+            log_fail "(c) karşılaştırma: 127.0.0.1'e gönderim $LIMIT_CLASS sayacını değiştirdi veya okunamadı (önce: '${cap1:-yok}', sonra: '${cap2:-yok}')"
+        fi
+    else
+        log_fail "(c) UDP gönderim testi çalışmadı ($DDS_MCAST_ADDR)"
     fi
 }
 

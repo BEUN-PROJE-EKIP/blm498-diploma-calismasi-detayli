@@ -279,6 +279,9 @@ post_checks() {
     else
         log_fail "Dinleyen portlar değişti: $(diff "$TMP_DIR/once.ports" "$TMP_DIR/sonra.ports" | tr '\n' ';')"
     fi
+    if [[ "$DAEMON_ONCE" -eq 0 ]]; then
+        if pgrep -f '[r]os2-daemon' >/dev/null; then log_fail "Artık ros2 daemon süreci var"; else log_ok "ros2 daemon süreci yok"; fi
+    fi
     if diff -q "$TMP_DIR/once.net" "$TMP_DIR/sonra.net" >/dev/null; then
         log_ok "tc/ip durumu (lo) değişmedi"
     else
@@ -320,6 +323,7 @@ check_prereqs
 
 TMP_DIR="$(mktemp -d)"
 write_helpers
+DAEMON_ONCE=0; if pgrep -f '[r]os2-daemon' >/dev/null; then DAEMON_ONCE=1; fi   # başlangıçta zaten varsa sonda denetlenmez
 snapshot once
 log_info "gz $(gz sim --versions 2>/dev/null | sed -n 1p || true), ROS $ROS_DISTRO, PX4 $PX4_TAG, mavsdk $MAVSDK_VERSION, protobuf (venv) $("$VENV_PY" -c 'import google.protobuf as p; print(p.__version__)' 2>/dev/null || echo '?')"
 

@@ -4,7 +4,11 @@
 # Sırayla: (a) ROS 2 setup.bash (varsa), (b) .venv etkinleştirme (varsa), (c) RMW ve ROS_DOMAIN_ID, (d) ROOT_DIR/PROJE_ROOT.
 # Çoklu `source` zararsızdır; `set -u` altında kaynaklanan kabukları bozmaz.
 # ROS_LOCALHOST_ONLY BİLEREK ayarlanmaz (ölçülen ağ 10.10.0.0/24 olacak).
-# Fast DDS profil değişkeni (FASTRTPS_DEFAULT_PROFILES_FILE) ilerleyen aşamada buraya eklenecek.
+# Fast DDS: tek ortak profil (config/fastdds_profil.xml) FASTRTPS_DEFAULT_PROFILES_FILE ile gösterilir; RMW_FASTRTPS_USE_QOS_FROM_XML=1
+# ile yayıncı/abone profilleri (data-sharing kapalı) rmw_fastrtps_cpp tarafından da XML'den alınır. Profildeki ${SWARM_BIND_ADDR}
+# yer tutucusu her sürecin kendi sürü adresidir (UAV1_ADDR/UAV2_ADDR/UAV3_ADDR/GCS_ADDR); süreci başlatan betik bunu ayarlar,
+# burada ayarlanmaz. Tanımsızken Fast DDS bir hata satırı basar (gürültü kabul) VE profili hiç yüklemeden varsayılan ayarlara
+# düşer (sessiz profilsiz çalışma); hata satırı tek başına yeterli koruma değildir, başlatıcılar değişkeni her zaman açıkça verir.
 
 if [[ "${BASH_SOURCE[0]}" == "$0" ]]; then
     echo "Bu dosya doğrudan çalıştırılmaz; kabuğa alın:  source setup/env.sh" >&2
@@ -42,6 +46,13 @@ _proje_env_main() {
 
     export RMW_IMPLEMENTATION=rmw_fastrtps_cpp
     export ROS_DOMAIN_ID="${ROS_DOMAIN_ID:-42}"
+    local dds_profile="$root/config/fastdds_profil.xml"
+    if [[ -f "$dds_profile" ]]; then
+        export FASTRTPS_DEFAULT_PROFILES_FILE="$dds_profile"
+        export RMW_FASTRTPS_USE_QOS_FROM_XML=1
+    else
+        echo "(!) Fast DDS profili yok: $dds_profile" >&2
+    fi
     export ROOT_DIR="$root"
     export PROJE_ROOT="$root"
 
