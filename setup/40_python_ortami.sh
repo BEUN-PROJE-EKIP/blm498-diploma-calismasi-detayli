@@ -7,6 +7,7 @@
 #   --update-lock kilidi bilinçli güncellemek için: kısıtlayıcı KULLANILMAZ, kurulum sonrası freeze kilide yazılır
 #   --dry-run     hiçbir şey kurmaz/değiştirmez; yapacağı komutları yazar
 #   --verify      yalnız denetim (ağsız/sudosuz): sürümler, CUDA, sm_120, YOLO çıkarımı, mavsdk_server, onnxruntime, scipy
+#                 (Ultralytics çağıran doğrulama süreci YOLO_OFFLINE=1 ile çalışır; anonim olay gönderilmez. Kurulumdaki ağırlık indirme hariçtir)
 # Sürümler yalnız setup/versions.env içindedir. Kilit dosyası: setup/locks/python-requirements.lock.txt
 set -Eeuo pipefail
 # shellcheck source=lib/common.sh
@@ -199,6 +200,14 @@ def yolo():
     import numpy as np
     from ultralytics import YOLO
     out("OK", "from ultralytics import YOLO")
+    # Gizlilik: bu süreç YOLO_OFFLINE=1 ile çalışır; Ultralytics anonim olay göndermemeli (settings sync=True olsa bile)
+    import ultralytics.utils as U
+    from ultralytics.utils.events import events
+    if not U.ONLINE and not events.enabled:
+        out("OK", f"Ultralytics çevrimdışı: YOLO_OFFLINE={os.environ.get('YOLO_OFFLINE')} ONLINE={U.ONLINE} olay gönderimi aktif={events.enabled} (settings sync={U.SETTINGS['sync']})")
+    else:
+        out("FAIL", f"Ultralytics çevrimdışı DEĞİL: ONLINE={U.ONLINE} olay gönderimi aktif={events.enabled}")
+        return
     path = os.path.join(E["MODELS_DIR"], E["MODEL_NAME"])
     if not os.path.isfile(path):
         out("WARN", f"ağırlık dosyası yok ({path}); çıkarım denetimi atlandı (kur modunda indirilir)")
@@ -352,7 +361,7 @@ verify_component() {
             "INFO "*) log_info "${line#INFO }" ;;
             *)        log_info "  $line" ;;
         esac
-    done < <(TORCH_VERSION="$TORCH_VERSION" TORCH_CUDA_TAG="$TORCH_CUDA_TAG" TORCHVISION_VERSION="$TORCHVISION_VERSION" \
+    done < <(YOLO_OFFLINE=1 TORCH_VERSION="$TORCH_VERSION" TORCH_CUDA_TAG="$TORCH_CUDA_TAG" TORCHVISION_VERSION="$TORCHVISION_VERSION" \
              ULTRALYTICS_VERSION="$ULTRALYTICS_VERSION" MAVSDK_VERSION="$MAVSDK_VERSION" \
              ONNXRUNTIME_VERSION="$ONNXRUNTIME_VERSION" ONNX_VERSION="$ONNX_VERSION" ONNXSLIM_VERSION="$ONNXSLIM_VERSION" NUMPY_VERSION="$NUMPY_VERSION" SCIPY_VERSION="$SCIPY_VERSION" \
              NVSMI_GPU="$smi_name" MODELS_DIR="$MODELS_DIR" MODEL_NAME="$MODEL_NAME" GENERATED_DIR="$GENERATED_DIR" \

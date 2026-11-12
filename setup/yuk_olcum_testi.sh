@@ -8,6 +8,7 @@
 #      hızda sürekli koşu, sonra YUK_DOYGUNLUK_SN sn doygunluk testi (bellekteki karelerle, kare hızı sınırsız); iki koşu.
 # cpu: aynı sahne; yolo26s.pt → ONNX (export(format='onnx', nms=False)) → ONNX Runtime CPU, işçi başına YUK_CPU_ISCI_CPU mantıksal CPU:
 #      tek işçi doygunluk, üç eşzamanlı işçi doygunluk ve gerçek hızda (YUK_CPU_SIM_SN) koşu; ONNX şeması ve PyTorch–ONNX uyumu.
+# Gizlilik: Ultralytics çağıran tüm süreçler YOLO_OFFLINE=1 ile çalışır (anonim olay gönderilmez); yalnız ağırlık indirme adımı hariçtir.
 # CPU eşlemesi (yalnız ölçüm koşulu): işçi başına aynı fiziksel çekirdeğin iki mantıksal CPU'su (.generated/hardware.env HW_CPU_SIBLING_PAIRS,
 # çalışma anında okunur, `taskset` ile uygulanır); gz/PX4/izleme bu CPU'ların dışında çalışır. sudo gerekmez.
 # Her oturum kendi GZ_PARTITION değerini kullanır; başlatılan her süreç `setsid` ile ayrı süreç grubunda çalışır ve her çıkışta
@@ -231,7 +232,7 @@ start_worker() {
     [[ -z "${5:-}" ]] || extra=("$5")
     # shellcheck disable=SC2016  # tek tırnak bilerek: $1.. alt kabukta açılır
     start_group "$d/isci_${i}_${STAGE_TAG}.log" taskset -c "${CPU_PAIRS[$i]}" env GZ_PARTITION="$OTURUM_PART" GZ_IP=127.0.0.1 \
-        INF_CPU_ONNX="${INF_CPU_ONNX:-}" \
+        YOLO_OFFLINE=1 INF_CPU_ONNX="${INF_CPU_ONNX:-}" \
         bash -c 'source "$1"; shift; exec python -W ignore "$@"' _ "$ENV_SH" "$PY_TEST" isci "$tur" "kamera_$((i + 1))/image" "$mod" \
         "$d/isci_${i}_${STAGE_TAG}.json" "${extra[@]+"${extra[@]}"}"
     WORKER_PGS+=("$LAST_PG")
@@ -271,7 +272,7 @@ rapor_isci() { # rapor_isci <ad> <etiket> <mod>
     for f in "$d"/isci_*_"$mod".log; do
         [[ -f "$f" ]] || continue
         while IFS= read -r line; do
-            case "$line" in ISCI*) log_info "$etiket: $line" ;; esac
+            case "$line" in ISCI*|YOLO*) log_info "$etiket: $line" ;; esac
         done < "$f"
         if ! grep -q '^ISCI' "$f"; then log_fail "$etiket: işçi çıktısı yok ($(basename "$f"))"; dump_log "$f"; fi
     done
@@ -327,19 +328,27 @@ gpu_kosu() { # gpu_kosu <n>
 cpu_hazirlik() { # ağırlığı indir/aktar, ONNX şemasını ve PyTorch–ONNX uyumunu kaydet
     local onnx_yolu="${ROOT_DIR}/${INF_CPU_MODEL%.pt}.onnx" line
     export INF_CPU_ONNX="$onnx_yolu"
-    if [[ ! -f "$ROOT_DIR/$INF_CPU_MODEL" || ! -f "$onnx_yolu" ]]; then
-        log_info "CPU yolu: $INF_CPU_MODEL indirilip ONNX'e aktarılıyor (export(format='onnx', nms=False))"
-        env YOLO_AUTOINSTALL=False "$VENV_PY" -W ignore "$PY_TEST" onnx-aktar "$ROOT_DIR/$INF_CPU_MODEL" > "$TMP_DIR/aktar.log" 2>&1 || { log_fail "ONNX dışa aktarımı başarısız"; dump_log "$TMP_DIR/aktar.log"; return 1; }
+    if [[ ! -f "$ROOT_DIR/$INF_CPU_MODEL" ]]; then
+        # Ağırlık indirme (kurulum benzeri adım): YOLO_OFFLINE=1 indirmeyi kapatacağından bu adım çevrimdışı modsuz; yalnız indirir (predict/export yok, olay üretmez)
+        log_info "CPU yolu: $INF_CPU_MODEL yok; yalnız ağırlık indiriliyor"
+        # shellcheck disable=SC2016  # tek tırnak bilerek: $1/$2 alt kabukta açılır
+        env YOLO_AUTOINSTALL=False bash -c 'cd "$1" && exec "$2" -W ignore -c "from ultralytics import YOLO; YOLO(\"$3\")"' _ \
+            "$(dirname "$ROOT_DIR/$INF_CPU_MODEL")" "$VENV_PY" "$(basename "$INF_CPU_MODEL")" > "$TMP_DIR/indir.log" 2>&1 \
+            || { log_fail "Ağırlık indirilemedi"; dump_log "$TMP_DIR/indir.log"; return 1; }
+    fi
+    if [[ ! -f "$onnx_yolu" ]]; then
+        log_info "CPU yolu: $INF_CPU_MODEL ONNX'e aktarılıyor (export(format='onnx', nms=False); YOLO_OFFLINE=1)"
+        env YOLO_OFFLINE=1 YOLO_AUTOINSTALL=False "$VENV_PY" -W ignore "$PY_TEST" onnx-aktar "$ROOT_DIR/$INF_CPU_MODEL" > "$TMP_DIR/aktar.log" 2>&1 || { log_fail "ONNX dışa aktarımı başarısız"; dump_log "$TMP_DIR/aktar.log"; return 1; }
     fi
     log_info "CPU modeli SHA-256: $(sha256sum "$ROOT_DIR/$INF_CPU_MODEL" | cut -d' ' -f1) ($INF_CPU_MODEL); ONNX: $(sha256sum "$onnx_yolu" | cut -d' ' -f1)"
     local ornek
     ornek="$("$VENV_PY" -W ignore -c 'import os, ultralytics; print(os.path.join(os.path.dirname(ultralytics.__file__), "assets", "bus.jpg"))')"
     # shellcheck disable=SC2016  # tek tırnak bilerek: $1.. alt kabukta açılır
-    env ORNEK_KARE="$ornek" YOLO_AUTOINSTALL=False INF_CPU_ONNX="$onnx_yolu" taskset -c "${CPU_PAIRS[0]}" \
+    env ORNEK_KARE="$ornek" YOLO_OFFLINE=1 YOLO_AUTOINSTALL=False INF_CPU_ONNX="$onnx_yolu" taskset -c "${CPU_PAIRS[0]}" \
         bash -c 'source "$1"; shift; exec python -W ignore "$@"' _ "$ENV_SH" "$PY_TEST" onnx-kontrol "$ROOT_DIR/$INF_CPU_MODEL" "$onnx_yolu" > "$OUT_DIR/onnx_kontrol.txt" 2>&1 \
         || log_fail "ONNX kontrolü başarısız (NMS düğümü var ya da hata)"
     while IFS= read -r line; do
-        case "$line" in ONNX*) log_info "$line" ;; esac
+        case "$line" in ONNX*|YOLO*) log_info "$line" ;; esac
     done < "$OUT_DIR/onnx_kontrol.txt"
     return 0
 }

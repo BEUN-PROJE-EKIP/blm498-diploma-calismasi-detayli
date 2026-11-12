@@ -22,6 +22,8 @@ import time
 import warnings
 
 warnings.filterwarnings("ignore")
+# Gizlilik: Ultralytics anonim olay göndermesin (settings sync=True olsa bile); ağırlıklar yerelde olmalı
+os.environ.setdefault("YOLO_OFFLINE", "1")
 
 
 def cfg():
@@ -77,6 +79,31 @@ def sdf_uret(cikti):
     p += ['  </world>', '</sdf>']
     with open(cikti, "w", encoding="utf-8") as f:
         f.write("\n".join(p) + "\n")
+
+
+def cevrimdisi_kanit(etiket):
+    """Ultralytics çağrılarından önce: ONLINE=False ve olay gönderimi kapalı olmalı; değilse süreç durur."""
+    import ultralytics.utils as U
+    from ultralytics.utils.events import events
+    print(f"YOLO {etiket}: YOLO_OFFLINE={os.environ.get('YOLO_OFFLINE')} ONLINE={U.ONLINE} olay_gonderimi_aktif={events.enabled} sync={U.SETTINGS['sync']}", flush=True)
+    if U.ONLINE or events.enabled:
+        print(f"YOLO {etiket}: UYARI çevrimdışı mod etkin değil; durduruluyor", flush=True)
+        sys.exit(3)
+
+
+def uzak_baglanti_izle(kume, dur):
+    """Süreç ve çocuklarının loopback dışı, bağlı (raddr'li) soketlerini 1 sn aralıkla `kume`ye ekler (tcpdump'sız ağ çıkışı kontrolü)."""
+    import psutil
+    proc = psutil.Process(os.getpid())
+    while not dur.is_set():
+        try:
+            for pr in [proc] + proc.children(recursive=True):
+                for c in pr.net_connections(kind="inet"):
+                    if c.raddr and c.raddr.ip not in ("127.0.0.1", "::1") and c.status != "LISTEN":
+                        kume.add(f"{c.raddr.ip}:{c.raddr.port}")
+        except Exception:
+            pass
+        dur.wait(1.0)
 
 
 def rss_mib():
@@ -137,6 +164,7 @@ class Isci:
         self.dur = False
         self.saklanan = []     # doygunluk için bellekteki kareler
         if tur == "gpu":
+            cevrimdisi_kanit(f"işçi {konu}")
             import torch
             from ultralytics import YOLO
             self.torch = torch
@@ -197,6 +225,9 @@ class Isci:
         if not node.subscribe(Image, "/" + self.konu, self.cb):
             raise RuntimeError(f"abonelik kurulamadı: /{self.konu}")
         self.isin()
+        self.uzak = set()
+        self.uzak_dur = threading.Event()
+        threading.Thread(target=uzak_baglanti_izle, args=(self.uzak, self.uzak_dur), daemon=True).start()
         sureler, hizlar, tespit = [], collections.defaultdict(list), 0
         gecikme = []
         islenen = 0
@@ -264,8 +295,9 @@ class Isci:
         if self.tur == "gpu":
             bellek = {"torch_maks_ayrilan_mib": self.torch.cuda.max_memory_allocated() / 2**20,
                       "torch_maks_ayrilmis_mib": self.torch.cuda.max_memory_reserved() / 2**20}
+        self.uzak_dur.set()
         sonuc = {
-            "tur": self.tur, "konu": self.konu, "mod": self.mod, "pid": os.getpid(), "alinan": alinan, "islenen": islenen,
+            "uzak_baglantilar": sorted(self.uzak), "tur": self.tur, "konu": self.konu, "mod": self.mod, "pid": os.getpid(), "alinan": alinan, "islenen": islenen,
             "tasan_atlanan": tasan, "kuyrukta_kalan": kalan, "kuyruk_maks": qmax, "sim_sure_s": sim_sure, "gercek_sure_s": gercek_sure,
             "kare_s_sim": (islenen / sim_sure) if sim_sure == sim_sure and sim_sure > 0 else None,
             "kare_s_gercek": islenen / gercek_sure if gercek_sure > 0 else None,
@@ -278,6 +310,7 @@ class Isci:
         }
         with open(self.cikti, "w", encoding="utf-8") as f:
             json.dump(sonuc, f, indent=1)
+        print(f"YOLO işçi {self.konu}: loopback dışı bağlantılar (süreç+çocuklar): {sonuc['uzak_baglantilar']}", flush=True)
         print(f"ISCI {self.konu} {self.mod}: islenen={islenen} alinan={alinan} tasan={tasan} kare/s(gercek)={sonuc['kare_s_gercek']:.3f} "
               f"kare/s(sim)={sonuc['kare_s_sim'] if sonuc['kare_s_sim'] is None else round(sonuc['kare_s_sim'], 3)} sim_sure={sonuc['sim_sure_s']:.1f}s "
               f"kuyruk_maks={sonuc['kuyruk_maks']} kalan={sonuc['kuyrukta_kalan']} "
@@ -389,6 +422,7 @@ def ozet_izle(satirlar):
 def onnx_aktar(pt_yolu):
     """Ağırlık yoksa Ultralytics ile indirir (cwd = ağırlık klasörü); export(format='onnx', nms=False) ile ONNX'e aktarır."""
     import hashlib
+    cevrimdisi_kanit("onnx-aktar")
     from ultralytics import YOLO
     klasor, ad = os.path.split(os.path.abspath(pt_yolu))
     os.makedirs(klasor, exist_ok=True)
@@ -407,6 +441,7 @@ def onnx_kontrol(pt_yolu, onnx_yolu):
     import numpy as np
     import onnx
     import onnxruntime as ort
+    cevrimdisi_kanit("onnx-kontrol")
     from ultralytics import YOLO
     m = onnx.load(onnx_yolu)
     ops = [n.op_type for n in m.graph.node]
