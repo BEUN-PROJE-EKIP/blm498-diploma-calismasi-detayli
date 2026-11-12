@@ -22,7 +22,7 @@ Kaynak: proje el kitabı v1.3.2 (Çalışma Takvimi, Yöntem, Risk Yönetimi) ve
 - [x] **K6** · w1 · Fast DDS XML profili (yalnız UDPv4; SHM, data-sharing, intraprocess kapalı; sabit tek yayın keşif) ve ROS 2 tarafından uygulandığının doğrulanması · FR-21 · Bitti: profil depoda, uygulandığı testle gösterilir
 - [x] **K7** · w2 · Tek araç ve üç araç bağlantı/kimlik testleri: MAV_SYS_ID 1–3, UDP 14540–14542, gRPC 50051–50053, ad alanı /uav_1–/uav_3, beklenen sistem kimliği doğrulanmadan komut yok · FR-2, FR-8 · Bitti: kabul tablosu "Tek araç" ve "Üç araç" geçer
 - [x] **K8** · w1 · Tek araç: simülasyon zamanı ile PX4 zaman damgalarının aynı eksende olduğunun doğrulanması · FR-17 · Bitti: test kaydı
-- [ ] **K9** · w1 · Tek araç: Gazebo kamera damgalarının 0,5 s'nin tam katı ve karelerin sırayla teslim edildiğinin doğrulanması; doğrulanmazsa iki mod için yedek yola geçiş kararı · FR-10, FR-11 · Bitti: sonuç ve karar kaydı
+- [x] **K9** · w1 · Tek araç: Gazebo kamera damgalarının 0,5 s'nin tam katı ve karelerin sırayla teslim edildiğinin doğrulanması; doğrulanmazsa iki mod için yedek yola geçiş kararı · FR-10, FR-11 · Bitti: sonuç ve karar kaydı
 - [ ] **K10** · w1 · Kameranın yatay görüş açısının 30 m'den hedef piksel boyutu ölçülerek belirlenmesi ve 3. hafta başında kilitlenmesi · GŞÖA 5.2 · Bitti: değer protokol kilidinde
 - [ ] **K11** · w2 · Üç araç + üç kamera + üç GPU işçisi + Gazebo birlikte: işçi başına kare/s, gerçek zaman faktörü, GPU belleği ölçümü (nms=False) · FR-15, FR-24 · Bitti: ölçüm kaydı
 - [ ] **K12** · w1 · GPU/CPU kararı: araç başına 2 kare/s sağlanıyor mu; sağlanmıyorsa YOLO26s + ONNX Runtime CPU hız ölçümü, NMS'siz çıktı kontrolü, B planı kararı · FR-15 · Bitti: karar protokole yazılır
