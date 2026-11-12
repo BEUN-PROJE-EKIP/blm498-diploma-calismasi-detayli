@@ -272,20 +272,25 @@ post_checks() {
     if diff -q "$TMP_DIR/once.proc" "$TMP_DIR/sonra.proc" >/dev/null; then
         log_ok "Süreç denetimi: gz/px4/mavsdk_server/ruby sayıları başlangıçla aynı"
     else
-        log_fail "Artık süreç var (gz/px4/mavsdk_server/ruby): $(diff "$TMP_DIR/once.proc" "$TMP_DIR/sonra.proc" | tr '\n' ';')"
+        log_fail "Artık süreç var (gz/px4/mavsdk_server/ruby): $(diff "$TMP_DIR/once.proc" "$TMP_DIR/sonra.proc" | tr '\n' ';' || true)"
     fi
-    if diff -q "$TMP_DIR/once.ports" "$TMP_DIR/sonra.ports" >/dev/null; then
-        log_ok "Dinleyen TCP/UDP portları başlangıçla aynı"
+    # Yalnız başlangıçta olmayan (yeni) dinleyiciler hata sayılır: testle ilgisiz bir uygulamanın başlangıçtaki geçici portu test sırasında
+    # kapanabilir. Testin bıraktığı artık süreç ayrıca "Süreç denetimi" ile yakalanır; kapanan dinleyici yalnız bilgidir.
+    port_yeni="$(LC_ALL=C comm -13 "$TMP_DIR/once.ports" "$TMP_DIR/sonra.ports" | tr '\n' ';' || true)"
+    port_kapanan="$(LC_ALL=C comm -23 "$TMP_DIR/once.ports" "$TMP_DIR/sonra.ports" | tr '\n' ';' || true)"
+    if [[ -z "$port_yeni" ]]; then
+        log_ok "Yeni dinleyen TCP/UDP portu yok (başlangıçtakilere göre)"
     else
-        log_fail "Dinleyen portlar değişti: $(diff "$TMP_DIR/once.ports" "$TMP_DIR/sonra.ports" | tr '\n' ';')"
+        log_fail "Yeni dinleyen port(lar) kaldı: $port_yeni"
     fi
+    if [[ -n "$port_kapanan" ]]; then log_info "Başlangıçta var olup kapanan dinleyiciler (testle ilgisiz, hata değil): $port_kapanan"; fi
     if [[ "$DAEMON_ONCE" -eq 0 ]]; then
         if pgrep -f '[r]os2-daemon' >/dev/null; then log_fail "Artık ros2 daemon süreci var"; else log_ok "ros2 daemon süreci yok"; fi
     fi
     if diff -q "$TMP_DIR/once.net" "$TMP_DIR/sonra.net" >/dev/null; then
         log_ok "tc/ip durumu (lo) değişmedi"
     else
-        log_fail "lo üzerindeki tc/ip durumu değişti: $(diff "$TMP_DIR/once.net" "$TMP_DIR/sonra.net" | tr '\n' ';')"
+        log_fail "lo üzerindeki tc/ip durumu değişti: $(diff "$TMP_DIR/once.net" "$TMP_DIR/sonra.net" | tr '\n' ';' || true)"
     fi
 }
 
