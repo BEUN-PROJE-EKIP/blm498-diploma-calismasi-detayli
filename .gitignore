@@ -39,3 +39,7 @@ CLAUDE.local.md
 # Ortam değişkeni dosyaları (şifre/token içerebilir)
 .env
 .env.*
+
+# colcon çıktıları (build/ yukarıda zaten var)
+install/
+log/
