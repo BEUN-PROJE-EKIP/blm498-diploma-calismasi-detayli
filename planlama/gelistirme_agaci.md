@@ -7,6 +7,7 @@ Kaynak: proje el kitabı v1.3.2 (Çalışma Takvimi, Yöntem, Risk Yönetimi) ve
 - Bir madde **yalnız kabul ölçütü sağlandığında** işaretlenir (`[x]`). Ölçüt geçmeden, "neredeyse bitti" diye işaretlenmez.
 - **Ağırlık:** iş paketi ağırlıkları el kitabındaki **resmî yüzdelerdir** (toplam 100). Paket içinde her maddenin göreli ağırlığı `w` ile verilir (zorluk ve emek için 1–3).
 - **Yüzde** = Σ (paket ağırlığı × paketteki biten madde `w` toplamı ÷ paketteki tüm madde `w` toplamı).
+- **`w0` = isteğe bağlı madde:** yüzdeye girmez (payda ve pay dışı); yapılırsa ek analiz olarak raporlanır. P-A'da A planı (hazır veri) bu şekildedir: gerekçe aşağıda, "Veri planı kararı".
 - Bitmiş maddeler README'de ~~üstü çizili~~ gösterilir. Yeni madde eklenirse ağırlıklar yeniden dengelenir ve bu dosyada gerekçesi yazılır.
 - Her madde: `kimlik · ağırlık · açıklama · ilgili gereksinim · bitti ölçütü`.
 - Kapsam dışı (belge): dinamik yeniden bölgeleme, kayıp araç görevini devralma, formasyon (FR-6); gerçek uçuş veya gömülü donanım doğrulaması; operasyonel yeterlilik iddiası.
@@ -35,12 +36,12 @@ Kaynak: proje el kitabı v1.3.2 (Çalışma Takvimi, Yöntem, Risk Yönetimi) ve
 - [ ] **A3** · w2 · Etiket üretimi: Gazebo sınır kutusu kamerası (olmazsa hedef sınır kutularının izdüşümü); yöntem pilotta kilitlenir · GŞÖA 6.1 · Bitti: yöntem seçildi ve kilitlendi
 - [ ] **A4** · w2 · 7.200 eğitim + 1.200 doğrulama görüntüsü ve etiketleri, yerden 30 m, test koşularıyla aynı kamera ayarları · GŞÖA 6.2 · Bitti: sayılar tamam, listeler kayıtlı
 - [ ] **A5** · w1 · Etiketlerin %10'u sahne ve sınıf bazında tabakalı görsel kontrol; sistematik hata ilgili bölümün tümünde düzeltilir · GŞÖA 6.1 · Bitti: kontrol kaydı
-- [ ] **A6** · w2 · Hazır veri seti: akademik lisanslı, havadan çekilmiş; künye, lisans, SHA-256; sınıf eşleme tablosu ve örneklem kontrolü; yalnız eğitim bölümüne · GŞÖA 6.1 · Bitti: künye ve eşleme protokole yazılı
+- [ ] **A6** · w0 · (isteğe bağlı) Hazır veri seti: akademik lisanslı, havadan çekilmiş; künye, lisans, SHA-256; sınıf eşleme tablosu ve örneklem kontrolü; yalnız eğitim bölümüne · GŞÖA 6.1 · Bitti: künye ve eşleme protokole yazılı
 - [ ] **A7** · w1 · Eğitim süresinin pilotta ölçülmesi, 14 haftalık takvime uygunluk değerlendirmesi · GŞÖA 6.2 · Bitti: ölçüm kaydı
-- [ ] **A8** · w2 · A veri planı modeli (hazır veri + Gazebo) eğitimi: 50 epoch, batch=16, 640, nms=False, save_period=1 · FR-15, FR-16 · Bitti: her epoch ağırlığı saklı
+- [ ] **A8** · w0 · (isteğe bağlı, ana deneylerden sonra, model kilidini değiştirmez) A veri planı modeli (hazır veri + Gazebo) eğitimi: 50 epoch, batch=16, 640, nms=False, save_period=1 · FR-15, FR-16 · Bitti: her epoch ağırlığı saklı
 - [ ] **A9** · w2 · B veri planı modeli (yalnız Gazebo) aynı ayarlarla eğitimi · FR-15, FR-16 · Bitti: her epoch ağırlığı saklı
-- [ ] **A10** · w1 · Epoch seçimi: Gazebo doğrulama sahnelerinde iki sınıf ortalama AP50'yi en çoklayan epoch (eşitlikte erken) · GŞÖA 6 · Bitti: iki model için seçilen epoch kayıtlı
-- [ ] **A11** · w1 · Veri planı kararı (5. hafta sonu): A'nın AP50'si B'ninkinden düşük değilse A, düşükse B; test sahnesi kullanılmaz · GŞÖA 6 · Bitti: karar ve gerekçe kayıtlı
+- [ ] **A10** · w1 · Epoch seçimi: Gazebo doğrulama sahnelerinde iki sınıf ortalama AP50'yi en çoklayan epoch (eşitlikte erken) · GŞÖA 6 · Bitti: B modeli için (A planı yapılırsa onun için de) seçilen epoch kayıtlı
+- [ ] **A11** · w0 · Veri planı (kullanıcı kararı): **B planı (yalnız Gazebo) birinci öncelik ve sabittir**; A planı isteğe bağlı ek deney olarak yalnız zaman kalırsa, ana deneylerden sonra denenir ve sonucu (beklenen/düşük çıkması dahil, önceden varsayılmadan) raporlanır; ana deneylerde kullanılan model kilidini ve seçimi değiştirmez · GŞÖA 6 · Bitti: karar ve gerekçe kayıtlı; A uygulanırsa ek analiz tablosu
 - [ ] **A12** · w1 · Çıkarım ayarlarının sabitlenmesi: güven 0,25; nms=False; max_det 300; FP32; batch=1 · FR-15 · Bitti: protokol kilidinde
 - [ ] **A13** · w1 · Model ve veri dosyalarının nihai SHA-256 özetleri (6. hafta sonu) · FR-31 · Bitti: özet listesi kilitli
 
