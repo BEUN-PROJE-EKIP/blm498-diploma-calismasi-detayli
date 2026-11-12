@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# 40_python_ortami.sh — .venv oluşturur; PyTorch (CUDA), Ultralytics, MAVSDK, ONNX Runtime, NumPy, SciPy kurar.
+# 40_python_ortami.sh — .venv oluşturur; PyTorch (CUDA), Ultralytics, MAVSDK, ONNX Runtime, ONNX (+onnxslim), NumPy, SciPy kurar.
 # Kullanım: ./40_python_ortami.sh [--dry-run | --verify | --update-lock | -h]
 #   (argümansız)  kurar (sudo gerekmez; yalnız proje içine yazar), sonda doğrular; kuruluysa atlar.
 #                 Kilit dosyası VARSA tüm pip kurulumları kısıtlayıcıyla (-c kilit) yapılır; kilit üzerine yazılmaz,
@@ -76,7 +76,7 @@ install_component() {
     local spec pkg want
     local -a todo=()
     for spec in "ultralytics==$ULTRALYTICS_VERSION" "mavsdk==$MAVSDK_VERSION" "onnxruntime==$ONNXRUNTIME_VERSION" \
-                "numpy==$NUMPY_VERSION" "scipy==$SCIPY_VERSION"; do
+                "onnx==$ONNX_VERSION" "onnxslim==$ONNXSLIM_VERSION" "numpy==$NUMPY_VERSION" "scipy==$SCIPY_VERSION"; do
         pkg="${spec%%==*}"; want="${spec#*==}"
         if want_installed "$pkg" "$want"; then
             log_ok "$pkg $want zaten kurulu"
@@ -137,6 +137,8 @@ expected = [
     ("ultralytics", E["ULTRALYTICS_VERSION"]),
     ("mavsdk", E["MAVSDK_VERSION"]),
     ("onnxruntime", E["ONNXRUNTIME_VERSION"]),
+    ("onnx", E["ONNX_VERSION"]),
+    ("onnxslim", E["ONNXSLIM_VERSION"]),
     ("numpy", E["NUMPY_VERSION"]),
     ("scipy", E["SCIPY_VERSION"]),
 ]
@@ -303,8 +305,10 @@ def mavsdk_server():
 
 def numerics():
     import numpy as np
+    import onnx
     import onnxruntime as ort
     from scipy.optimize import linear_sum_assignment
+    out("OK", f"import onnx {onnx.__version__} (ONNX dışa aktarımı için)")
     prov = ort.get_available_providers()
     if "CPUExecutionProvider" in prov:
         out("OK", f"onnxruntime sağlayıcıları: {prov}")
@@ -350,7 +354,7 @@ verify_component() {
         esac
     done < <(TORCH_VERSION="$TORCH_VERSION" TORCH_CUDA_TAG="$TORCH_CUDA_TAG" TORCHVISION_VERSION="$TORCHVISION_VERSION" \
              ULTRALYTICS_VERSION="$ULTRALYTICS_VERSION" MAVSDK_VERSION="$MAVSDK_VERSION" \
-             ONNXRUNTIME_VERSION="$ONNXRUNTIME_VERSION" NUMPY_VERSION="$NUMPY_VERSION" SCIPY_VERSION="$SCIPY_VERSION" \
+             ONNXRUNTIME_VERSION="$ONNXRUNTIME_VERSION" ONNX_VERSION="$ONNX_VERSION" ONNXSLIM_VERSION="$ONNXSLIM_VERSION" NUMPY_VERSION="$NUMPY_VERSION" SCIPY_VERSION="$SCIPY_VERSION" \
              NVSMI_GPU="$smi_name" MODELS_DIR="$MODELS_DIR" MODEL_NAME="$MODEL_NAME" GENERATED_DIR="$GENERATED_DIR" \
              "$PY" -c "$PY_VERIFY" 2>>"$LOG_FILE")
 }
