@@ -1,0 +1,7 @@
+# Kod sahipleri: bu yollardaki değişiklikler için sahibin onayı gerekir.
+# (GitHub'da main-koruma kuralında "kod sahibi incelemesi gerekli" seçeneği açıksa uygulanır.)
+/setup/            @omerfarukguner
+/config/           @omerfarukguner
+/src/swarm_*/      @omerfarukguner
+/.github/          @omerfarukguner
+/CLAUDE.md         @omerfarukguner
