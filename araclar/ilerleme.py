@@ -73,7 +73,7 @@ def uret(paketler):
         biten = sum(1 for m in p["maddeler"] if m["bitti"])
         s.append(f"| {p['kod']}. {p['ad']} | {p['hafta']} | %{p['agirlik']} | {biten} / {len(p['maddeler'])} | {yuzde(100 * paket_orani(p))} |")
     s.append("")
-    s.append("Haftalar 2027 bahar dönemine göredir (01.02.2027–28.05.2027); 08–14.03 (Ramazan Bayramı), 29.03–04.04 (vize) ve 17–23.05 (Kurban Bayramı) haftaları sayılmaz.")
+    s.append("Tarihler 2027 bahar dönemine göredir (1 Şubat 2027 - 28 Mayıs 2027); 8-14 Mart (Ramazan Bayramı), 29 Mart - 4 Nisan (vize) ve 17-23 Mayıs (Kurban Bayramı) haftaları sayılmaz.")
     s.append("")
     s.append("Aşağıdaki başlıklara tıklayınca maddeleri görürsün. Biten maddeler işaretli kutu (☑), kalın `[TAMAMLANDI]` etiketi ve italik açıklamayla; bitmeyenler boş kutuyla (☐) gösterilir.")
     s.append("")
