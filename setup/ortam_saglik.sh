@@ -12,6 +12,8 @@
 set -Eeuo pipefail
 # shellcheck source=lib/common.sh
 source "$(dirname "${BASH_SOURCE[0]}")/lib/common.sh"
+# shellcheck source=lib/ortam.sh
+source "$(dirname "${BASH_SOURCE[0]}")/lib/ortam.sh"
 parse_common_args "$@"
 COMPONENT_NAME="Ortam sağlık kontrolü"
 require_not_root
@@ -45,7 +47,7 @@ fi
 kontrol_cekirdek() {
     local calisan yeni
     calisan="$(uname -r)"
-    yeni="$(dpkg-query -W -f='${db:Status-Abbrev} ${Package}\n' 'linux-image-[0-9]*' 2>/dev/null | awk '$1 == "ii" { sub(/^linux-image-/, "", $2); print $2 }' | sort -V | tail -n 1 || true)"
+    yeni="$(ortam_en_yeni_cekirdek)"
     if [[ -n "$yeni" && "$yeni" != "$calisan" ]]; then
         log_warn "(a) Yeniden başlatma bekliyor: çalışan çekirdek $calisan, kurulu en yeni $yeni"
     else

@@ -13,9 +13,22 @@ ORTAM_APT_FILE="$SETUP_DIR/locks/apt-surumleri.txt"
 # shellcheck disable=SC2034
 ORTAM_NV_FILE="$SETUP_DIR/locks/nvidia-cuda.txt"
 
-# ortam_apt_now : kurulu (durumu 'ii' olan) bütün apt paketleri, satır biçimi "paket sürüm mimari"
+# ortam_dpkg_kurulu [dpkg-query paket deseni...] : kurulu paketler, satır biçimi "paket sürüm mimari" (sırasız).
+# "Kurulu" tanımı tek yerde: durum kısaltması 'ii' (kurulu) veya 'hi' (kurulu ve apt-mark hold'lu). 'rc', 'un', 'ri' vb. kurulu sayılmaz.
+# Desen eşleşmezse dpkg-query hata verir; bu işlev o durumda boş çıktı verir (hata göstermez).
+ortam_dpkg_kurulu() {
+    dpkg-query -W -f='${db:Status-Abbrev} ${Package} ${Version} ${Architecture}\n' "$@" 2>/dev/null \
+        | awk '$1 == "ii" || $1 == "hi" { print $2, $3, $4 }' || true
+}
+
+# ortam_apt_now : kurulu (hold'lu dahil) bütün apt paketleri, satır biçimi "paket sürüm mimari"
 ortam_apt_now() {
-    dpkg-query -W -f='${db:Status-Abbrev} ${Package} ${Version} ${Architecture}\n' | awk '$1 == "ii" { print $2, $3, $4 }' | LC_ALL=C sort
+    ortam_dpkg_kurulu | LC_ALL=C sort
+}
+
+# ortam_en_yeni_cekirdek : kurulu en yeni linux-image-<sürüm> sürümü ("7.0.0-43-generic"); yoksa boş
+ortam_en_yeni_cekirdek() {
+    ortam_dpkg_kurulu 'linux-image-[0-9]*' | awk '{ sub(/^linux-image-/, "", $1); print $1 }' | sort -V | tail -n 1 || true
 }
 
 # ortam_nvidia_now : ilk satır "sürücü=… cuda=…"; sonra adı nvidia/libnvidia/cuda ile başlayan apt paketleri (yoksa "apt: yok")

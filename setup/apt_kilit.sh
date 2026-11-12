@@ -18,6 +18,8 @@
 set -Eeuo pipefail
 # shellcheck source=lib/common.sh
 source "$(dirname "${BASH_SOURCE[0]}")/lib/common.sh"
+# shellcheck source=lib/ortam.sh
+source "$(dirname "${BASH_SOURCE[0]}")/lib/ortam.sh"
 
 ACTION="verify"
 ARGS=()
@@ -53,10 +55,10 @@ function grup(p) {
     return ""
 }'
 
-# kume_uret : "grup paket" satırları (kurulu 'ii' paketlerden; aynı ad farklı mimaride tek sayılır; LC_ALL=C sıralı)
+# kume_uret : "grup paket" satırları (kurulu paketlerden; hold'lu 'hi' dahil, 'rc/un' hariç; aynı ad farklı mimaride tek sayılır; LC_ALL=C sıralı)
 kume_uret() {
-    dpkg-query -W -f='${db:Status-Abbrev} ${Package}\n' | awk "$AWK_GRUP"'
-        $1 == "ii" { g = grup($2); if (g != "" && !($2 in gor)) { gor[$2] = 1; print g, $2 } }' | LC_ALL=C sort -k2
+    ortam_dpkg_kurulu | awk "$AWK_GRUP"'
+        { g = grup($1); if (g != "" && !($1 in gor)) { gor[$1] = 1; print g, $1 } }' | LC_ALL=C sort -k2
 }
 
 # Kayıttaki (apt-surumleri.txt) aynı kümenin kapsamı: "grup paket"
@@ -114,7 +116,7 @@ liste_yaz() { # küme listesini .generated altına yazar (dry-run'da yazmaz)
 cekirdek_raporu() {
     local calisan yeni
     calisan="$(uname -r)"
-    yeni="$(dpkg-query -W -f='${db:Status-Abbrev} ${Package}\n' 'linux-image-[0-9]*' 2>/dev/null | awk '$1 == "ii" { sub(/^linux-image-/, "", $2); print $2 }' | sort -V | tail -n 1 || true)"
+    yeni="$(ortam_en_yeni_cekirdek)"
     log_info "Çalışan çekirdek: $calisan; kurulu en yeni çekirdek: ${yeni:-?}"
     if [[ -n "$yeni" && "$yeni" != "$calisan" ]]; then
         log_warn "Yeniden başlatma bekliyor: çalışan çekirdek ($calisan) kurulu en yeni çekirdekten ($yeni) farklı"

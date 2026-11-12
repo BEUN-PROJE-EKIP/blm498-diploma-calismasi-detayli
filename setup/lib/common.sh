@@ -263,7 +263,8 @@ sudo_run() { # sudo_run <açıklama> <komut...>
 
 apt_pkg_installed() {
     local st; st="$(dpkg-query -W -f='${Status}' "$1" 2>/dev/null || true)"
-    [[ "$st" == "install ok installed" ]]
+    # apt-mark hold'lu paketlerin durumu "hold ok installed" olur; onlar da kuruludur
+    [[ "$st" == "install ok installed" || "$st" == "hold ok installed" ]]
 }
 
 # apt_ensure <paket...> : eksikleri kurar (ilk çağrıda bir kez apt-get update).
