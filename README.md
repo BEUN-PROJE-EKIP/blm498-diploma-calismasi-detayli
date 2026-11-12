@@ -182,13 +182,13 @@ Bu, o terminalde `ros2` komutlarını ve projenin Python ortamını etkinleştir
 Proje 6 iş paketinden oluşur ve her paketin kendi ağırlığı vardır. Bir madde yalnızca **kabul ölçütü sağlandığında** "bitti" sayılır.
 
 <!-- ILERLEME:BASLA -->
-**Projenin tamamlanma oranı: %5,8**  (9 / 74 madde bitti)
+**Projenin tamamlanma oranı: %6,4**  (10 / 74 madde bitti)
 
-`█░░░░░░░░░░░░░░░░░░░` %5,8
+`█░░░░░░░░░░░░░░░░░░░` %6,4
 
 | İş paketi | Hafta | Ağırlık | Biten madde | Paketin ilerlemesi |
 |---|---|---|---|---|
-| Kurulum ve doğrulama testleri | 1–2. hafta | %10 | 6 / 14 | %41,2 |
+| Kurulum ve doğrulama testleri | 1–2. hafta | %10 | 7 / 14 | %47,1 |
 | Veri ve model | 3–6. hafta | %20 | 0 / 13 | %0,0 |
 | Sürü yazılımı | 3–6. hafta | %25 | 3 / 21 | %6,8 |
 | Kabul testleri ve pilot koşular | 7–9. hafta | %20 | 0 / 14 | %0,0 |
@@ -198,7 +198,7 @@ Proje 6 iş paketinden oluşur ve her paketin kendi ağırlığı vardır. Bir m
 Aşağıdaki başlıklara tıklayınca maddeleri görürsün. Biten maddelerin üstü çizilidir.
 
 <details>
-<summary><b>Kurulum ve doğrulama testleri</b> · 1–2. hafta · 6 / 14 madde · %41,2</summary>
+<summary><b>Kurulum ve doğrulama testleri</b> · 1–2. hafta · 7 / 14 madde · %47,1</summary>
 
 - [x] ~~**K1** Ubuntu 24.04, ROS 2 Jazzy, Gazebo Harmonic 8.15, PX4 v1.16.0, MAVSDK-Python 3.17.4 + mavsdk_server kurulumu; Gazebo grafik arayüzsüz, yalnız sunucu modunda çalışır (FR-31)~~
 - [x] ~~**K2a** Ortam kilidi: sürümler (`versions.env`), Python kilidi (pip `-c`, PyTorch/Ultralytics dahil), PX4 commit kaydı, SHA-256 özet listesi, kurulum raporu (FR-31)~~
@@ -206,7 +206,7 @@ Aşağıdaki başlıklara tıklayınca maddeleri görürsün. Biten maddelerin �
 - [x] ~~**K3** NVIDIA sürücüsü, CUDA ve PyTorch CUDA derlemesi uyum testi (RTX 5070, sm_120) (GŞÖA 6.2)~~
 - [x] ~~**K4** Ultralytics (8.4.210) ve MAVSDK-Python (3.17.4) sürümlerinin birlikte çalışma testinde sabitlenmesi (FR-31)~~
 - [x] ~~**K5** gz-transport Python bağlamalarının çalıştığının doğrulanması (gerçek mesaj alışverişi) (GŞÖA 5.3)~~
-- [ ] **K6** Fast DDS XML profili (yalnız UDPv4; SHM, data-sharing, intraprocess kapalı; sabit tek yayın keşif) ve ROS 2 tarafından uygulandığının doğrulanması (FR-21)
+- [x] ~~**K6** Fast DDS XML profili (yalnız UDPv4; SHM, data-sharing, intraprocess kapalı; sabit tek yayın keşif) ve ROS 2 tarafından uygulandığının doğrulanması (FR-21)~~
 - [ ] **K7** Tek araç ve üç araç bağlantı/kimlik testleri: MAV_SYS_ID 1–3, UDP 14540–14542, gRPC 50051–50053, ad alanı /uav_1–/uav_3, beklenen sistem kimliği doğrulanmadan komut yok (FR-2, FR-8)
 - [ ] **K8** Tek araç: simülasyon zamanı ile PX4 zaman damgalarının aynı eksende olduğunun doğrulanması (FR-17)
 - [ ] **K9** Tek araç: Gazebo kamera damgalarının 0,5 s'nin tam katı ve karelerin sırayla teslim edildiğinin doğrulanması; doğrulanmazsa iki mod için yedek yola geçiş kararı (FR-10, FR-11)

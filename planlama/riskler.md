@@ -1,0 +1,25 @@
+# Riskler
+
+Belge riskleri (proje el kitabı v1.3.2, "En Önemli Riskler ve B Planı" tablosu; GŞÖA v2) **kaynaktır** ve burada tekrar yazılmaz. Bu dosya yalnız **uygulamada** karşılaştığımız ya da öngördüğümüz riskleri tutar. Sonuçlar deneyle sınanır; "olmaz" ya da "iyileşir" diye varsayılmaz. Bu bir simülasyon deneyidir.
+
+Durum değerleri: **açık** (önlem yok), **azaltıldı** (önlem alındı, hâlâ izleniyor), **kapandı**.
+
+| No | Risk | Etki | Önlem / B planı | Durum |
+|---|---|---|---|---|
+| U1 | apt paketleri (ROS 2, Gazebo, çekirdek, NVIDIA) sürümle sabitlenmedi; `apt upgrade` ortamı değiştirebilir | Tekrarlanamaz sonuç (FR-31) | Sürüm listesi kayıtlı (`setup/locks/apt-surumleri.txt`, `nvidia-cuda.txt`); `lock_ozet.sh --check` sapmayı gösterir. P0 bitince kritik paketlere `apt-mark hold` (kurulum betiği, `--dry-run` ve geri alma destekli) | açık |
+| U2 | apt kilidi yalnız kurulu makinede geçerli; temiz makinede apt o günkü depo sürümünü kurar, eski sürüm depodan düşmüş olabilir (özellikle ROS/Gazebo deposu) | Makineler arası sürüm farkı | Ana deneyler yalnız tek makinede (7950X + RTX 5070) koşulur; diğer makinelerde `verify_all.sh` ve `lock_ozet.sh --check` ile fark kayda geçer | açık |
+| U3 | `hold` yeni paket kurulumunu engelleyebilir ("held broken packages") | Ek paket kurulamaz | Kurulumdan önce geçici `unhold`, sonra yeniden `hold`; `unattended-upgrades` durumu kontrol edilir | açık |
+| U4 | Ondalık ayracı: kabuk `tr_TR` iken `awk`/`bc` virgül kullanır | Sessiz yanlış sayı | `common.sh` `LC_NUMERIC=C` ayarlar; yeni betikler `common.sh` kullanır | azaltıldı |
+| U5 | `grep -q`/`head -n1` ile `pipefail` birlikte SIGPIPE üretir | Aralıklı betik hatası | Çıktı önce değişkene alınır (takım kuralı) | azaltıldı |
+| U6 | `tc` sayaçlarında okuma yarışı | Yanlış D ölçümü | Sayaç okumaları durağanlaştıktan sonra yapılır; kabul testi C3/C4 | azaltıldı |
+| U7 | Python bağımlılıkları kuruluma bağlı olarak kayabilir | Venv'ler arası fark | pip `-c` kısıtlayıcı kilit; yalnız `--update-lock` ile güncellenir | azaltıldı |
+| U8 | Fast DDS profili ROS 2 tarafından uygulanmıyor olabilir (ortam değişkeni, dağıtım ayarı) | Ağ sınırı kabul testi başarısız (belge riski) | `config/fastdds_profil.xml` ve `setup/dds_profil_dogrula.sh`: soketler yalnız 10.10.0.x, SHM/data-sharing/intraprocess kapalı, profilsiz olumsuz kontrol ayırt edici (Fast DDS 2.14.7) | kapandı |
+| U9 | Ana deneyler ve nihai ölçümler tek makineye bağlı; arkadaş makineleri (7500F+5070, 8945HX+5060 Mobile) farklı donanım | Sonuçlar makineler arası karşılaştırılamaz | Ana koşular yalnız ana makinede; eğitim 7950X veya 7500F'te (laptopta değil); diğerleri geliştirme ve birim testi için | açık |
+| U10 | Birden çok katkıcı aynı maddeye başlayabilir | Çakışan işler | `is_bolumu.md`; bir maddeye başlamadan ekibe haber; bir PR = bir madde | açık |
+| U11 | Fast DDS 2.14.7 keşif duyurularını 239.255.0.1'e göndermeyi profille kapatamıyor (alıcı yok, gönderim ≈6 datagram/sn, ≈2,8 kB/s) | Belgedeki "çoklu yayın kullanılmaz" ifadesinden sapma | Sınırlayıcıya ikinci süzgeç (`dst 239.255.0.1 → 1:10`): trafik D'ye girer; alıcı olmadığı doğrulanır (d1, d2). Sapma raporda açıkça belirtilir | azaltıldı |
+| U12 | Profil dışı DDS katılımcısı (ör. `ros2 daemon`) ölçülen ağa keşif trafiği basar ve `60 (b)` ile C2'yi bozar | Yanlış D, kabul testi hatası | Kurulum betikleri başlattıkları daemon'u durdurur; deney öncesi `ros2 daemon` yaşamadığı kontrol edilir | azaltıldı |
+| U13 | Her süreç 4 sürü adresinde soket açar (aynı makinede keşif için whitelist'te 4 adres); boşta ≈44 kB/s keşif trafiği | D tabanı yükselir (iki modda eşit) | Gerçek yük her koşunun sayaçlarından hesaplanır; iki mod aynı profili kullanır | açık |
+| U14 | Fast DDS geçmiş derinliği düşükken (200) 1000 mesajlık patlamada mesaj düşebiliyor (768/1000 gözlendi) | QoS tasarımında kayıp (B11, B12) | Reliable QoS ve geçmiş derinliği ≥ gönderim penceresi; B11/B12'de ölçülecek | açık |
+| U15 | `unattended-upgrades` çekirdeği/paketleri kendiliğinden yükseltebilir (2026-11-12'de çekirdek 7.0.0-43 yüklendi, çalışan 7.0.0-42) | Ortam sapması, yeniden başlatmada NVIDIA/`tc` etkisi | P0 sonunda `apt-mark hold` ve otomatik güncellemeyi kapatma; yeniden başlatma sonrası `60` yeniden uygulanır, `verify_all` koşulur | açık |
+
+Yeni risk bulunursa bu tabloya satır eklenir; kapatılan risk silinmez, durumu değişir.

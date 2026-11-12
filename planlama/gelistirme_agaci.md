@@ -19,7 +19,7 @@ Kaynak: proje el kitabı v1.3.2 (Çalışma Takvimi, Yöntem, Risk Yönetimi) ve
 - [x] **K3** · w1 · NVIDIA sürücüsü, CUDA ve PyTorch CUDA derlemesi uyum testi (RTX 5070, sm_120) · GŞÖA 6.2 · Bitti: `torch.cuda` GPU matris çarpımı CPU ile uyuşuyor, sürüm sabit
 - [x] **K4** · w1 · Ultralytics (8.4.210) ve MAVSDK-Python (3.17.4) sürümlerinin birlikte çalışma testinde sabitlenmesi · FR-31 · Bitti: sürümler `versions.env` ve kilitte, duman testleri geçti
 - [x] **K5** · w1 · gz-transport Python bağlamalarının çalıştığının doğrulanması (gerçek mesaj alışverişi) · GŞÖA 5.3 · Bitti: `/clock` ve `Image` gidiş-dönüş testi geçti (`protobuf` 7.36.2)
-- [ ] **K6** · w1 · Fast DDS XML profili (yalnız UDPv4; SHM, data-sharing, intraprocess kapalı; sabit tek yayın keşif) ve ROS 2 tarafından uygulandığının doğrulanması · FR-21 · Bitti: profil depoda, uygulandığı testle gösterilir
+- [x] **K6** · w1 · Fast DDS XML profili (yalnız UDPv4; SHM, data-sharing, intraprocess kapalı; sabit tek yayın keşif) ve ROS 2 tarafından uygulandığının doğrulanması · FR-21 · Bitti: profil depoda, uygulandığı testle gösterilir
 - [ ] **K7** · w2 · Tek araç ve üç araç bağlantı/kimlik testleri: MAV_SYS_ID 1–3, UDP 14540–14542, gRPC 50051–50053, ad alanı /uav_1–/uav_3, beklenen sistem kimliği doğrulanmadan komut yok · FR-2, FR-8 · Bitti: kabul tablosu "Tek araç" ve "Üç araç" geçer
 - [ ] **K8** · w1 · Tek araç: simülasyon zamanı ile PX4 zaman damgalarının aynı eksende olduğunun doğrulanması · FR-17 · Bitti: test kaydı
 - [ ] **K9** · w1 · Tek araç: Gazebo kamera damgalarının 0,5 s'nin tam katı ve karelerin sırayla teslim edildiğinin doğrulanması; doğrulanmazsa iki mod için yedek yola geçiş kararı · FR-10, FR-11 · Bitti: sonuç ve karar kaydı
