@@ -203,15 +203,15 @@ Normal. Ağ ayarı yeniden başlatmada silinir. Şunu çalıştır: `./setup/60_
 ## Tamamlanma Yüzdesi
 
 <!-- ILERLEME:BASLA -->
-**Projenin tamamlanma oranı: %11,7**  (17 / 74 madde bitti)
+**Projenin tamamlanma oranı: %12,8**  (18 / 74 madde bitti)
 
-`██░░░░░░░░░░░░░░░░░░` %11,7
+`███░░░░░░░░░░░░░░░░░` %12,8
 
 | Paket | Tarih | Ağırlık | Biten madde | Paketin ilerlemesi |
 |---|---|---|---|---|
 | K. Kurulum ve doğrulama testleri | 1 Şubat 2027 - 14 Şubat 2027 | %10 | 14 / 14 | %100,0 |
 | A. Veri ve model | 15 Şubat 2027 - 21 Mart 2027 | %20 | 0 / 13 | %0,0 |
-| B. Sürü yazılımı | 15 Şubat 2027 - 21 Mart 2027 | %25 | 3 / 21 | %6,8 |
+| B. Sürü yazılımı | 15 Şubat 2027 - 21 Mart 2027 | %25 | 4 / 21 | %11,4 |
 | C. Kabul testleri ve pilot koşular | 22 Mart 2027 - 18 Nisan 2027 | %20 | 0 / 14 | %0,0 |
 | D. Ana deneyler | 19 Nisan 2027 - 9 Mayıs 2027 | %15 | 0 / 5 | %0,0 |
 | E. Analiz ve raporlama | 10 Mayıs 2027 - 28 Mayıs 2027 | %10 | 0 / 7 | %0,0 |
@@ -258,9 +258,9 @@ Aşağıdaki başlıklara tıklayınca maddeleri görürsün. Biten maddeler iş
 </details>
 
 <details>
-<summary><b>B. Sürü yazılımı</b> · 15 Şubat 2027 - 21 Mart 2027 · 3 / 21 madde · %6,8</summary>
+<summary><b>B. Sürü yazılımı</b> · 15 Şubat 2027 - 21 Mart 2027 · 4 / 21 madde · %11,4</summary>
 
-- [ ] B1 - `swarm_msgs`: durum, görev, tarama başlatma/bitiş, COMPLETE, kare sonucu, "kare alınamadı", komut (araç kimliği, sıra numarası, onay durumu) mesaj tanımları (FR-2, FR-3, FR-4, FR-12)
+- [x] **B1 [TAMAMLANDI]** - *`swarm_msgs`: durum, görev, tarama başlatma/bitiş, COMPLETE, kare sonucu, "kare alınamadı", komut (araç kimliği, sıra numarası, onay durumu) mesaj tanımları (FR-2, FR-3, FR-4, FR-12)*
 - [ ] B2 - Alanın üç çakışmayan tarama bölgesine ayrılması, şerit planı (w = 2·30·tan(görüş açısı/2), komşu izler ≥ 2 m örtüşür), rota dosyaları (FR-1)
 - [ ] B3 - `px4_adapter`: araç başına ayrı MAVSDK System ve mavsdk_server; sistem kimliği doğrulaması; rotanın yerden 30 m görev (mission) olarak yüklenmesi; PX4'e komut yazan tek modül (FR-7, FR-8)
 - [ ] B4 - Araç süreci (`swarm_vehicle`): tek ROS 2 düğümü /uav_N, durum/görev modülü, 2 Hz durum, diğer iki aracın durumunu alma ve kaydetme, durum makinesi (HAZIR → BARİYER_BEKLE → TARAMA → WAIT → TAMAMLANDI) (FR-2, FR-4)

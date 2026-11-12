@@ -48,7 +48,7 @@ Kaynak: proje el kitabı v1.3.2 (Çalışma Takvimi, Yöntem, Risk Yönetimi) ve
 
 ## B · 15 Şubat 2027 - 21 Mart 2027 · Sürü yazılımı · ağırlık 25
 
-- [ ] **B1** · w2 · `swarm_msgs`: durum, görev, tarama başlatma/bitiş, COMPLETE, kare sonucu, "kare alınamadı", komut (araç kimliği, sıra numarası, onay durumu) mesaj tanımları · FR-2, FR-3, FR-4, FR-12 · Bitti: paket derlenir, mesajlar tanımlı
+- [x] **B1** · w2 · `swarm_msgs`: durum, görev, tarama başlatma/bitiş, COMPLETE, kare sonucu, "kare alınamadı", komut (araç kimliği, sıra numarası, onay durumu) mesaj tanımları · FR-2, FR-3, FR-4, FR-12 · Bitti: paket derlenir, mesajlar tanımlı
 - [ ] **B2** · w2 · Alanın üç çakışmayan tarama bölgesine ayrılması, şerit planı (w = 2·30·tan(görüş açısı/2), komşu izler ≥ 2 m örtüşür), rota dosyaları · FR-1 · Bitti: bölge ve rota dosyaları tüm sahnelerde aynı
 - [ ] **B3** · w3 · `px4_adapter`: araç başına ayrı MAVSDK System ve mavsdk_server; sistem kimliği doğrulaması; rotanın yerden 30 m görev (mission) olarak yüklenmesi; PX4'e komut yazan tek modül · FR-7, FR-8 · Bitti: üç araçta görev yüklenir ve başlatılır
 - [ ] **B4** · w3 · Araç süreci (`swarm_vehicle`): tek ROS 2 düğümü /uav_N, durum/görev modülü, 2 Hz durum, diğer iki aracın durumunu alma ve kaydetme, durum makinesi (HAZIR → BARİYER_BEKLE → TARAMA → WAIT → TAMAMLANDI) · FR-2, FR-4 · Bitti: durum geçişleri test edilir
