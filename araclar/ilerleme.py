@@ -67,7 +67,7 @@ def uret(paketler):
     s.append("")
     s.append(f"`{cubuk}` {yuzde(toplam)}")
     s.append("")
-    s.append("| Paket | Hafta | Ağırlık | Biten madde | Paketin ilerlemesi |")
+    s.append("| Paket | Tarih | Ağırlık | Biten madde | Paketin ilerlemesi |")
     s.append("|---|---|---|---|---|")
     for p in paketler:
         biten = sum(1 for m in p["maddeler"] if m["bitti"])

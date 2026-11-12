@@ -209,21 +209,21 @@ Normal. Ağ ayarı yeniden başlatmada silinir. Şunu çalıştır: `./setup/60_
 
 `██░░░░░░░░░░░░░░░░░░` %11,7
 
-| Paket | Hafta | Ağırlık | Biten madde | Paketin ilerlemesi |
+| Paket | Tarih | Ağırlık | Biten madde | Paketin ilerlemesi |
 |---|---|---|---|---|
-| K. Kurulum ve doğrulama testleri | 1–2. hafta (01.02–14.02.2027) | %10 | 14 / 14 | %100,0 |
-| A. Veri ve model | 3–6. hafta (15.02–21.03.2027) | %20 | 0 / 13 | %0,0 |
-| B. Sürü yazılımı | 3–6. hafta (15.02–21.03.2027) | %25 | 3 / 21 | %6,8 |
-| C. Kabul testleri ve pilot koşular | 7–9. hafta (22.03–18.04.2027) | %20 | 0 / 14 | %0,0 |
-| D. Ana deneyler | 10–12. hafta (19.04–09.05.2027) | %15 | 0 / 5 | %0,0 |
-| E. Analiz ve raporlama | 13–14. hafta (10.05–28.05.2027) | %10 | 0 / 7 | %0,0 |
+| K. Kurulum ve doğrulama testleri | 01.02–14.02.2027 | %10 | 14 / 14 | %100,0 |
+| A. Veri ve model | 15.02–21.03.2027 | %20 | 0 / 13 | %0,0 |
+| B. Sürü yazılımı | 15.02–21.03.2027 | %25 | 3 / 21 | %6,8 |
+| C. Kabul testleri ve pilot koşular | 22.03–18.04.2027 | %20 | 0 / 14 | %0,0 |
+| D. Ana deneyler | 19.04–09.05.2027 | %15 | 0 / 5 | %0,0 |
+| E. Analiz ve raporlama | 10.05–28.05.2027 | %10 | 0 / 7 | %0,0 |
 
 Haftalar 2027 bahar dönemine göredir (01.02.2027–28.05.2027); 08–14.03 (Ramazan Bayramı), 29.03–04.04 (vize) ve 17–23.05 (Kurban Bayramı) haftaları sayılmaz.
 
 Aşağıdaki başlıklara tıklayınca maddeleri görürsün. Biten maddeler işaretli kutu (☑), kalın `[TAMAMLANDI]` etiketi ve italik açıklamayla; bitmeyenler boş kutuyla (☐) gösterilir.
 
 <details>
-<summary><b>K. Kurulum ve doğrulama testleri</b> · 1–2. hafta (01.02–14.02.2027) · 14 / 14 madde · %100,0</summary>
+<summary><b>K. Kurulum ve doğrulama testleri</b> · 01.02–14.02.2027 · 14 / 14 madde · %100,0</summary>
 
 - [x] **K1 [TAMAMLANDI]** - *Ubuntu 24.04, ROS 2 Jazzy, Gazebo Harmonic 8.15, PX4 v1.16.0, MAVSDK-Python 3.17.4 + mavsdk_server kurulumu; Gazebo grafik arayüzsüz, yalnız sunucu modunda çalışır (FR-31)*
 - [x] **K2a [TAMAMLANDI]** - *Ortam kilidi: sürümler (`versions.env`), Python kilidi (pip `-c`, PyTorch/Ultralytics dahil), PX4 commit kaydı, SHA-256 özet listesi, kurulum raporu (FR-31)*
@@ -243,7 +243,7 @@ Aşağıdaki başlıklara tıklayınca maddeleri görürsün. Biten maddeler iş
 </details>
 
 <details>
-<summary><b>A. Veri ve model</b> · 3–6. hafta (15.02–21.03.2027) · 0 / 13 madde · %0,0</summary>
+<summary><b>A. Veri ve model</b> · 15.02–21.03.2027 · 0 / 13 madde · %0,0</summary>
 
 - [ ] A1 - Gazebo sahne üreticisi: iki sınıf (görünür insan, görünür enkaz yığını); ışık, konum, yönelim tohumla; kısmi örtülme yok; hedefler birbirini örtmez (FR-16, FR-26)
 - [ ] A2 - 60 eğitim + 10 doğrulama + 30 test sahnesi; yerleşim, tohum ve görünüm varyantı bölümler arasında ayrık; test hedef merkezleri ≥ 10 m; test sahnesinde 15 insan + 15 enkaz (FR-26)
@@ -262,7 +262,7 @@ Aşağıdaki başlıklara tıklayınca maddeleri görürsün. Biten maddeler iş
 </details>
 
 <details>
-<summary><b>B. Sürü yazılımı</b> · 3–6. hafta (15.02–21.03.2027) · 3 / 21 madde · %6,8</summary>
+<summary><b>B. Sürü yazılımı</b> · 15.02–21.03.2027 · 3 / 21 madde · %6,8</summary>
 
 - [ ] B1 - `swarm_msgs`: durum, görev, tarama başlatma/bitiş, COMPLETE, kare sonucu, "kare alınamadı", komut (araç kimliği, sıra numarası, onay durumu) mesaj tanımları (FR-2, FR-3, FR-4, FR-12)
 - [ ] B2 - Alanın üç çakışmayan tarama bölgesine ayrılması, şerit planı (w = 2·30·tan(görüş açısı/2), komşu izler ≥ 2 m örtüşür), rota dosyaları (FR-1)
@@ -289,7 +289,7 @@ Aşağıdaki başlıklara tıklayınca maddeleri görürsün. Biten maddeler iş
 </details>
 
 <details>
-<summary><b>C. Kabul testleri ve pilot koşular</b> · 7–9. hafta (22.03–18.04.2027) · 0 / 14 madde · %0,0</summary>
+<summary><b>C. Kabul testleri ve pilot koşular</b> · 22.03–18.04.2027 · 0 / 14 madde · %0,0</summary>
 
 - [ ] C1 - Ağ sınırı kabul testi 1: ölçülen DDS ve görüntü kanalı soketleri yalnız 10.10.0.x adreslerini kullanır (FR-25)
 - [ ] C2 - Kabul testi 2: yerel trafik üretilirken D sayacı artmaz; yer istasyonu bileşenleri ve çıkarım alt süreçlerinde DDS yok (FR-25)
@@ -309,7 +309,7 @@ Aşağıdaki başlıklara tıklayınca maddeleri görürsün. Biten maddeler iş
 </details>
 
 <details>
-<summary><b>D. Ana deneyler</b> · 10–12. hafta (19.04–09.05.2027) · 0 / 5 madde · %0,0</summary>
+<summary><b>D. Ana deneyler</b> · 19.04–09.05.2027 · 0 / 5 madde · %0,0</summary>
 
 - [ ] D1 - Ana koşular: sahne 1–10 (her biri iki modda) (FR-26, FR-27)
 - [ ] D2 - Ana koşular: sahne 11–20 (FR-26, FR-27)
@@ -320,7 +320,7 @@ Aşağıdaki başlıklara tıklayınca maddeleri görürsün. Biten maddeler iş
 </details>
 
 <details>
-<summary><b>E. Analiz ve raporlama</b> · 13–14. hafta (10.05–28.05.2027) · 0 / 7 madde · %0,0</summary>
+<summary><b>E. Analiz ve raporlama</b> · 10.05–28.05.2027 · 0 / 7 madde · %0,0</summary>
 
 - [ ] E1 - Hedef eşleştirme ve R, precision, FP; iki mod için mutlak ve sınıf bazlı (FR-24, FR-28)
 - [ ] E2 - D, B, T için sahne başına yüzde iyileşme; L için medyan ve 95. yüzdelik farkları (FR-29)
