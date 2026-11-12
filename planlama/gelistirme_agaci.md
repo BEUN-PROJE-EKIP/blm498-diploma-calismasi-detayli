@@ -7,12 +7,13 @@ Kaynak: proje el kitabı v1.3.2 (Çalışma Takvimi, Yöntem, Risk Yönetimi) ve
 - Bir madde **yalnız kabul ölçütü sağlandığında** işaretlenir (`[x]`). Ölçüt geçmeden, "neredeyse bitti" diye işaretlenmez.
 - **Ağırlık:** iş paketi ağırlıkları el kitabındaki **resmî yüzdelerdir** (toplam 100). Paket içinde her maddenin göreli ağırlığı `w` ile verilir (zorluk ve emek için 1–3).
 - **Yüzde** = Σ (paket ağırlığı × paketteki biten madde `w` toplamı ÷ paketteki tüm madde `w` toplamı).
-- **`w0` = isteğe bağlı madde:** yüzdeye girmez (payda ve pay dışı); yapılırsa ek analiz olarak raporlanır. P-A'da A planı (hazır veri) bu şekildedir: gerekçe aşağıda, "Veri planı kararı".
-- Bitmiş maddeler README'de ~~üstü çizili~~ gösterilir. Yeni madde eklenirse ağırlıklar yeniden dengelenir ve bu dosyada gerekçesi yazılır.
+- **`w0` = isteğe bağlı madde:** yüzdeye girmez (payda ve pay dışı); yapılırsa ek analiz olarak raporlanır. A paketinde A planı (hazır veri) bu şekildedir: gerekçe aşağıda, "Veri planı kararı".
+- Bitmiş maddeler README'de `K3 [TAMAMLANDI] - ` önekiyle ve *italik* gösterilir; bitmeyenler düz yazılır.
+- **Haftalar** 2027 bahar dönemine göre 01.02.2027–28.05.2027 arasıdır; 08–14.03 (Ramazan Bayramı), 29.03–04.04 (vize) ve 17–23.05 (Kurban Bayramı) haftaları sayılmaz. Yeni madde eklenirse ağırlıklar yeniden dengelenir ve bu dosyada gerekçesi yazılır.
 - Her madde: `kimlik · ağırlık · açıklama · ilgili gereksinim · bitti ölçütü`.
 - Kapsam dışı (belge): dinamik yeniden bölgeleme, kayıp araç görevini devralma, formasyon (FR-6); gerçek uçuş veya gömülü donanım doğrulaması; operasyonel yeterlilik iddiası.
 
-## P0 · 1–2. hafta · Kurulum ve doğrulama testleri · ağırlık 10
+## K · 1–2. hafta (01.02–14.02.2027) · Kurulum ve doğrulama testleri · ağırlık 10
 
 - [x] **K1** · w2 · Ubuntu 24.04, ROS 2 Jazzy, Gazebo Harmonic 8.15, PX4 v1.16.0, MAVSDK-Python 3.17.4 + mavsdk_server kurulumu; Gazebo grafik arayüzsüz, yalnız sunucu modunda çalışır · FR-31 · Bitti: `verify_all.sh` hepsi `(+)`, sıfırdan kurulum yeniden üretildi
 - [x] **K2a** · w1 · Ortam kilidi: sürümler (`versions.env`), Python kilidi (pip `-c`, PyTorch/Ultralytics dahil), PX4 commit kaydı, SHA-256 özet listesi, kurulum raporu · FR-31 · Bitti: `lock_ozet.sh --check` `(+)`, venv kilitle birebir aynı
@@ -29,7 +30,7 @@ Kaynak: proje el kitabı v1.3.2 (Çalışma Takvimi, Yöntem, Risk Yönetimi) ve
 - [x] **K12** · w1 · GPU/CPU kararı: araç başına 2 kare/s sağlanıyor mu; sağlanmıyorsa YOLO26s + ONNX Runtime CPU hız ölçümü, NMS'siz çıktı kontrolü, B planı kararı · FR-15 · Bitti: karar protokole yazılır
 - [x] **K13** · w1 · Eğitim denemesi: batch=16 GPU belleğine sığıyor mu (sığmazsa bellek ölçütüyle en büyük değer), eğitim içi doğrulama nms=False kullanıyor mu · GŞÖA 6.2 · Bitti: değer kilitlenir
 
-## P-A · 3–6. hafta · Veri ve model · ağırlık 20
+## A · 3–6. hafta (15.02–21.03.2027) · Veri ve model · ağırlık 20
 
 - [ ] **A1** · w3 · Gazebo sahne üreticisi: iki sınıf (görünür insan, görünür enkaz yığını); ışık, konum, yönelim tohumla; kısmi örtülme yok; hedefler birbirini örtmez · FR-16, FR-26 · Bitti: tohumdan aynı sahne yeniden üretilir
 - [ ] **A2** · w2 · 60 eğitim + 10 doğrulama + 30 test sahnesi; yerleşim, tohum ve görünüm varyantı bölümler arasında ayrık; test hedef merkezleri ≥ 10 m; test sahnesinde 15 insan + 15 enkaz · FR-26 · Bitti: bölümler ayrık, listeler SHA-256'lı
@@ -45,7 +46,7 @@ Kaynak: proje el kitabı v1.3.2 (Çalışma Takvimi, Yöntem, Risk Yönetimi) ve
 - [ ] **A12** · w1 · Çıkarım ayarlarının sabitlenmesi: güven 0,25; nms=False; max_det 300; FP32; batch=1 · FR-15 · Bitti: protokol kilidinde
 - [ ] **A13** · w1 · Model ve veri dosyalarının nihai SHA-256 özetleri (6. hafta sonu) · FR-31 · Bitti: özet listesi kilitli
 
-## P-B · 3–6. hafta · Sürü yazılımı · ağırlık 25
+## B · 3–6. hafta (15.02–21.03.2027) · Sürü yazılımı · ağırlık 25
 
 - [ ] **B1** · w2 · `swarm_msgs`: durum, görev, tarama başlatma/bitiş, COMPLETE, kare sonucu, "kare alınamadı", komut (araç kimliği, sıra numarası, onay durumu) mesaj tanımları · FR-2, FR-3, FR-4, FR-12 · Bitti: paket derlenir, mesajlar tanımlı
 - [ ] **B2** · w2 · Alanın üç çakışmayan tarama bölgesine ayrılması, şerit planı (w = 2·30·tan(görüş açısı/2), komşu izler ≥ 2 m örtüşür), rota dosyaları · FR-1 · Bitti: bölge ve rota dosyaları tüm sahnelerde aynı
@@ -69,7 +70,7 @@ Kaynak: proje el kitabı v1.3.2 (Çalışma Takvimi, Yöntem, Risk Yönetimi) ve
 - [x] **B20** · w1 · Deney yapılandırma dosyasının ağ ve port bölümü (adresler, kuyruk, portlar, kimlikler) · GŞÖA 5.1 · Bitti: `config/deney.env` `source` ile yüklenir, betikler buradan okur
 - [ ] **B21** · w1 · Deney yapılandırma dosyasının genişletilmesi: sahne, rota, model, koşu, çıkarım ayarları · GŞÖA 5.1 · Bitti: tüm başlatma dosyaları tek dosyadan okur
 
-## P3 · 7–9. hafta · Kabul testleri ve pilot koşular · ağırlık 20
+## C · 7–9. hafta (22.03–18.04.2027) · Kabul testleri ve pilot koşular · ağırlık 20
 
 - [ ] **C1** · w1 · Ağ sınırı kabul testi 1: ölçülen DDS ve görüntü kanalı soketleri yalnız 10.10.0.x adreslerini kullanır · FR-25 · Bitti: süreç ve soket kaydı
 - [ ] **C2** · w2 · Kabul testi 2: yerel trafik üretilirken D sayacı artmaz; yer istasyonu bileşenleri ve çıkarım alt süreçlerinde DDS yok · FR-25 · Bitti: sayaç ve ROS 2 çizge kaydı
@@ -86,7 +87,7 @@ Kaynak: proje el kitabı v1.3.2 (Çalışma Takvimi, Yöntem, Risk Yönetimi) ve
 - [ ] **C13** · w2 · Kalan protokol değerleri (telemetri aralık sınırı vb.); ortam kilidi ve protokol kilidi (etiketli commit + SHA-256 listesi) · FR-31 · Bitti: etiket atılmış, kilit tamam
 - [ ] **C14** · w2 · Koşu otomasyonu: 30 sahne × 2 mod, çift içi sıra kaydedilen rastgele tohumla, eşzamanlı çalıştırma yok, eğitim de ana koşularla eşzamanlı yapılmaz, başlatma dosyaları tek yapılandırmadan · FR-26 · Bitti: tam bir çift otomatik koşar
 
-## P4 · 10–12. hafta · Ana deneyler · ağırlık 15
+## D · 10–12. hafta (19.04–09.05.2027) · Ana deneyler · ağırlık 15
 
 - [ ] **D1** · w4 · Ana koşular: sahne 1–10 (her biri iki modda) · FR-26, FR-27 · Bitti: her koşu tamamlanmış ya da "tamamlanamadı" kayıtlı
 - [ ] **D2** · w4 · Ana koşular: sahne 11–20 · FR-26, FR-27 · Bitti: aynı
@@ -94,7 +95,7 @@ Kaynak: proje el kitabı v1.3.2 (Çalışma Takvimi, Yöntem, Risk Yönetimi) ve
 - [ ] **D4** · w1 · Teknik geçersizlik halinde ilgili çiftin iki mod için yeniden çalıştırılması; tamamlanamayan koşuların kaydı (dışlama yok) · FR-27 · Bitti: kayıtlar eksiksiz
 - [ ] **D5** · w1 · Koşu verilerinin bütünlüğü: dosya özetleri, sayaç–kayıt tutarlılığı · FR-31 · Bitti: özet listesi
 
-## P5 · 13–14. hafta · Analiz ve raporlama · ağırlık 10
+## E · 13–14. hafta (10.05–28.05.2027) · Analiz ve raporlama · ağırlık 10
 
 - [ ] **E1** · w2 · Hedef eşleştirme ve R, precision, FP; iki mod için mutlak ve sınıf bazlı · FR-24, FR-28 · Bitti: tablo
 - [ ] **E2** · w2 · D, B, T için sahne başına yüzde iyileşme; L için medyan ve 95. yüzdelik farkları · FR-29 · Bitti: tablo
