@@ -8,7 +8,7 @@ Kaynak: proje el kitabı v1.3.2 (Çalışma Takvimi, Yöntem, Risk Yönetimi) ve
 - **Ağırlık:** iş paketi ağırlıkları el kitabındaki **resmî yüzdelerdir** (toplam 100). Paket içinde her maddenin göreli ağırlığı `w` ile verilir (zorluk ve emek için 1–3).
 - **Yüzde** = Σ (paket ağırlığı × paketteki biten madde `w` toplamı ÷ paketteki tüm madde `w` toplamı).
 - **`w0` = isteğe bağlı madde:** yüzdeye girmez (payda ve pay dışı); yapılırsa ek analiz olarak raporlanır. A paketinde A planı (hazır veri) bu şekildedir: gerekçe aşağıda, "Veri planı kararı".
-- Bitmiş maddeler README'de `K3 [TAMAMLANDI] - ` önekiyle ve *italik* gösterilir; bitmeyenler düz yazılır.
+- Bitmiş maddeler README'de işaretli kutu, kalın `K3 [TAMAMLANDI]` etiketi ve *italik* açıklamayla gösterilir; bitmeyenler boş kutu ve düz yazıyla.
 - **Haftalar** 2027 bahar dönemine göre 01.02.2027–28.05.2027 arasıdır; 08–14.03 (Ramazan Bayramı), 29.03–04.04 (vize) ve 17–23.05 (Kurban Bayramı) haftaları sayılmaz. Yeni madde eklenirse ağırlıklar yeniden dengelenir ve bu dosyada gerekçesi yazılır.
 - Her madde: `kimlik · ağırlık · açıklama · ilgili gereksinim · bitti ölçütü`.
 - Kapsam dışı (belge): dinamik yeniden bölgeleme, kayıp araç görevini devralma, formasyon (FR-6); gerçek uçuş veya gömülü donanım doğrulaması; operasyonel yeterlilik iddiası.

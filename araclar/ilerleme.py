@@ -75,7 +75,7 @@ def uret(paketler):
     s.append("")
     s.append("Haftalar 2027 bahar dönemine göredir (01.02.2027–28.05.2027); 08–14.03 (Ramazan Bayramı), 29.03–04.04 (vize) ve 17–23.05 (Kurban Bayramı) haftaları sayılmaz.")
     s.append("")
-    s.append("Aşağıdaki başlıklara tıklayınca maddeleri görürsün. Biten maddeler `[TAMAMLANDI]` ile işaretli ve italiktir.")
+    s.append("Aşağıdaki başlıklara tıklayınca maddeleri görürsün. Biten maddeler işaretli kutu (☑), kalın `[TAMAMLANDI]` etiketi ve italik açıklamayla; bitmeyenler boş kutuyla (☐) gösterilir.")
     s.append("")
     for p in paketler:
         biten = sum(1 for m in p["maddeler"] if m["bitti"])
@@ -87,9 +87,9 @@ def uret(paketler):
             if m["ilgili"]:
                 metin += f" ({m['ilgili']})"
             if m["bitti"]:
-                s.append(f"- {m['kimlik']} [TAMAMLANDI] - *{metin}*")
+                s.append(f"- [x] **{m['kimlik']} [TAMAMLANDI]** - *{metin}*")
             else:
-                s.append(f"- {m['kimlik']} - {metin}")
+                s.append(f"- [ ] {m['kimlik']} - {metin}")
         s.append("")
         s.append("</details>")
         s.append("")
