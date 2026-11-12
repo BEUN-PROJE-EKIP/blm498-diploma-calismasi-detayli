@@ -182,13 +182,13 @@ Bu, o terminalde `ros2` komutlarını ve projenin Python ortamını etkinleştir
 Proje 6 iş paketinden oluşur ve her paketin kendi ağırlığı vardır. Bir madde yalnızca **kabul ölçütü sağlandığında** "bitti" sayılır.
 
 <!-- ILERLEME:BASLA -->
-**Projenin tamamlanma oranı: %11,1**  (16 / 74 madde bitti)
+**Projenin tamamlanma oranı: %11,7**  (17 / 74 madde bitti)
 
-`██░░░░░░░░░░░░░░░░░░` %11,1
+`██░░░░░░░░░░░░░░░░░░` %11,7
 
 | İş paketi | Hafta | Ağırlık | Biten madde | Paketin ilerlemesi |
 |---|---|---|---|---|
-| Kurulum ve doğrulama testleri | 1–2. hafta | %10 | 13 / 14 | %94,1 |
+| Kurulum ve doğrulama testleri | 1–2. hafta | %10 | 14 / 14 | %100,0 |
 | Veri ve model | 3–6. hafta | %20 | 0 / 13 | %0,0 |
 | Sürü yazılımı | 3–6. hafta | %25 | 3 / 21 | %6,8 |
 | Kabul testleri ve pilot koşular | 7–9. hafta | %20 | 0 / 14 | %0,0 |
@@ -198,7 +198,7 @@ Proje 6 iş paketinden oluşur ve her paketin kendi ağırlığı vardır. Bir m
 Aşağıdaki başlıklara tıklayınca maddeleri görürsün. Biten maddelerin üstü çizilidir.
 
 <details>
-<summary><b>Kurulum ve doğrulama testleri</b> · 1–2. hafta · 13 / 14 madde · %94,1</summary>
+<summary><b>Kurulum ve doğrulama testleri</b> · 1–2. hafta · 14 / 14 madde · %100,0</summary>
 
 - [x] ~~**K1** Ubuntu 24.04, ROS 2 Jazzy, Gazebo Harmonic 8.15, PX4 v1.16.0, MAVSDK-Python 3.17.4 + mavsdk_server kurulumu; Gazebo grafik arayüzsüz, yalnız sunucu modunda çalışır (FR-31)~~
 - [x] ~~**K2a** Ortam kilidi: sürümler (`versions.env`), Python kilidi (pip `-c`, PyTorch/Ultralytics dahil), PX4 commit kaydı, SHA-256 özet listesi, kurulum raporu (FR-31)~~
@@ -213,7 +213,7 @@ Aşağıdaki başlıklara tıklayınca maddeleri görürsün. Biten maddelerin �
 - [x] ~~**K10** Kameranın yatay görüş açısının 30 m'den hedef piksel boyutu ölçülerek belirlenmesi ve 3. hafta başında kilitlenmesi (GŞÖA 5.2)~~
 - [x] ~~**K11** Üç araç + üç kamera + üç GPU işçisi + Gazebo birlikte: işçi başına kare/s, gerçek zaman faktörü, GPU belleği ölçümü (nms=False) (FR-15, FR-24)~~
 - [x] ~~**K12** GPU/CPU kararı: araç başına 2 kare/s sağlanıyor mu; sağlanmıyorsa YOLO26s + ONNX Runtime CPU hız ölçümü, NMS'siz çıktı kontrolü, B planı kararı (FR-15)~~
-- [ ] **K13** Eğitim denemesi: batch=16 GPU belleğine sığıyor mu (sığmazsa bellek ölçütüyle en büyük değer), eğitim içi doğrulama nms=False kullanıyor mu (GŞÖA 6.2)
+- [x] ~~**K13** Eğitim denemesi: batch=16 GPU belleğine sığıyor mu (sığmazsa bellek ölçütüyle en büyük değer), eğitim içi doğrulama nms=False kullanıyor mu (GŞÖA 6.2)~~
 
 </details>
 

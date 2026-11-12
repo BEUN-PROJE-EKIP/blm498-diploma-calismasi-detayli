@@ -27,7 +27,7 @@ Kaynak: proje el kitabı v1.3.2 (Çalışma Takvimi, Yöntem, Risk Yönetimi) ve
 - [x] **K10** · w1 · Kameranın yatay görüş açısının 30 m'den hedef piksel boyutu ölçülerek belirlenmesi ve 3. hafta başında kilitlenmesi · GŞÖA 5.2 · Bitti: değer protokol kilidinde
 - [x] **K11** · w2 · Üç araç + üç kamera + üç GPU işçisi + Gazebo birlikte: işçi başına kare/s, gerçek zaman faktörü, GPU belleği ölçümü (nms=False) · FR-15, FR-24 · Bitti: ölçüm kaydı
 - [x] **K12** · w1 · GPU/CPU kararı: araç başına 2 kare/s sağlanıyor mu; sağlanmıyorsa YOLO26s + ONNX Runtime CPU hız ölçümü, NMS'siz çıktı kontrolü, B planı kararı · FR-15 · Bitti: karar protokole yazılır
-- [ ] **K13** · w1 · Eğitim denemesi: batch=16 GPU belleğine sığıyor mu (sığmazsa bellek ölçütüyle en büyük değer), eğitim içi doğrulama nms=False kullanıyor mu · GŞÖA 6.2 · Bitti: değer kilitlenir
+- [x] **K13** · w1 · Eğitim denemesi: batch=16 GPU belleğine sığıyor mu (sığmazsa bellek ölçütüyle en büyük değer), eğitim içi doğrulama nms=False kullanıyor mu · GŞÖA 6.2 · Bitti: değer kilitlenir
 
 ## P-A · 3–6. hafta · Veri ve model · ağırlık 20
 
