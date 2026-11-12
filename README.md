@@ -182,13 +182,13 @@ Bu, o terminalde `ros2` komutlarını ve projenin Python ortamını etkinleştir
 Proje 6 iş paketinden oluşur ve her paketin kendi ağırlığı vardır. Bir madde yalnızca **kabul ölçütü sağlandığında** "bitti" sayılır.
 
 <!-- ILERLEME:BASLA -->
-**Projenin tamamlanma oranı: %10,5**  (15 / 74 madde bitti)
+**Projenin tamamlanma oranı: %11,1**  (16 / 74 madde bitti)
 
-`██░░░░░░░░░░░░░░░░░░` %10,5
+`██░░░░░░░░░░░░░░░░░░` %11,1
 
 | İş paketi | Hafta | Ağırlık | Biten madde | Paketin ilerlemesi |
 |---|---|---|---|---|
-| Kurulum ve doğrulama testleri | 1–2. hafta | %10 | 12 / 14 | %88,2 |
+| Kurulum ve doğrulama testleri | 1–2. hafta | %10 | 13 / 14 | %94,1 |
 | Veri ve model | 3–6. hafta | %20 | 0 / 13 | %0,0 |
 | Sürü yazılımı | 3–6. hafta | %25 | 3 / 21 | %6,8 |
 | Kabul testleri ve pilot koşular | 7–9. hafta | %20 | 0 / 14 | %0,0 |
@@ -198,7 +198,7 @@ Proje 6 iş paketinden oluşur ve her paketin kendi ağırlığı vardır. Bir m
 Aşağıdaki başlıklara tıklayınca maddeleri görürsün. Biten maddelerin üstü çizilidir.
 
 <details>
-<summary><b>Kurulum ve doğrulama testleri</b> · 1–2. hafta · 12 / 14 madde · %88,2</summary>
+<summary><b>Kurulum ve doğrulama testleri</b> · 1–2. hafta · 13 / 14 madde · %94,1</summary>
 
 - [x] ~~**K1** Ubuntu 24.04, ROS 2 Jazzy, Gazebo Harmonic 8.15, PX4 v1.16.0, MAVSDK-Python 3.17.4 + mavsdk_server kurulumu; Gazebo grafik arayüzsüz, yalnız sunucu modunda çalışır (FR-31)~~
 - [x] ~~**K2a** Ortam kilidi: sürümler (`versions.env`), Python kilidi (pip `-c`, PyTorch/Ultralytics dahil), PX4 commit kaydı, SHA-256 özet listesi, kurulum raporu (FR-31)~~
@@ -210,7 +210,7 @@ Aşağıdaki başlıklara tıklayınca maddeleri görürsün. Biten maddelerin �
 - [x] ~~**K7** Tek araç ve üç araç bağlantı/kimlik testleri: MAV_SYS_ID 1–3, UDP 14540–14542, gRPC 50051–50053, ad alanı /uav_1–/uav_3, beklenen sistem kimliği doğrulanmadan komut yok (FR-2, FR-8)~~
 - [x] ~~**K8** Tek araç: simülasyon zamanı ile PX4 zaman damgalarının aynı eksende olduğunun doğrulanması (FR-17)~~
 - [x] ~~**K9** Tek araç: Gazebo kamera damgalarının 0,5 s'nin tam katı ve karelerin sırayla teslim edildiğinin doğrulanması; doğrulanmazsa iki mod için yedek yola geçiş kararı (FR-10, FR-11)~~
-- [ ] **K10** Kameranın yatay görüş açısının 30 m'den hedef piksel boyutu ölçülerek belirlenmesi ve 3. hafta başında kilitlenmesi (GŞÖA 5.2)
+- [x] ~~**K10** Kameranın yatay görüş açısının 30 m'den hedef piksel boyutu ölçülerek belirlenmesi ve 3. hafta başında kilitlenmesi (GŞÖA 5.2)~~
 - [x] ~~**K11** Üç araç + üç kamera + üç GPU işçisi + Gazebo birlikte: işçi başına kare/s, gerçek zaman faktörü, GPU belleği ölçümü (nms=False) (FR-15, FR-24)~~
 - [x] ~~**K12** GPU/CPU kararı: araç başına 2 kare/s sağlanıyor mu; sağlanmıyorsa YOLO26s + ONNX Runtime CPU hız ölçümü, NMS'siz çıktı kontrolü, B planı kararı (FR-15)~~
 - [ ] **K13** Eğitim denemesi: batch=16 GPU belleğine sığıyor mu (sığmazsa bellek ölçütüyle en büyük değer), eğitim içi doğrulama nms=False kullanıyor mu (GŞÖA 6.2)
@@ -227,8 +227,8 @@ Aşağıdaki başlıklara tıklayınca maddeleri görürsün. Biten maddelerin �
 - [ ] **A5** Etiketlerin %10'u sahne ve sınıf bazında tabakalı görsel kontrol; sistematik hata ilgili bölümün tümünde düzeltilir (GŞÖA 6.1)
 - [ ] **A6** (isteğe bağlı) Hazır veri seti: akademik lisanslı, havadan çekilmiş; künye, lisans, SHA-256; sınıf eşleme tablosu ve örneklem kontrolü; yalnız eğitim bölümüne (GŞÖA 6.1)
 - [ ] **A7** Eğitim süresinin pilotta ölçülmesi, 14 haftalık takvime uygunluk değerlendirmesi (GŞÖA 6.2)
-- [ ] **A8** (isteğe bağlı, ana deneylerden sonra, model kilidini değiştirmez) A veri planı modeli (hazır veri + Gazebo) eğitimi: 50 epoch, batch=16, 640, nms=False, save_period=1 (FR-15, FR-16)
-- [ ] **A9** B veri planı modeli (yalnız Gazebo) aynı ayarlarla eğitimi (FR-15, FR-16)
+- [ ] **A8** (isteğe bağlı, ana deneylerden sonra, model kilidini değiştirmez) A veri planı modeli (hazır veri + Gazebo) eğitimi: 50 epoch, batch=16, 640, nms=False (eğitim çağrısında `nms=False` açıkça verilir; verilmezse eğitim içi doğrulama NMS'li başlıkla çalışır, K13 bulgusu), save_period=1 (FR-15, FR-16)
+- [ ] **A9** B veri planı modeli (yalnız Gazebo) aynı ayarlarla eğitimi; eğitim çağrısında `nms=False` açıkça verilir (K13 bulgusu: verilmezse eğitim içi doğrulama NMS'li) (FR-15, FR-16)
 - [ ] **A10** Epoch seçimi: Gazebo doğrulama sahnelerinde iki sınıf ortalama AP50'yi en çoklayan epoch (eşitlikte erken) (GŞÖA 6)
 - [ ] **A11** Veri planı (kullanıcı kararı): **B planı (yalnız Gazebo) birinci öncelik ve sabittir**; A planı isteğe bağlı ek deney olarak yalnız zaman kalırsa, ana deneylerden sonra denenir ve sonucu (beklenen/düşük çıkması dahil, önceden varsayılmadan) raporlanır; ana deneylerde kullanılan model kilidini ve seçimi değiştirmez (GŞÖA 6)
 - [ ] **A12** Çıkarım ayarlarının sabitlenmesi: güven 0,25; nms=False; max_det 300; FP32; batch=1 (FR-15)
