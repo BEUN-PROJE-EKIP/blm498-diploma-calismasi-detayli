@@ -25,8 +25,8 @@ Kaynak: proje el kitabı v1.3.2 (Çalışma Takvimi, Yöntem, Risk Yönetimi) ve
 - [x] **K8** · w1 · Tek araç: simülasyon zamanı ile PX4 zaman damgalarının aynı eksende olduğunun doğrulanması · FR-17 · Bitti: test kaydı
 - [x] **K9** · w1 · Tek araç: Gazebo kamera damgalarının 0,5 s'nin tam katı ve karelerin sırayla teslim edildiğinin doğrulanması; doğrulanmazsa iki mod için yedek yola geçiş kararı · FR-10, FR-11 · Bitti: sonuç ve karar kaydı
 - [ ] **K10** · w1 · Kameranın yatay görüş açısının 30 m'den hedef piksel boyutu ölçülerek belirlenmesi ve 3. hafta başında kilitlenmesi · GŞÖA 5.2 · Bitti: değer protokol kilidinde
-- [ ] **K11** · w2 · Üç araç + üç kamera + üç GPU işçisi + Gazebo birlikte: işçi başına kare/s, gerçek zaman faktörü, GPU belleği ölçümü (nms=False) · FR-15, FR-24 · Bitti: ölçüm kaydı
-- [ ] **K12** · w1 · GPU/CPU kararı: araç başına 2 kare/s sağlanıyor mu; sağlanmıyorsa YOLO26s + ONNX Runtime CPU hız ölçümü, NMS'siz çıktı kontrolü, B planı kararı · FR-15 · Bitti: karar protokole yazılır
+- [x] **K11** · w2 · Üç araç + üç kamera + üç GPU işçisi + Gazebo birlikte: işçi başına kare/s, gerçek zaman faktörü, GPU belleği ölçümü (nms=False) · FR-15, FR-24 · Bitti: ölçüm kaydı
+- [x] **K12** · w1 · GPU/CPU kararı: araç başına 2 kare/s sağlanıyor mu; sağlanmıyorsa YOLO26s + ONNX Runtime CPU hız ölçümü, NMS'siz çıktı kontrolü, B planı kararı · FR-15 · Bitti: karar protokole yazılır
 - [ ] **K13** · w1 · Eğitim denemesi: batch=16 GPU belleğine sığıyor mu (sığmazsa bellek ölçütüyle en büyük değer), eğitim içi doğrulama nms=False kullanıyor mu · GŞÖA 6.2 · Bitti: değer kilitlenir
 
 ## P-A · 3–6. hafta · Veri ve model · ağırlık 20
