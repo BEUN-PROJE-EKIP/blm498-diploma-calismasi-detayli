@@ -1,7 +1,5 @@
 # Afet Bölgelerinde Haberleşme Altyapısından Bağımsız Olarak Çalışabilen Uçta Yapay Zekâ Destekli İHA Sürüsü
 
-Bilgisayar Mühendisliği Proje Tasarımı dersi projesi. Her şey **simülasyondadır**: gerçek uçuş ya da gömülü donanım doğrulaması yoktur.
-
 **[Sistem Gereksinimleri](#sistem-gereksinimleri) · [Kurulum öncesinde yapılması gerekenler](#kurulum-öncesinde-yapılması-gerekenler) · [Kurulum](#kurulum) · [Kurulum sonrası yapılması gerekenler](#kurulum-sonrası-yapılması-gerekenler) · [Tamamlanma Yüzdesi](#tamamlanma-yüzdesi) · [Klasörler](#klasörler)**
 
 ---
@@ -217,8 +215,6 @@ Normal. Ağ ayarı yeniden başlatmada silinir. Şunu çalıştır: `./setup/60_
 | C. Kabul testleri ve pilot koşular | 22 Mart 2027 - 18 Nisan 2027 | %20 | 0 / 14 | %0,0 |
 | D. Ana deneyler | 19 Nisan 2027 - 9 Mayıs 2027 | %15 | 0 / 5 | %0,0 |
 | E. Analiz ve raporlama | 10 Mayıs 2027 - 28 Mayıs 2027 | %10 | 0 / 7 | %0,0 |
-
-Tarihler 2027 bahar dönemine göredir (1 Şubat 2027 - 28 Mayıs 2027); 8-14 Mart (Ramazan Bayramı), 29 Mart - 4 Nisan (vize) ve 17-23 Mayıs (Kurban Bayramı) haftaları sayılmaz.
 
 Aşağıdaki başlıklara tıklayınca maddeleri görürsün. Biten maddeler işaretli kutu (☑), kalın `[TAMAMLANDI]` etiketi ve italik açıklamayla; bitmeyenler boş kutuyla (☐) gösterilir.
 
