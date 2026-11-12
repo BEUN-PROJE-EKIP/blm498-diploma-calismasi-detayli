@@ -1,13 +1,15 @@
 #!/usr/bin/env bash
 # kamera_olcum_testi.sh — kamera kare damgaları ve kare sırası (K9) ile yatay görüş açısı (K10) ölçümü; başsız Gazebo, köprüsüz gz-transport.
-# Kullanım: ./kamera_olcum_testi.sh [--dry-run | --verify | -h] [k9] [yuk] [k10]
-#   (argümansız)  üç ölçümü de çalıştırır; adlar verilirse yalnız onlar.
+# Kullanım: ./kamera_olcum_testi.sh [--dry-run | --verify | -h] [k9] [yuk] [k10] [hedef]
+#   (argümansız)  k9, yuk ve k10'u çalıştırır; adlar verilirse yalnız onlar (hedef yalnız adı verilirse çalışır).
 #   --dry-run     hiçbir süreç başlatmaz; ne çalıştıracağını yazar
 #   --verify      hafif önkoşul denetimi (ikililer, yapılandırma, sahne üretimi, SDF doğrulaması); süreç başlatmaz
 # Ölçümler (Python tarafı: araclar/kamera_olcum.py; sahne config/deney.env CAM_* değerlerinden üretilir, depoya yeni SDF girmez):
 #   k9    tek sabit kamera (30 m, aşağı bakan), CAM_K9_SIM_SN sim saniyesi (≥ 600 kare); iki kez, her seferinde farklı GZ_PARTITION
 #   yuk   (1) tek kamera + PX4 SITL (x500) açıkken, (2) üç kamera, CAM_YUK_SIM_SN sim saniyesi (≥ 120 sn); damga katı/sıra bozuluyor mu
 #   k10   yerdeki bilinen boyutlu hedeflerin piksel boyutundan yatay görüş açısı; SDF horizontal_fov ile karşılaştırma
+#   hedef aday görüş açılarında (HFOV_ADAY_DERECE + CAM_SDF_HFOV_RAD karşılaştırma) önce gerçek HFOV (kalibrasyon levhaları), sonra yatan insan
+#         (INSAN_YONELIM × 3 konum) ve enkaz yığınlarının piksel boyutu; kabul ölçütü OLC_DAR_KENAR_PX (yalnız ölçüm, kilit değil)
 # Ham kare kaydı (damga CSV) ve K10 örnek karesi .generated/kamera/<zaman>/ altına yazılır (depoya girmez). sudo gerekmez.
 # Her oturum kendi GZ_PARTITION değerini kullanır; başlatılan her süreç `setsid` ile ayrı süreç grubunda çalışır ve her çıkışta
 # (hata, Ctrl-C dahil) öldürülür. Bu betik install_all.sh/verify_all.sh sırasına GİRMEZ (adı NN_ desenine uymaz).
@@ -19,7 +21,7 @@ TESTS=()
 ARGS=()
 for a in "$@"; do
     case "$a" in
-        k9|yuk|k10) TESTS+=("$a") ;;
+        k9|yuk|k10|hedef) TESTS+=("$a") ;;
         *) ARGS+=("$a") ;;
     esac
 done
@@ -98,7 +100,11 @@ source "$DENEY_ENV"
 for v in CAM_WIDTH CAM_HEIGHT CAM_RATE_HZ CAM_ALT_M CAM_SDF_HFOV_RAD CAM_WORLD CAM_TARGETS CAM_SPACING_M CAM_K9_SIM_SN CAM_YUK_SIM_SN SIM_MODEL; do
     [[ -n "${!v:-}" ]] || fail_stop "$DENEY_ENV içinde $v tanımsız"
 done
-export CAM_WIDTH CAM_HEIGHT CAM_RATE_HZ CAM_ALT_M CAM_SDF_HFOV_RAD CAM_WORLD CAM_TARGETS CAM_SPACING_M
+for v in HFOV_ADAY_DERECE OLC_DAR_KENAR_PX INSAN_BOYUT INSAN_YONELIM ENKAZ_KUTU_SAYISI ENKAZ_CAP_M ENKAZ_YUKSEKLIK_M KALIB_KARELER; do
+    [[ -n "${!v:-}" ]] || fail_stop "$DENEY_ENV içinde $v tanımsız"
+done
+export CAM_WIDTH CAM_HEIGHT CAM_RATE_HZ CAM_ALT_M CAM_SDF_HFOV_RAD CAM_WORLD CAM_TARGETS CAM_SPACING_M HFOV_ADAY_DERECE OLC_DAR_KENAR_PX \
+       INSAN_BOYUT INSAN_YONELIM ENKAZ_KUTU_SAYISI ENKAZ_CAP_M ENKAZ_YUKSEKLIK_M KALIB_KARELER
 
 check_prereqs() {
     local c d
@@ -119,6 +125,7 @@ print_plan() {
     log_info "[dry-run] k9: 2 oturum (farklı GZ_PARTITION), 1 kamera, ${CAM_K9_SIM_SN} sim sn; damga katı (2·t), sıra, numara sürekliliği, sim/gerçek aralıklar, RTF"
     log_info "[dry-run] yuk: 1 kamera + PX4 SITL ($SIM_MODEL), sonra 3 kamera; ${CAM_YUK_SIM_SN} sim sn"
     log_info "[dry-run] k10: hedef piksel boyutu → HFOV; SDF ile karşılaştırma; örnek kare .generated/kamera/ altına"
+    log_info "[dry-run] hedef: adaylar ${HFOV_ADAY_DERECE}° + karşılaştırma ${CAM_SDF_HFOV_RAD} rad; her aday için kalibrasyon levhaları (${KALIB_KARELER}) ve yatan insan (${INSAN_BOYUT} m, yönelim ${INSAN_YONELIM}° × merkez/kenar/köşe) + ${ENKAZ_KUTU_SAYISI} kutulu 3 enkaz yığını; ölçüt dar kenar ≥ ${OLC_DAR_KENAR_PX} piksel"
     log_info "[dry-run] Süreç grupları (setsid) her çıkışta öldürülür; sonda px4/gz/mavsdk_server, port, /dev/shm, ros2 daemon, tc/ip denetimi"
     log_info "[dry-run] Hiçbir süreç başlatılmadı"
 }
@@ -152,12 +159,16 @@ snapshot() { # snapshot <ad>
 
 # --- Oturum: gz (üretilen sahne) [+ PX4 SITL] -------------------------------------------
 OTURUM_PART=""
-# start_session <ad> <kamera_sayısı> <px4:0|1> : OTURUM_PART ayarlanır; başarısızlıkta 1
+# start_session <ad> <kamera_sayısı> <px4:0|1> [dünya: kare|insan] : OTURUM_PART ayarlanır; başarısızlıkta 1
 start_session() {
-    local ad="$1" n="$2" px="$3" d="$TMP_DIR/$1" i out
+    local ad="$1" n="$2" px="$3" tur="${4:-kare}" d="$TMP_DIR/$1" i out
     mkdir -p "$d"
     OTURUM_PART="kam_${ad}_$$"
-    "$VENV_PY" -W ignore "$PY_TEST" dunya "$d/dunya.sdf" "$n" || { log_fail "$ad: sahne üretilemedi"; return 1; }
+    if [[ "$tur" == "insan" ]]; then
+        "$VENV_PY" -W ignore "$PY_TEST" dunya-insan "$d/dunya.sdf" || { log_fail "$ad: sahne üretilemedi"; return 1; }
+    else
+        "$VENV_PY" -W ignore "$PY_TEST" dunya "$d/dunya.sdf" "$n" || { log_fail "$ad: sahne üretilemedi"; return 1; }
+    fi
     # shellcheck disable=SC2016  # tek tırnak bilerek: $1/$2 alt kabukta açılır
     start_group "$d/gz.log" env LC_NUMERIC=C GZ_PARTITION="$OTURUM_PART" GZ_IP=127.0.0.1 \
         bash -c '. "$1/rootfs/gz_env.sh"; exec gz sim -r -s -v 2 "$2"' _ "$PX4_BUILD" "$d/dunya.sdf"
@@ -194,7 +205,7 @@ run_py() {
         case "$line" in
             "SONUC gecti "*) log_ok "$ad: ${line#SONUC gecti }" ;;
             "SONUC kaldi "*) log_fail "$ad: ${line#SONUC kaldi }" ;;
-            K9\ *|K10\ *) log_info "$ad: $line" ;;
+            K9\ *|K10\ *|HEDEF\ *) log_info "$ad: $line" ;;
         esac
     done < "$TMP_DIR/$ad/py.log"
     if [[ "$rc" -ne 0 ]]; then
@@ -235,6 +246,39 @@ oturum_k10() {
     stop_all
 }
 
+# hedef: aday görüş açılarında HFOV kalibrasyonu + yatan insan/enkaz piksel boyutu. Özet tablo için sonuçlar $OUT_DIR/hedef_ozet.txt'ye de yazılır.
+oturum_hedef() {
+    local derece rad ad f eski_fov="$CAM_SDF_HFOV_RAD" adaylar ref_derece
+    ref_derece="$(awk -v r="$CAM_SDF_HFOV_RAD" 'BEGIN{printf "%.2f", r*180/3.14159265358979}')"
+    adaylar="$HFOV_ADAY_DERECE $ref_derece"
+    : > "$OUT_DIR/hedef_ozet.txt"
+    for derece in $adaylar; do
+        rad="$(awk -v d="$derece" 'BEGIN{printf "%.4f", d*3.14159265358979/180}')"
+        if [[ "$derece" == "$ref_derece" ]]; then rad="$eski_fov"; fi
+        export CAM_SDF_HFOV_RAD="$rad"
+        log_info "== Hedef ölçümü: aday HFOV ${derece}° (SDF ${rad} rad) =="
+        # (1) gerçek HFOV: kalibrasyon levhaları (konumlar görüş alanına göre ölçeklenir)
+        ad="hedef_kalib_${derece}"
+        export KALIB_ORANLI=1
+        if start_session "$ad" 1 0 kare; then
+            run_py "$ad" 200 k10 "kamera_1/image" "$OUT_DIR/kalib_${derece}"
+        fi
+        stop_all
+        unset KALIB_ORANLI
+        # (2) yatan insan ve enkaz
+        ad="hedef_insan_${derece}"
+        if start_session "$ad" 1 0 insan; then
+            run_py "$ad" 200 hedef "kamera_1/image" "$OUT_DIR/hedef_${derece}"
+        fi
+        stop_all
+        for f in "$TMP_DIR"/hedef_kalib_"${derece}"/py.log "$TMP_DIR"/hedef_insan_"${derece}"/py.log; do
+            [[ -f "$f" ]] || continue
+            { grep -E '^(K10 ozet|K10 dogru_uydurma|HEDEF)' "$f" || true; } | sed "s/^/${derece}° /" >> "$OUT_DIR/hedef_ozet.txt"
+        done
+    done
+    export CAM_SDF_HFOV_RAD="$eski_fov"
+}
+
 snapshot once
 DAEMON_ONCE=0; if pgrep -f '[r]os2-daemon' >/dev/null; then DAEMON_ONCE=1; fi
 [[ "$DAEMON_ONCE" -eq 0 ]] || log_warn "Başlangıçta ros2 daemon yaşıyor (ölçülen ağa trafik basar); önce durdurun"
@@ -243,6 +287,7 @@ log_info "gz $(gz sim --versions 2>/dev/null | sed -n 1p || true), PX4 $PX4_TAG;
 if want k9; then oturum_k9; fi
 if want yuk; then oturum_yuk; fi
 if want k10; then oturum_k10; fi
+if want hedef; then oturum_hedef; fi
 
 # --- Temizlik denetimi ----------------------------------------------------------------
 sleep 1
