@@ -109,7 +109,7 @@ def ana(argv):
     def durum_geldi(m):
         d = AD.get(m.state, f"BILINMEYEN_{m.state}")
         kayit.yaz("durum", arac=int(m.vehicle_id), durum=d, sim_damga_ns=m.sim_stamp.sec * 10 ** 9 + m.sim_stamp.nanosec,
-                  ilerleme=[m.mission_item_current, m.mission_item_total], sim_ns=sim["ns"])
+                  ilerleme=[m.mission_item_current, m.mission_item_total], son_kare=int(m.last_frame_number), sim_ns=sim["ns"])
         with kilit:
             son_durum[int(m.vehicle_id)] = d
             if d == "TAMAMLANDI":

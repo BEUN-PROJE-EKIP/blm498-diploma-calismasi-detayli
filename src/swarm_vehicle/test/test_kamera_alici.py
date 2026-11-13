@@ -1,0 +1,217 @@
+"""Kamera alıcısı saf mantık birim testleri (ROS 2, MAVSDK, gz gerekmez). Çalıştırma: python3 src/swarm_vehicle/test/test_kamera_alici.py
+Beklenenler elle hesaplanmıştır (hz = 2: n = 2·t; damga ns = n · 5·10^8)."""
+import os
+import sys
+import unittest
+
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), ".."))
+from swarm_vehicle import kamera_alici as ka  # noqa: E402
+
+NS = 10 ** 9
+YARIM = NS // 2
+
+
+def damga(n):
+    return n * YARIM
+
+
+class Cihaz:
+    """Alıcıyı kuran, kayıtları ve kuyruğa verilenleri toplayan test düzeneği."""
+
+    def __init__(self, t_s=10.0, t_b=None):
+        self.kayit, self.kuyruk = [], []
+        self.a = ka.KameraAlici(1, 2, self.kayit.append, lambda n, d, m: self.kuyruk.append(n))
+        self.mono = 1000
+        if t_s is not None:
+            self.a.tarama_basladi(int(round(t_s * NS)))
+        if t_b is not None:
+            self.a.tarama_bitti(int(round(t_b * NS)))
+
+    def ver(self, *numaralar):
+        for n in numaralar:
+            self.mono += 1
+            self.a.kare(damga(n), self.mono)
+
+    def olaylar(self, olay, **kosul):
+        return [r for r in self.kayit if r["olay"] == olay and all(r.get(k) == v for k, v in kosul.items())]
+
+    def alinamadi(self):
+        return sorted(r["n"] for r in self.olaylar("kullanilabilir", sonuc_durumu="kare_alinamadi"))
+
+
+class Numaralandirma(unittest.TestCase):
+    def test_izgara(self):
+        self.assertEqual(ka.n_hesapla(10 * NS, 2), 20)
+        self.assertEqual(ka.n_hesapla(10 * NS + YARIM, 2), 21)
+        self.assertIsNone(ka.n_hesapla(10 * NS + 4 * 10 ** 6, 2))      # 10,004 s: ızgara dışı (K9)
+        self.assertIsNone(ka.n_hesapla(10 * NS - 1, 2))
+
+    def test_n_ilk_n_son_sinir_degerleri(self):
+        # elle: n_ilk = ceil(2·t_s), n_son = floor(2·t_b)
+        for t, ilk, son in ((10.0, 20, 20), (10.25, 21, 20), (10.5, 21, 21), (10.75, 22, 21), (0.0, 0, 0)):
+            ns = round(t * NS)
+            self.assertEqual((ka.n_ilk_hesapla(ns, 2), ka.n_son_hesapla(ns, 2)), (ilk, son), t)
+
+    def test_yedek_yol_acik_hata(self):
+        with self.assertRaises(ka.YedekYolHatasi):
+            ka.KameraAlici(1, 2, kip="yedek")
+
+
+class GorevKabulu(unittest.TestCase):
+    def test_normal_ardisik(self):
+        c = Cihaz(t_s=10.0, t_b=12.0)             # n_ilk = 20, n_son = 24
+        self.assertEqual((c.a.n_ilk, c.a.n_son), (20, 24))
+        c.ver(19, 20, 21, 22, 23, 24, 25)
+        self.assertEqual(c.kuyruk, [20, 21, 22, 23, 24])
+        self.assertEqual(c.alinamadi(), [])
+        self.assertEqual(c.a.son_gorev_numarasi, 24)
+        self.assertEqual([r["neden"] for r in c.olaylar("yok_sayildi")], ["gorev_oncesi", "kapanis_sonrasi"])
+        self.assertTrue(c.a.kapali)                # kapanış n_son'dan büyük ilk karenin (25) gelmesiyle olur
+
+    def test_ortada_tek_kayip(self):
+        c = Cihaz(10.0, 12.0)
+        c.ver(20, 21, 23, 24, 25)                  # 22 yok
+        self.assertEqual(c.alinamadi(), [22])
+        self.assertEqual(c.kuyruk, [20, 21, 23, 24])
+        # kayıp, sonraki kare gelince üretilir: "kare alınamadı" kaydı n=23'ün kuyruga_giris kaydından önce yazılır (zaman sırası)
+        sira = [(r["olay"], r["n"]) for r in c.kayit if r["n"] in (22, 23)]
+        self.assertEqual(sira, [("kullanilabilir", 22), ("kuyruga_giris", 23)])
+
+    def test_ardisik_coklu_kayip(self):
+        c = Cihaz(10.0, 12.0)
+        c.ver(20, 23, 24, 25)                      # 21, 22 yok
+        self.assertEqual(c.alinamadi(), [21, 22])
+        self.assertEqual(c.kuyruk, [20, 23, 24])
+
+    def test_ilk_gorev_karesi_kaybi(self):
+        c = Cihaz(10.0, 12.0)
+        c.ver(21, 22, 23, 24, 25)                  # 20 (n_ilk) yok
+        self.assertEqual(c.alinamadi(), [20])
+        self.assertEqual(c.kuyruk, [21, 22, 23, 24])
+
+    def test_sondaki_kayip_n_sondan_buyuk_ilk_kareyle_kapanir(self):
+        c = Cihaz(10.0, 12.0)
+        c.ver(20, 21, 22)                          # 23, 24 yok; kapanış karesi henüz gelmedi
+        self.assertEqual(c.alinamadi(), [])
+        c.ver(25)                                  # n_son = 24'ten büyük ilk kare
+        self.assertEqual(c.alinamadi(), [23, 24])
+        self.assertEqual(c.kuyruk, [20, 21, 22])   # 25 görev girdisi değil
+        self.assertEqual(c.olaylar("yok_sayildi")[-1]["neden"], "kapanis_sonrasi")
+        c.ver(26)                                  # kapanıştan sonra: yeniden "kare alınamadı" üretilmez
+        self.assertEqual(c.alinamadi(), [23, 24])
+
+    def test_n_son_kaybi(self):
+        c = Cihaz(10.0, 12.0)
+        c.ver(20, 21, 22, 23, 25)                  # n_son = 24 kayıp
+        self.assertEqual(c.alinamadi(), [24])
+
+    def test_kayittan_sonra_ayni_numara_gec_geldi(self):
+        c = Cihaz(10.0, 12.0)
+        c.ver(20, 21, 23)                          # 22 için kayıt yazıldı
+        self.assertEqual(c.alinamadi(), [22])
+        c.ver(22)                                  # geç gelen
+        self.assertEqual(c.kuyruk, [20, 21, 23])   # işlenmez / kuyruğa verilmez
+        self.assertEqual([r["n"] for r in c.olaylar("gec_geldi")], [22])
+        self.assertEqual(c.alinamadi(), [22])      # kayıt kesin: değişmedi
+        self.assertEqual(c.a.sayac["gec_geldi"], 1)
+
+    def test_kapanis_sonrasi_gec_gelen_kayip(self):
+        c = Cihaz(10.0, 12.0)
+        c.ver(20, 21, 22, 25)                      # 23, 24 kayıt; kapanış
+        c.ver(23)
+        self.assertEqual([r["n"] for r in c.olaylar("gec_geldi")], [23])
+        self.assertEqual(c.kuyruk, [20, 21, 22])
+
+    def test_tekrar_numara(self):
+        c = Cihaz(10.0, 12.0)
+        c.ver(20, 21, 21, 22)
+        self.assertEqual(c.kuyruk, [20, 21, 22])
+        self.assertEqual([r["neden"] for r in c.olaylar("yok_sayildi")], ["tekrar"])
+
+    def test_izgara_disi(self):
+        c = Cihaz(10.0, 12.0)
+        c.a.kare(20 * YARIM + 4 * 10 ** 6, 5)      # 10,004 s
+        c.ver(20, 21)
+        self.assertEqual(c.kuyruk, [20, 21])
+        self.assertEqual(c.a.sayac["izgara_disi"], 1)
+        self.assertEqual(c.olaylar("yok_sayildi")[0]["n"], "izgara_disi")
+
+    def test_t_s_t_b_ızgara_aninda_ve_bucuk(self):
+        # t_s = 10,0 → n_ilk 20 (damgası t_s'ye eşit kare görev karesi); t_b = 12,0 → n_son 24 (damgası t_b'ye eşit kare görev karesi)
+        c = Cihaz(10.0, 12.0)
+        c.ver(20, 24)
+        self.assertEqual(c.kuyruk, [20, 24])
+        # t_s = 10,25 → n_ilk 21; t_b = 12,25 → n_son 24
+        c = Cihaz(10.25, 12.25)
+        self.assertEqual((c.a.n_ilk, c.a.n_son), (21, 24))
+        c.ver(20, 21, 24, 25)
+        self.assertEqual(c.kuyruk, [21, 24])
+        # t_s = 10,5 → n_ilk 21; t_b = 12,5 → n_son 25
+        c = Cihaz(10.5, 12.5)
+        self.assertEqual((c.a.n_ilk, c.a.n_son), (21, 25))
+
+    def test_gorev_oncesi_ve_sonrasi_gorev_girdisi_degil(self):
+        c = Cihaz(10.0, 12.0)
+        c.ver(5, 19, 20, 24, 25, 30)
+        self.assertEqual(c.kuyruk, [20, 24])
+        self.assertEqual(c.alinamadi(), [21, 22, 23])     # 24 gelince 21..23 kayıp
+        self.assertEqual(c.a.sayac["gorev_oncesi"], 2)
+        self.assertEqual(c.a.sayac["kapanis_sonrasi"], 2)
+
+    def test_tarama_baslamadan_gelen_kareler(self):
+        c = Cihaz(t_s=None)
+        c.ver(3, 4, 5)
+        self.assertEqual(c.kuyruk, [])
+        self.assertEqual(c.a.sayac["gorev_oncesi"], 3)
+
+    def test_tarama_bitmeden_sonraki_kare_aralik_dolar(self):
+        c = Cihaz(10.0, None)
+        c.ver(20, 21, 22)
+        self.assertIsNone(c.a.n_son)
+        c.a.tarama_bitti(int(11.0 * NS))              # n_son = 22
+        c.ver(23)
+        self.assertEqual(c.kuyruk, [20, 21, 22])
+        self.assertEqual(c.alinamadi(), [])
+
+    def test_hicbir_numara_hem_gorev_hem_kayip_olmaz(self):
+        import random
+        for tohum in range(50):
+            r = random.Random(tohum)
+            c = Cihaz(10.0, 20.0)                      # n_ilk 20, n_son 40
+            for n in range(15, 50):
+                if r.random() < 0.3:
+                    continue                           # kayıp
+                c.ver(n)
+            for n in range(15, 50):
+                if r.random() < 0.3:
+                    c.ver(n)                           # geç / tekrar gelenler
+            gorev, kayip = set(c.kuyruk), set(c.alinamadi())
+            self.assertFalse(gorev & kayip, tohum)
+            self.assertLessEqual(gorev | kayip, set(range(20, 41)))
+            self.assertEqual(len(c.kuyruk), len(gorev))            # her numara en çok bir kez kuyruğa verildi
+            self.assertEqual(len(c.alinamadi()), len(kayip))       # her numara için en çok bir kayıp
+
+
+class EnjeksiyonCozumu(unittest.TestCase):
+    def test_kapali(self):
+        self.assertFalse(ka.Enjeksiyon("").acik)
+        self.assertEqual(ka.Enjeksiyon("").ozet(), "kapali")
+
+    def test_belirtecler(self):
+        e = ka.Enjeksiyon("bekle=0.6;dusur=+20,+60,+61,son;gecik=+100")
+        c = Cihaz(10.0, 12.0)
+        self.assertTrue(e.acik)
+        self.assertEqual(e.bekle_sn, 0.6)
+        # n_ilk = 20, n_son = 24: +20 → 40, +60 → 80, +61 → 81, son → 24; gecik +100 → 120
+        self.assertTrue(all(e.dusur_mu(n, c.a) for n in (40, 80, 81, 24)))
+        self.assertFalse(any(e.dusur_mu(n, c.a) for n in (20, 41, 82)))
+        self.assertTrue(e.gecik_mi(120, c.a))
+        self.assertFalse(e.gecik_mi(121, c.a))
+
+    def test_bilinmeyen_anahtar(self):
+        with self.assertRaises(ValueError):
+            ka.Enjeksiyon("xyz=1")
+
+
+if __name__ == "__main__":
+    unittest.main(verbosity=1)

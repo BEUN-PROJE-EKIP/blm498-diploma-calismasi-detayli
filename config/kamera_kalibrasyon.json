@@ -1,0 +1,44 @@
+{
+  "surum": 1,
+  "tur": "kamera_kalibrasyon",
+  "kalibrasyon_kimligi": "KAL-65-640x480-v1",
+  "kamera_kimligi": "kamera_1",
+  "cozunurluk": {
+    "genislik_px": 640,
+    "yukseklik_px": 480
+  },
+  "hfov_derece": 65.0,
+  "ic_parametreler": {
+    "fx": 502.2994,
+    "fy": 502.2994,
+    "cx": 320.0,
+    "cy": 240.0
+  },
+  "bozulma": "yok",
+  "arac_kamera": {
+    "arac_cercevesi": "FLU",
+    "kamera_cercevesi": "OpenCV",
+    "R": [
+      [
+        0,
+        -1,
+        0
+      ],
+      [
+        -1,
+        0,
+        0
+      ],
+      [
+        0,
+        0,
+        -1
+      ]
+    ],
+    "t_m": [
+      0.0,
+      0.0,
+      0.1
+    ]
+  }
+}

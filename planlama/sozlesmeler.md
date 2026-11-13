@@ -127,6 +127,9 @@ Mevcut anahtarlar (ağ, kimlik/port, kamera, çıkarım, eğitim) değişmedi. E
 | `KOSU_GZ_HAZIR_SN`, `KOSU_PX4_HAZIR_SN` | 60, 90 | varsayım (hazır olma bekleme üst sınırları, saniye) |
 | `KOSU_KAPANIS_SN` | 30 | varsayım (süreç grubu başına SIGTERM sonrası bekleme üst sınırı, saniye) |
 | `PX4A_BAGLAN_SN`, `PX4A_KOMUT_SN`, `PX4A_HAZIR_SN`, `PX4A_KAPAT_SN` | 60, 20, 90, 5 | varsayım (px4_adapter zaman aşımları, gerçek saniye: bağlanma, tek komut/okuma, ev konumu ve arm edilebilirlik, mavsdk_server'a SIGTERM sonrası bekleme) |
+| `SIM_MODEL` | `gz_x500_mono_cam_down` | PX4'ün x500 + aşağı bakan kamera adı (havaçerçevesi bu adla eşleşir); model dosyası `araclar/kamera_uret.py` ile üretilir (§10) |
+| `KAMERA_LINK`, `KAMERA_ALGILAYICI`, `CAM_CLIP_NEAR_M`, `CAM_CLIP_FAR_M` | `camera_link`, `camera`, 0,1, 200 | varsayım (üretilen modeldeki adlar ve kırpma düzlemleri) |
+| `KARE_NUMARALAMA` | `izgara` | belge/K9 (yedek yol uygulanmaz; başka değer açık hata verir) |
 | `PX4A_HAZIRLIK_SN`, `PX4A_IRTIFA_TOLERANS_M` | 240, 1 | varsayım (hazırlık evresi üst sınırı, gerçek saniye; kalkışta ve ilk noktada irtifa kabul payı, m) |
 | `DURUM_YAYIN_HZ` | 2 | belge (durum 2 Hz) |
 | `KONU_DURUM`, `KONU_TARAMA_BASLAT`, `KONU_TARAMA_BITIS`, `KONU_COMPLETE` | bkz. §9 | varsayım (konu adları) |
@@ -163,6 +166,10 @@ Bir koşunun başlatılması, durdurulması ve kayıt düzeni. Bu bölüm **tasl
   calisma/px4_<i>/                PX4 örneği çalışma klasörü
   kayit/<kaynak>[_<arac>].jsonl   kare olay kayıtları (8.3); her bileşen KENDİ dosyasına yazar
   kayit/arac_durum_<arac>.jsonl   araç sürecinin DİĞER araçlardan aldığı durumlar (8.5)
+  kayit/gazebo_damga.jsonl        Gazebo damga bileşeni: her araç kamera karesi için `uretim` olayı (8.3; kaynak gazebo_damga; kosu.sh baslat yüklemesi)
+  kayit/kamera_alici_<arac>.jsonl kamera alıcısı: görev karesi, kare alınamadı, geç geldi, yok sayılan kare kayıtları (8.3, 10.1; kaynak kamera_alicisi)
+  uretim/                         koşu için üretilen araç modeli (modeller/) ve Gazebo sunucu yapılandırması (server.config); config/deney.env'den, PX4 dosyalarına dokunmadan
+  gorus_deneme.jsonl, gorus_ornek_*.png  yalnız kamera yönelim denemesinin çıktısı (serbest biçim, depoya girmez)
 .generated/kosular/aktif          yaşayan koşunun kimliği (varsa); durdurma/temizleme siler
 ```
 
@@ -198,11 +205,12 @@ Satır başına bir kayıt; bir kare için her aşama ayrı kayıttır.
 | `arac_kimligi` | `UAV_SYS_IDS` değeri. |
 | `n` | Kare numarası: damga ızgaraya tam oturuyorsa `n = CAM_RATE_HZ · t_sim` (2·t_sim) tam sayısı; oturmuyorsa `"izgara_disi"`. **Yuvarlama yoktur** (risk U16); doğrulayıcı iki yönde de denetler. |
 | `sim_damga_ns` | Simülasyon damgası (`header.stamp`), ns, tam sayı. |
-| `olay` | `uretim`, `kuyruga_giris`, `aktarim_tamam`, `cikarim_basi`, `cikarim_sonu`, `kullanilabilir` [belge: üretim, uygulama kuyruğuna giriş, ilgili aktarımın tamamlanması, çıkarım başlangıcı, çıkarım bitişi, kullanılabilirlik]. |
+| `olay` | `uretim`, `kuyruga_giris`, `aktarim_tamam`, `cikarim_basi`, `cikarim_sonu`, `kullanilabilir` [belge: üretim, uygulama kuyruğuna giriş, ilgili aktarımın tamamlanması, çıkarım başlangıcı, çıkarım bitişi, kullanılabilirlik]; ayrıca kamera alıcısının YEREL kayıtları `gec_geldi` ve `yok_sayildi` (aşağıda; zaman aşaması değildir, ağa gönderilmez) [varsayım: belge "geç geldi" kaydının yalnız yerel kayda yazılacağını söyler, olay adını söylemez]. |
 | `mono_ns` | `CLOCK_MONOTONIC` ns, **pozitif tam sayı**; ya da `"uygulanmaz"`. [belge] Uygulanmayan aktarım aşaması "uygulanmaz" gösterilir, sıfır süreli gerçek aktarım gibi yorumlanmaz: `0`, boş (`null`) ve ondalık değer reddedilir. [varsayım] `"uygulanmaz"` yalnız `kuyruga_giris` ve `aktarim_tamam` için yazılabilir. |
-| `sonuc_durumu` | Yalnız `kullanilabilir` olayında zorunlu: `sonuc` \| `tespit_yok` \| `kare_alinamadi` \| `gec_geldi`. Dört durum ayrıdır ve karışmaz. |
+| `sonuc_durumu` | Yalnız `kullanilabilir` olayında zorunlu: `sonuc` \| `tespit_yok` \| `kare_alinamadi`. Üç durum ayrıdır ve karışmaz. **`gec_geldi` burada YOKTUR**: belge geç gelen kareyi işlemez ve ağa göndermez, yalnız yerel kayda "geç geldi" yazar; bu yüzden yer istasyonunda kullanılabilir bir durum değil, kamera alıcısının yerel olayıdır (`olay: gec_geldi`). |
+| `neden` | Yalnız `yok_sayildi` olayında zorunlu: `gorev_oncesi` (damga n_ilk'ten önce ya da tarama başlamadan) \| `kapanis_sonrasi` (n_son'dan büyük kare) \| `izgara_disi` (n türetilemedi; `n = "izgara_disi"`) \| `tekrar` (numara zaten görev karesi olarak kabul edilmişti). |
 
-Zamanlar ondalık saniye değildir; ölçekleme ve yuvarlama yapılmaz [belge]. Bir dosyada aynı (araç, `n`, damga, olay) ikinci kez yazılamaz. Örnekler: `config/ornek/kare_olay_gazebo_damga_ornek.jsonl`, `config/ornek/kare_olay_yer_istasyonu_ornek.jsonl`.
+Zamanlar ondalık saniye değildir; ölçekleme ve yuvarlama yapılmaz [belge]. Bir dosyada aynı (araç, `n`, damga, olay) ikinci kez yazılamaz (yerel `gec_geldi`/`yok_sayildi` kayıtları için alım anı `mono_ns` de anahtardadır; aynı kare birden çok kez gelebilir). Örnekler: `config/ornek/kare_olay_gazebo_damga_ornek.jsonl`, `config/ornek/kare_olay_yer_istasyonu_ornek.jsonl`, `config/ornek/kare_olay_kamera_alici_ornek.jsonl`.
 
 ### 8.4 Koşu betiği
 
@@ -239,3 +247,22 @@ Belge konu adlarını ve QoS değerlerini **tanımlamaz**; aşağıdaki her ad v
 - **Durum iletisi** 2 Hz sürekli akıştır; kaybolan bir ileti sonraki ile telafi edilir, geç katılana eski durum verilmez: volatile.
 - Araç komut konusu bu sürümde **yoktur** (komut türleri belgede tanımsız).
 - Durum yayımı duvar saati zamanlayıcısıyla (2 Hz) yapılır; ayrıca her durum geçişinde bir ek ileti yayımlanır [varsayım: 2 Hz'lik akış yarım saniyeden kısa süren bir durumu — örneğin tarama bitişini en son yapan aracın WAIT'ini — kaçırabilir]; iletideki `sim_stamp` simülasyon saatidir [varsayım: RTF ≈ 1; ölçüm sim zamanına göre de raporlanır].
+
+## 10. Araç kamerası, damga bileşeni ve kamera alıcısı
+
+**Araç modeli (B6).** `araclar/kamera_uret.py model <klasör>`, PX4'ün `x500` modelini `<include>` ederek gövdeye (`base_link`) sabit, aşağı bakan (pitch +90°) bir kamera bağlantısı ekleyen modeli `config/deney.env` değerlerinden üretir: `CAM_WIDTH`×`CAM_HEIGHT`, `R8G8B8` (sıkıştırmasız), `CAM_RATE_HZ` (simülasyon zamanında), yatay görüş açısı `CAM_HFOV_RAD` (kilitli 65°), `KAL_KAMERA_KONUM_Z_M` yüksekliği. `araclar/kosu.sh baslat` her koşuda bunu `kosu/uretim/modeller/` altına üretir ve yalnız PX4 başlatma sürecinde `PX4_GZ_MODELS` değişkenini oraya çevirir (PX4 aynı adlı modeli buradan yükler; PX4 kaynak ağacı değişmez). Görüntüde **yukarı = aracın ileri yönü (+x gövde), sağ = gövdenin sağı**; görüntünün yatay ekseni uçuş yönüne diktir (§3, §4). Görüntü konusu: `/world/<dünya>/model/<model>_<örnek>/link/<KAMERA_LINK>/sensor/<KAMERA_ALGILAYICI>/image`. Kalibrasyon dosyası: `python3 araclar/kamera_uret.py kalibrasyon` → `config/kamera_kalibrasyon.json` (`--check` güncel değilse çıkış 1).
+
+**Damga bileşeni (B7).** `src/yayim_damga` (Gazebo sistem eklentisi), sunucu sürecinde her araç kamerasının görüntü konusuna süreç içi abone olur; üretim anı geri çağrıda okunan `CLOCK_MONOTONIC`'tur (kararlar: kare yayımlanma anı). `kosu.sh baslat`, eklentiyi PX4'ün sunucu yapılandırmasının bir kopyasına ekler (`GZ_SIM_SERVER_CONFIG_PATH`; PX4'ün fizik, sensör, IMU ve köprü eklentileri aynen yüklenir) ve `kayit/gazebo_damga.jsonl`'a her kare için `kare_olay` (`kaynak: gazebo_damga`, `olay: uretim`) yazar. Araç kimliği, görüntü konusunun ait olduğu en üst model adından (`<SIM_MODEL öneksiz>_<örnek>`) `UAV_SYS_IDS` sırasıyla bulunur; eşleşmeyen kamera kaydedilmez ve günlüğe uyarı yazılır. Koşular SIGTERM ile durdurulur (Gazebo en son); SIGKILL'de son ≤ 1 sn kayıt kaybolabilir.
+
+### 10.1 Kamera alıcısı kuralları (B8)
+
+Kaynak `kamera_alicisi`, dosya `kayit/kamera_alici_<arac>.jsonl`. Her kamera karesi için, `n = CAM_RATE_HZ · t_sim` (tam sayı aritmetiğiyle) türetilir; damga ızgaraya oturmuyorsa `izgara_disi` (görev karesi sayılmaz; K9). `n_ilk = ceil(2·t_s)`, `n_son = floor(2·t_b)`; damgası `t_s` ya da `t_b`'ye eşit kare görev karesidir. Kayıtlar:
+
+| Durum | Kayıt |
+|---|---|
+| Görev karesi ([n_ilk, n_son]) iç kuyruğa verildi | `olay: kuyruga_giris`, `mono_ns` = kuyruğa verilme anı [varsayım: belge alıcının alım anı için ayrı bir aşama tanımlamaz; "uygulama kuyruğuna giriş" aşamasıdır] |
+| Aralıkta olup alınmamış numara, daha büyük numaralı kare geldiğinde (ya da n_son'dan büyük ilk kareyle) | `olay: kullanilabilir`, `sonuc_durumu: kare_alinamadi`, `sim_damga_ns` = `n · 10⁹ / CAM_RATE_HZ`, `mono_ns` = kaydın üretildiği an |
+| Kayıp kaydı yazılmış numarayla sonradan gelen kare | `olay: gec_geldi`; işlenmez, iç kuyruğa ve ağa verilmez (kayıp kaydı kesindir) |
+| Görev girdisi olmayan kare | `olay: yok_sayildi`, `neden` (§8.3) |
+
+Hiçbir numara hem görev karesi hem `kare_alinamadi` olamaz. Yedek yol (alıcı numarası `k`) uygulanmaz (K9): `KARE_NUMARALAMA` `izgara` dışında bir değerse alıcı açık hata verir. Hata enjeksiyonu yalnız testler içindir: ortam değişkeni `KAMERA_ENJEKSIYON` (`bekle=<sn>;dusur=<n>,…;gecik=<n>,…`; `+k` = `n_ilk + k`, `son` = `n_son`), varsayılan kapalıdır ve durumu (`kapali` ya da açık değer) her araç günlüğüne `kamera_enjeksiyon` olayıyla yazılır.

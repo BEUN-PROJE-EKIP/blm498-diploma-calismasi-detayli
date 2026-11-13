@@ -1,17 +1,16 @@
-// YayimDamga — Gazebo sunucu sürecinde çalışan keşif amaçlı damga bileşeni (kare yayımlanma anı, FR-23).
-// Her kamera karesi için bir satır yazar: yöntem, araç/kamera kimliği, header.stamp (ns), CLOCK_MONOTONIC (ns), kare numarası.
-// Yöntemler (SDF <yontem> ile seçilir, virgülle ayrılmış birden çok olabilir):
-//   abone : sunucu süreci içinde, aynı görüntü konusuna gz-transport ile süreç içi abone (header.stamp mesajdan okunur)
-//   bilgi : aynı algılayıcının camera_info konusuna süreç içi abone (algılayıcı görüntüyle birlikte yayımlar; header.stamp mesajdan)
-//   kare  : gz-rendering kamerasının "yeni görüntü karesi" olayı (header.stamp, o anki simülasyon zamanından türetilir)
-// Kayıt: bellekte ön ayrılmış arabellek; ayrı bir yazıcı iş parçacığı 1 sn'de bir dosyaya boşaltır, kapanışta son boşaltma yapılır.
-// Kayıt biçimi geçicidir (keşif).
-#include <atomic>
+// YayimDamga — Gazebo sunucu sürecinde çalışan damga bileşeni (kalıcı hâl; B7, FR-23).
+// Her araç kamerası karesi için bir `kare_olay` kaydı yazar (planlama/sozlesmeler.md §8.3): kaynak "gazebo_damga", olay "uretim", araç kimliği,
+// simülasyon damgası (görüntü iletisinin header.stamp'i, ns), kare numarası n (damga ızgaraya tam oturuyorsa n = hz·t_sim, aksi halde "izgara_disi";
+// yuvarlama yok) ve üretim anının CLOCK_MONOTONIC zamanı (ns).
+// Üretim anı = sunucu süreci içinde, aynı görüntü konusuna süreç içi gz-transport aboneliğinin geri çağrısında okunan zaman (kararlar: kare yayımlanma anı).
+// Araç kimliği: görüntü konusunun ait olduğu EN ÜST model adı `<model_onek><örnek>` biçimindeyse, `arac_kimlikleri` listesinin <örnek>. değeri
+// (PX4: <model>_<örnek>, UAV_SYS_IDS sırası); eşleşmeyen kamera kaydedilmez, sayaçla günlüğe uyarı yazılır.
+// SDF parametreleri: <cikti_yolu> (tam dosya yolu), <hz> (CAM_RATE_HZ), <model_onek>, <arac_kimlikleri> (boşlukla ayrılmış).
+// Kayıt: bellekte arabellek; ayrı yazıcı iş parçacığı 1 sn'de bir dosyaya boşaltır, kapanışta (SIGTERM) son boşaltma yapılır. SIGKILL'de son ≤ 1 sn kaybolabilir.
 #include <chrono>
 #include <condition_variable>
 #include <cstdio>
 #include <fstream>
-#include <map>
 #include <memory>
 #include <mutex>
 #include <set>
@@ -21,13 +20,8 @@
 #include <vector>
 
 #include <gz/common/Console.hh>
-#include <gz/msgs/camera_info.pb.h>
 #include <gz/msgs/image.pb.h>
 #include <gz/plugin/Register.hh>
-#include <gz/rendering/Camera.hh>
-#include <gz/rendering/RenderEngine.hh>
-#include <gz/rendering/RenderingIface.hh>
-#include <gz/rendering/Scene.hh>
 #include <gz/sim/Entity.hh>
 #include <gz/sim/EntityComponentManager.hh>
 #include <gz/sim/Sensor.hh>
@@ -43,16 +37,12 @@ namespace yayim
 {
 struct Kayit
 {
-  const char *yontem;      // sabit dizge göstergesi
-  int kamera;              // kameralar_ dizin numarası
-  int64_t damga_ns;        // header.stamp (ns)
-  int64_t mono_ns;
-  int64_t sim_ns;          // kare yöntemi için PreUpdate'te okunan sim zamanı; abone için damga ile aynı
+  int arac;          // araç kimliği (UAV_SYS_IDS değeri)
+  int64_t damga_ns;  // header.stamp (ns)
+  int64_t mono_ns;   // CLOCK_MONOTONIC (ns)
 };
 
-class Yayim : public gz::sim::System,
-              public gz::sim::ISystemConfigure,
-              public gz::sim::ISystemPreUpdate
+class Yayim : public gz::sim::System, public gz::sim::ISystemConfigure, public gz::sim::ISystemPreUpdate
 {
 public:
   ~Yayim() override { Kapat(); }
@@ -60,26 +50,22 @@ public:
   void Configure(const gz::sim::Entity &, const std::shared_ptr<const sdf::Element> &_sdf,
                  gz::sim::EntityComponentManager &, gz::sim::EventManager &) override
   {
-    std::string yontem = _sdf->Get<std::string>("yontem", "abone,kare").first;
-    dizin_ = _sdf->Get<std::string>("cikti_dizini", ".").first;
+    yol_ = _sdf->Get<std::string>("cikti_yolu", "gazebo_damga.jsonl").first;
     hz_ = _sdf->Get<double>("hz", 2.0).first;
-    motor_ = _sdf->Get<std::string>("render_engine", "ogre2").first;
-    abone_ = yontem.find("abone") != std::string::npos;
-    bilgi_ = yontem.find("bilgi") != std::string::npos;
-    kare_ = yontem.find("kare") != std::string::npos;
-    arabellek_.reserve(1 << 20);
-    dosya_.open(dizin_ + "/yayim_damga.csv", std::ios::out | std::ios::trunc);
-    dosya_ << "yontem,kimlik,konu,damga_ns,mono_ns,sim_ns,n\n";
-    dosya_.flush();
+    onek_ = _sdf->Get<std::string>("model_onek", "").first;
+    std::istringstream is(_sdf->Get<std::string>("arac_kimlikleri", "").first);
+    int k;
+    while (is >> k) kimlikler_.push_back(k);
+    arabellek_.reserve(1 << 16);
+    dosya_.open(yol_, std::ios::out | std::ios::trunc);
+    if (!dosya_) gzerr << "[YayimDamga] kayıt dosyası açılamadı: " << yol_ << std::endl;
     yazici_ = std::thread([this] { Yaz(); });
-    gzmsg << "[YayimDamga] yontem=" << yontem << " cikti=" << dizin_ << " hz=" << hz_ << std::endl;
+    gzmsg << "[YayimDamga] cikti=" << yol_ << " hz=" << hz_ << " model_onek=" << onek_ << " arac_sayisi=" << kimlikler_.size() << std::endl;
   }
 
-  void PreUpdate(const gz::sim::UpdateInfo &_info, gz::sim::EntityComponentManager &_ecm) override
+  void PreUpdate(const gz::sim::UpdateInfo &, gz::sim::EntityComponentManager &_ecm) override
   {
-    sim_ns_.store(std::chrono::duration_cast<std::chrono::nanoseconds>(_info.simTime).count());
-    if (bagli_ >= toplam_ && toplam_ > 0 && !yeniden_) return;
-    // Kamera algılayıcılarını ECM'den bul; kimlik = en üst düzey model adı, konu = algılayıcı konusu.
+    // Kamera algılayıcılarını ECM'den bul (araçlar çalışma sırasında eklenir); konu algılayıcı hazır olunca belli olur.
     _ecm.Each<gz::sim::components::Camera, gz::sim::components::Name>(
       [&](const gz::sim::Entity &e, const gz::sim::components::Camera *, const gz::sim::components::Name *) -> bool
       {
@@ -87,103 +73,40 @@ public:
         gz::sim::Sensor s(e);
         auto konu = s.Topic(_ecm);
         if (!konu) return true;
-        Kamera k;
-        k.konu = *konu;
-        k.kapsamli = gz::sim::removeParentScope(gz::sim::scopedName(e, _ecm, "::", false), "::");
+        bilinen_.insert(e);
         auto ust = gz::sim::topLevelModel(e, _ecm);
         auto ad = _ecm.Component<gz::sim::components::Name>(ust);
-        k.kimlik = ad ? ad->Data() : k.kapsamli;
-        kameralar_.push_back(k);
-        bilinen_.insert(e);
-        toplam_ = kameralar_.size();
-        if (abone_) AboneOl(static_cast<int>(kameralar_.size()) - 1);
-        if (bilgi_) BilgiAboneOl(static_cast<int>(kameralar_.size()) - 1);
-        gzmsg << "[YayimDamga] kamera bulundu: kimlik=" << k.kimlik << " konu=" << k.konu << " kapsamli_ad=" << k.kapsamli << std::endl;
+        const std::string model = ad ? ad->Data() : std::string();
+        int arac = -1;
+        if (!onek_.empty() && model.rfind(onek_, 0) == 0)
+        {
+          const std::string sayi = model.substr(onek_.size());
+          if (!sayi.empty() && sayi.find_first_not_of("0123456789") == std::string::npos)
+          {
+            const size_t i = static_cast<size_t>(std::stoul(sayi));
+            if (i < kimlikler_.size()) arac = kimlikler_[i];
+          }
+        }
+        if (arac < 0)
+        {
+          ++eslesmeyen_;
+          gzwarn << "[YayimDamga] kamera araç kimliğine eşlenemedi, KAYDEDİLMEYECEK: model=" << model << " konu=" << *konu
+                 << " (eşleşmeyen kamera sayısı=" << eslesmeyen_ << ")" << std::endl;
+          return true;
+        }
+        auto cb = [this, arac](const gz::msgs::Image &m)
+        {
+          const int64_t w = MonotonikNs();   // üretim anı: süreç içi abonenin geri çağrısı
+          const int64_t ns = static_cast<int64_t>(m.header().stamp().sec()) * 1000000000LL + m.header().stamp().nsec();
+          Ekle({arac, ns, w});
+        };
+        if (!node_.Subscribe<gz::msgs::Image>(*konu, cb)) gzerr << "[YayimDamga] abonelik kurulamadı: " << *konu << std::endl;
+        else gzmsg << "[YayimDamga] kamera bulundu: model=" << model << " arac_kimligi=" << arac << " konu=" << *konu << std::endl;
         return true;
       });
-    if (kare_) KareBagla();
   }
 
 private:
-  struct Kamera
-  {
-    std::string konu, kimlik, kapsamli;
-    bool kare_bagli = false;
-    gz::common::ConnectionPtr baglanti;
-  };
-
-  void AboneOl(int idx)
-  {
-    const std::string konu = kameralar_[idx].konu;
-    auto cb = [this, idx](const gz::msgs::Image &m)
-    {
-      const int64_t w = MonotonikNs();
-      const int64_t ns = static_cast<int64_t>(m.header().stamp().sec()) * 1000000000LL + m.header().stamp().nsec();
-      Ekle({"abone", idx, ns, w, ns});
-    };
-    if (!node_.Subscribe<gz::msgs::Image>(konu, cb)) gzerr << "[YayimDamga] abonelik kurulamadı: " << konu << std::endl;
-  }
-
-  void BilgiAboneOl(int idx)
-  {
-    // Bilgi konusu: görüntü konusunun son parçası atılıp /camera_info eklenir (algılayıcının varsayılanı).
-    std::string konu = kameralar_[idx].konu;
-    const auto p = konu.rfind('/');
-    konu = (p == std::string::npos ? konu : konu.substr(0, p)) + "/camera_info";
-    auto cb = [this, idx](const gz::msgs::CameraInfo &m)
-    {
-      const int64_t w = MonotonikNs();
-      const int64_t ns = static_cast<int64_t>(m.header().stamp().sec()) * 1000000000LL + m.header().stamp().nsec();
-      Ekle({"bilgi", idx, ns, w, ns});
-    };
-    if (!node_.Subscribe<gz::msgs::CameraInfo>(konu, cb)) gzerr << "[YayimDamga] abonelik kurulamadı: " << konu << std::endl;
-    else gzmsg << "[YayimDamga] bilgi konusuna abone: " << konu << std::endl;
-  }
-
-  void KareBagla()
-  {
-    // sceneFromFirstRenderEngine() bu süreçte motoru bulamadığı için (kayıt defteri boş görünüyor) motor adıyla aranır;
-    // motor yüklü değilse yenisi YÜKLENMEZ (yalnızca Sensors sistemi yükler).
-    if (!gz::rendering::isEngineLoaded(motor_)) {
-      if (++motor_bekleme_ % 250 == 1) {
-        std::string l;
-        for (const auto &a : gz::rendering::loadedEngines()) l += a + " ";
-        gzmsg << "[YayimDamga] motor '" << motor_ << "' yüklü değil; yüklü motorlar: [" << l << "]" << std::endl;
-      }
-      return;
-    }
-    auto *motor = gz::rendering::engine(motor_);
-    if (!motor || motor->SceneCount() == 0) return;
-    auto scene = motor->SceneByIndex(0);
-    if (!scene) return;
-    size_t bagli = 0;
-    for (size_t i = 0; i < kameralar_.size(); ++i)
-    {
-      auto &k = kameralar_[i];
-      if (k.kare_bagli) { ++bagli; continue; }
-      auto dugum = scene->NodeByName(k.kapsamli);
-      auto kam = std::dynamic_pointer_cast<gz::rendering::Camera>(dugum);
-      if (!kam) continue;
-      const int idx = static_cast<int>(i);
-      k.baglanti = kam->ConnectNewImageFrame(
-        [this, idx](const void *, unsigned int, unsigned int, unsigned int, const std::string &)
-        {
-          const int64_t w = MonotonikNs();
-          const int64_t sim = sim_ns_.load();
-          if (kare_sayac_.fetch_add(1) == 0) gzmsg << "[YayimDamga] ilk kare olayı alındı" << std::endl;
-          Ekle({"kare", idx, sim, w, sim});
-        });
-      k.kare_bagli = true;
-      ++bagli;
-      gzmsg << "[YayimDamga] kare olayına bağlandı: " << k.kapsamli << std::endl;
-    }
-    bagli_ = bagli;
-    if (bagli_ < kameralar_.size() && !uyari_) {
-      uyari_ = true;
-      gzwarn << "[YayimDamga] kare olayı: bazı kameralar sahnede bulunamadı (kapsamlı ad eşleşmedi)" << std::endl;
-    }
-  }
-
   void Ekle(const Kayit &r)
   {
     std::lock_guard<std::mutex> g(kilit_);
@@ -193,7 +116,7 @@ private:
   void Yaz()
   {
     std::vector<Kayit> yerel;
-    yerel.reserve(1 << 16);
+    yerel.reserve(1 << 12);
     while (true)
     {
       {
@@ -203,16 +126,16 @@ private:
       }
       for (const auto &r : yerel)
       {
-        // Izgara: n = t·hz, damga ızgaraya tam oturuyorsa; yuvarlama yok.
-        std::string n = "izgara_disi";
-        const double hz = hz_;
-        if (hz > 0 && hz == static_cast<double>(static_cast<int64_t>(hz)))
+        // Izgara: n = hz·t, damga ızgaraya tam oturuyorsa; yuvarlama yok.
+        std::string n = "\"izgara_disi\"";
+        if (hz_ > 0 && hz_ == static_cast<double>(static_cast<int64_t>(hz_)))
         {
-          const int64_t h = static_cast<int64_t>(hz);
+          const int64_t h = static_cast<int64_t>(hz_);
           if ((r.damga_ns * h) % 1000000000LL == 0) n = std::to_string(r.damga_ns * h / 1000000000LL);
         }
-        const auto &k = kameralar_[r.kamera];
-        dosya_ << r.yontem << ',' << k.kimlik << ',' << k.konu << ',' << r.damga_ns << ',' << r.mono_ns << ',' << r.sim_ns << ',' << n << '\n';
+        dosya_ << "{\"surum\": 1, \"tur\": \"kare_olay\", \"kaynak\": \"gazebo_damga\", \"arac_kimligi\": " << r.arac << ", \"n\": " << n
+               << ", \"sim_damga_ns\": " << r.damga_ns << ", \"olay\": \"uretim\", \"mono_ns\": " << r.mono_ns << "}\n";
+        ++yazilan_;
       }
       dosya_.flush();
       yerel.clear();
@@ -230,23 +153,22 @@ private:
     }
     cv_.notify_all();
     if (yazici_.joinable()) yazici_.join();
+    gzmsg << "[YayimDamga] kapanış: yazılan kayıt=" << yazilan_ << " eşleşmeyen kamera=" << eslesmeyen_ << std::endl;
   }
 
   gz::transport::Node node_;
-  std::vector<Kamera> kameralar_;
+  std::vector<int> kimlikler_;
   std::set<gz::sim::Entity> bilinen_;
   std::vector<Kayit> arabellek_;
   std::mutex kilit_;
   std::condition_variable cv_;
   std::thread yazici_;
   std::ofstream dosya_;
-  std::string dizin_, motor_;
-  int motor_bekleme_ = 0;
+  std::string yol_, onek_;
   double hz_ = 2.0;
-  bool abone_ = false, bilgi_ = false, kare_ = false, uyari_ = false, yeniden_ = false, dur_ = false;
-  size_t bagli_ = 0, toplam_ = 0;
-  std::atomic<int64_t> sim_ns_{0};
-  std::atomic<int64_t> kare_sayac_{0};
+  bool dur_ = false;
+  size_t eslesmeyen_ = 0;
+  size_t yazilan_ = 0;
 };
 }  // namespace yayim
 

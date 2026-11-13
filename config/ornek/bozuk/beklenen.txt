@@ -43,3 +43,10 @@ arac_durum_yazar_karisik.jsonl | yazarı aynı olmalı
 arac_durum_mono_geriye.jsonl | geriye gidiyor
 arac_durum_bos_satir.jsonl | boş satır olamaz
 arac_durum_bilinmeyen_alan.jsonl | bilinmeyen alan
+olay_sonuc_durumu_gec_geldi.jsonl | zorunlu (bulunan: 'gec_geldi')
+olay_yok_sayildi_nedensiz.jsonl | 'yok_sayildi' olayında
+olay_yok_sayildi_neden_gecersiz.jsonl | 'yok_sayildi' olayında
+olay_neden_yanlis_olayda.jsonl | yalnız 'yok_sayildi' olayında bulunabilir
+olay_izgara_disi_neden_uyumsuz.jsonl | birlikte olmalı
+olay_gec_geldi_yer_istasyonunda.jsonl | yalnız kamera alıcısı yazar
+olay_gec_geldi_uygulanmaz.jsonl | 'uygulanmaz' yalnız aktarım aşamalarında

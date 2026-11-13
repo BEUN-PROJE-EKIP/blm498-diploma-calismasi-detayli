@@ -3,4 +3,4 @@
 {"surum": 1, "tur": "kare_olay", "kaynak": "yer_istasyonu", "arac_kimligi": 1, "n": 5, "sim_damga_ns": 2500000000, "olay": "kullanilabilir", "mono_ns": 1002530000000, "sonuc_durumu": "sonuc"}
 {"surum": 1, "tur": "kare_olay", "kaynak": "yer_istasyonu", "arac_kimligi": 1, "n": 6, "sim_damga_ns": 3000000000, "olay": "kullanilabilir", "mono_ns": 1003031000000, "sonuc_durumu": "tespit_yok"}
 {"surum": 1, "tur": "kare_olay", "kaynak": "yer_istasyonu", "arac_kimligi": 1, "n": 7, "sim_damga_ns": 3500000000, "olay": "kullanilabilir", "mono_ns": 1003600000000, "sonuc_durumu": "kare_alinamadi"}
-{"surum": 1, "tur": "kare_olay", "kaynak": "yer_istasyonu", "arac_kimligi": 1, "n": 8, "sim_damga_ns": 4000000000, "olay": "kullanilabilir", "mono_ns": 1006100000000, "sonuc_durumu": "gec_geldi"}
+{"surum": 1, "tur": "kare_olay", "kaynak": "yer_istasyonu", "arac_kimligi": 1, "n": 8, "sim_damga_ns": 4000000000, "olay": "kullanilabilir", "mono_ns": 1006100000000, "sonuc_durumu": "sonuc"}

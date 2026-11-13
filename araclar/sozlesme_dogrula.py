@@ -469,10 +469,12 @@ def dogrula_kalibrasyon(c, d):
 # Koşu kaydı: koşu üst verisi (kosu.json) ve kare olay kaydı (JSON Lines)
 # ---------------------------------------------------------------------------------------------------------------------------------
 BITIS_DURUMLARI = ("tamamlandi", "zorla_kapatildi", "yarida_kaldi")
-OLAY_TURLERI = ("uretim", "kuyruga_giris", "aktarim_tamam", "cikarim_basi", "cikarim_sonu", "kullanilabilir")
+OLAY_TURLERI = ("uretim", "kuyruga_giris", "aktarim_tamam", "cikarim_basi", "cikarim_sonu", "kullanilabilir", "gec_geldi", "yok_sayildi")
+YEREL_OLAYLAR = ("gec_geldi", "yok_sayildi")       # kamera alıcısının YEREL kayıtları (zaman aşaması değil; ağa gönderilmez): geç gelen kare, görev girdisi olmayan kare
+YOK_SAYILMA_NEDENLERI = ("gorev_oncesi", "kapanis_sonrasi", "izgara_disi", "tekrar")
 UYGULANMAZ_OLABILEN = ("kuyruga_giris", "aktarim_tamam")   # [belge] yalnız aktarım aşamaları "uygulanmaz" olabilir
 KAYNAKLAR = ("gazebo_damga", "kamera_alicisi", "arac_sureci", "cikarim_iscisi", "yer_istasyonu")
-SONUC_DURUMLARI = ("sonuc", "tespit_yok", "kare_alinamadi", "gec_geldi")
+SONUC_DURUMLARI = ("sonuc", "tespit_yok", "kare_alinamadi")     # "geç geldi" burada YOKTUR: ağa gönderilmez, yalnız alıcının yerel kaydıdır (olay: gec_geldi)
 SHA_RE = re.compile(r"^[0-9a-f]{64}$")
 COMMIT_RE = re.compile(r"^[0-9a-f]{40}$")
 ISO_RE = re.compile(r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d+)?(Z|[+-]\d{2}:\d{2})$")
@@ -584,7 +586,7 @@ def dogrula_kosu_ustveri(c, d):
 def dogrula_kare_olay(c, d):
     """Tek bir kare olay kaydı (JSON Lines'ın bir satırı)."""
     h = Hatalar()
-    if not alan_denetle(h, "", d, ["surum", "tur", "kaynak", "arac_kimligi", "n", "sim_damga_ns", "olay", "mono_ns"], ["sonuc_durumu"]):
+    if not alan_denetle(h, "", d, ["surum", "tur", "kaynak", "arac_kimligi", "n", "sim_damga_ns", "olay", "mono_ns"], ["sonuc_durumu", "neden"]):
         return h.liste
     ust_alanlar(h, d, "kare_olay")
     if d.get("kaynak") not in KAYNAKLAR:
@@ -622,6 +624,15 @@ def dogrula_kare_olay(c, d):
             h.ekle("sonuc_durumu", f"'kullanilabilir' olayında {list(SONUC_DURUMLARI)} değerlerinden biri zorunlu (bulunan: {sd!r})")
     elif "sonuc_durumu" in d:
         h.ekle("sonuc_durumu", "yalnız 'kullanilabilir' olayında bulunabilir")
+    if olay == "yok_sayildi":
+        if d.get("neden") not in YOK_SAYILMA_NEDENLERI:
+            h.ekle("neden", f"'yok_sayildi' olayında {list(YOK_SAYILMA_NEDENLERI)} değerlerinden biri zorunlu (bulunan: {d.get('neden')!r})")
+        elif (d["neden"] == "izgara_disi") != (d.get("n") == "izgara_disi"):
+            h.ekle("neden", "'izgara_disi' nedeni ile n = 'izgara_disi' birlikte olmalı")
+    elif "neden" in d:
+        h.ekle("neden", "yalnız 'yok_sayildi' olayında bulunabilir")
+    if olay in YEREL_OLAYLAR and d.get("kaynak") != "kamera_alicisi":
+        h.ekle("kaynak", f"'{olay}' yerel kaydını yalnız kamera alıcısı yazar (kaynak: 'kamera_alicisi'; bulunan: {d.get('kaynak')!r})")
     return h.liste
 
 
@@ -649,7 +660,7 @@ def dogrula_kare_olay_dosyasi(c, satirlar):
             kaynak = d["kaynak"]
         elif d["kaynak"] != kaynak:
             hatalar.append(f"satır {no}: kaynak: dosyadaki kayıtların kaynağı aynı olmalı ('{kaynak}' ile '{d['kaynak']}' karışık; her bileşen kendi dosyasına yazar)")
-        anahtar = (d["arac_kimligi"], d["n"], d["sim_damga_ns"], d["olay"])
+        anahtar = (d["arac_kimligi"], d["n"], d["sim_damga_ns"], d["olay"]) + ((d["mono_ns"],) if d["olay"] in YEREL_OLAYLAR else ())     # yerel kayıt aynı kare için birden çok olabilir
         if anahtar in gorulen:
             hatalar.append(f"satır {no}: yinelenen kayıt (araç {anahtar[0]}, n {anahtar[1]}, olay {anahtar[3]}); ilk görüldüğü satır: {gorulen[anahtar]}")
         else:

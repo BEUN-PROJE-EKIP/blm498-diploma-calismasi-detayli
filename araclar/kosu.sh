@@ -47,6 +47,9 @@ DENEY_ENV="${DENEY_ENV:-$ROOT_DIR/config/deney.env}"
 HELPER="$ROOT_DIR/araclar/kosu_ustveri.py"
 PX4_BUILD="$ROOT_DIR/third_party/PX4-Autopilot/build/px4_sitl_default"
 PX4_BIN="$PX4_BUILD/bin/px4"
+YAYIM_SRC="$ROOT_DIR/src/yayim_damga"
+YAYIM_BUILD="$GENERATED_DIR/yayim_damga/build"
+KAMERA_URET="$ROOT_DIR/araclar/kamera_uret.py"
 KOSU_KOK="$GENERATED_DIR/kosular"
 AKTIF="$KOSU_KOK/aktif"
 
@@ -64,7 +67,7 @@ for v in KOSU_ARAC_SAYISI KOSU_GZ_HAZIR_SN KOSU_PX4_HAZIR_SN KOSU_KAPANIS_SN; do
     if [[ -n "${!o+x}" ]]; then declare "$v=${!o}"; fi
     [[ -n "${!v:-}" && "${!v}" =~ ^[0-9]+$ ]] || fail_stop "$DENEY_ENV içinde $v tanımsız ya da sayı değil"
 done
-for v in UAV_SYS_IDS UAV_START_POSES MAVSDK_GRPC_PORTS SIM_WORLD SIM_MODEL; do
+for v in UAV_SYS_IDS UAV_START_POSES MAVSDK_GRPC_PORTS SIM_WORLD SIM_MODEL CAM_RATE_HZ; do
     [[ -n "${!v:-}" ]] || fail_stop "$DENEY_ENV içinde $v tanımsız"
 done
 read -r -a SYS_IDS <<< "$UAV_SYS_IDS"
@@ -150,6 +153,38 @@ dinleyen_portlar() { # dinleyen_portlar <pid> : o sürecin dinleyen UDP/TCP soke
 
 aktif_kosu() { if [[ -f "$AKTIF" ]]; then cat "$AKTIF"; fi; }
 
+# damga_derle : damga bileşeni (src/yayim_damga) güncel değilse .generated/yayim_damga/build altında derler (yalnız bu dizin; çıktı depoya girmez)
+damga_derle() {
+    local jobs gen=() lib="$YAYIM_BUILD/libYayimDamga.so" yeni
+    yeni="$(find "$YAYIM_SRC" -type f \( -name '*.cc' -o -name '*.hh' -o -name CMakeLists.txt \) -newer "$lib" 2>/dev/null | head -n 1 || true)"
+    if [[ -f "$lib" && -z "$yeni" ]]; then log_ok "Damga bileşeni güncel: ${lib#"$ROOT_DIR"/}"; return 0; fi
+    jobs="$(nproc)"
+    if command -v ninja >/dev/null; then gen=(-G Ninja); fi
+    log_info "Damga bileşeni derleniyor: cmake -S ${YAYIM_SRC#"$ROOT_DIR"/} -B ${YAYIM_BUILD#"$ROOT_DIR"/} (-j $jobs)"
+    mkdir -p "$YAYIM_BUILD"
+    cmake -S "$YAYIM_SRC" -B "$YAYIM_BUILD" "${gen[@]}" > "$YAYIM_BUILD/../cmake.log" 2>&1 || { log_fail "cmake yapılandırması başarısız (${YAYIM_BUILD#"$ROOT_DIR"/}/../cmake.log)"; return 1; }
+    cmake --build "$YAYIM_BUILD" -j "$jobs" > "$YAYIM_BUILD/../build.log" 2>&1 || { log_fail "Damga bileşeni derlenemedi (${YAYIM_BUILD#"$ROOT_DIR"/}/../build.log)"; return 1; }
+    [[ -f "$lib" ]] || { log_fail "Derleme çıktısı eksik: $lib"; return 1; }
+    log_ok "Damga bileşeni derlendi: ${lib#"$ROOT_DIR"/}"
+}
+
+# uretim_hazirla <koşu_klasörü> : bu koşu için araç modeli (PX4 modellerine dokunmadan) ve Gazebo sunucu yapılandırması (PX4'ün yapılandırması + damga bileşeni) üretir
+uretim_hazirla() {
+    local kd="$1" px4_cfg onek ud="$1/uretim" kimlikler
+    # shellcheck disable=SC2016  # tek tırnak bilerek: $1 alt kabukta açılır
+    px4_cfg="$(bash -c '. "$1/rootfs/gz_env.sh" >/dev/null 2>&1; printf "%s" "$PX4_GZ_SERVER_CONFIG"' _ "$PX4_BUILD")"
+    [[ -f "$px4_cfg" ]] || { log_fail "PX4 sunucu yapılandırması bulunamadı: $px4_cfg"; return 1; }
+    mkdir -p "$ud/modeller"
+    python3 -I "$KAMERA_URET" model "$ud/modeller" > /dev/null || { log_fail "araç modeli üretilemedi"; return 1; }
+    onek="${SIM_MODEL#gz_}_"
+    kimlikler="${SYS_IDS[*]}"
+    # PX4'ün yapılandırmasındaki bütün eklentiler korunur (fizik, sensörler, IMU, köprü eklentileri...); damga bileşeni sona eklenir.
+    awk -v ek="    <plugin entity_name=\"*\" entity_type=\"world\" filename=\"libYayimDamga.so\" name=\"yayim::YayimDamga\">
+      <cikti_yolu>$kd/kayit/gazebo_damga.jsonl</cikti_yolu><hz>$CAM_RATE_HZ</hz><model_onek>$onek</model_onek><arac_kimlikleri>$kimlikler</arac_kimlikleri>
+    </plugin>" '/<\/plugins>/ {print ek} {print}' "$px4_cfg" > "$ud/server.config"
+    grep -c '<plugin ' "$ud/server.config" > /dev/null || return 1
+}
+
 # --- baslat ---------------------------------------------------------------------------------
 KOSU_DIR=""
 BASLAT_BASLADI=0
@@ -168,7 +203,8 @@ komut_baslat() {
     if [[ "$DRY_RUN" -eq 1 ]]; then
         log_info "[dry-run] koşu klasörü: ${KOSU_KOK#"$ROOT_DIR"/}/<koşu kimliği>/ ; GZ_PARTITION koşu kimliğinden; dünya $SIM_WORLD, model $SIM_MODEL (başsız)"
         log_info "[dry-run] önce reddedilir: başka gz sim/ruby/px4/mavsdk_server süreci ya da bitmemiş koşu varsa"
-        log_info "[dry-run] gz sunucusu (setsid, gz_sunucu.log); hazır ölçütü: simülasyon saati ilerliyor (en çok ${KOSU_GZ_HAZIR_SN} sn)"
+        log_info "[dry-run] damga bileşeni güncel değilse derlenir (${YAYIM_BUILD#"$ROOT_DIR"/}); koşu için araç modeli ($SIM_MODEL, config/deney.env'den) ve sunucu yapılandırması (PX4'ün yapılandırması + damga bileşeni) ${KOSU_KOK#"$ROOT_DIR"/}/<koşu kimliği>/uretim/ altına üretilir"
+        log_info "[dry-run] gz sunucusu (setsid, gz_sunucu.log); hazır ölçütü: simülasyon saati ilerliyor (en çok ${KOSU_GZ_HAZIR_SN} sn); damga kaydı kayit/gazebo_damga.jsonl"
         for ((i = 0; i < N_ARAC; i++)); do
             log_info "[dry-run] araç $((i + 1)): px4 -i $i (MAV_SYS_ID ${SYS_IDS[$i]}, konum ${POSES[$i]}), px4_$i.log; hazır: başlangıç betiği tamam (en çok ${KOSU_PX4_HAZIR_SN} sn)"
         done
@@ -180,6 +216,8 @@ komut_baslat() {
     check "PX4 SITL ikilisi" test -x "$PX4_BIN"
     check "PX4 gz_env.sh (rootfs)" test -f "$PX4_BUILD/rootfs/gz_env.sh"
     check "Dünya dosyası: $SIM_WORLD" test -f "$ROOT_DIR/third_party/PX4-Autopilot/Tools/simulation/gz/worlds/$SIM_WORLD.sdf"
+    check "Araç kamerası üretim aracı" test -f "$KAMERA_URET"
+    check "Araç: cmake" command -v cmake
     [[ "$COUNT_FAIL" -eq 0 ]] || fail_stop "Önkoşullar eksik"
 
     id="$(aktif_kosu)"
@@ -210,11 +248,14 @@ komut_baslat() {
         || fail_stop "kosu.json yazılamadı"
     printf '%s\n' "$id" > "$AKTIF"
     log_info "Koşu $id (GZ_PARTITION=$part), $N_ARAC araç; klasör ${KOSU_DIR#"$ROOT_DIR"/}"
+    damga_derle || exit 1
+    uretim_hazirla "$KOSU_DIR" || fail_stop "Koşu üretimi hazırlanamadı"
 
     # Gazebo sunucusu (başsız). PX4 örnekleri çalışan dünyaya bağlanır; sunucu ayrı grupta olduğundan en son kapatılabilir.
     # shellcheck disable=SC2016  # tek tırnak bilerek: $1/$2 alt kabukta açılır
     start_group gz_sunucu "$KOSU_DIR/gz_sunucu.log" env LC_NUMERIC=C GZ_PARTITION="$part" GZ_IP=127.0.0.1 \
-        bash -c '. "$1/rootfs/gz_env.sh"; exec gz sim -r -s -v 2 "$PX4_GZ_WORLDS/$2.sdf"' _ "$PX4_BUILD" "$SIM_WORLD" || exit 1
+        bash -c '. "$1/rootfs/gz_env.sh"; export GZ_SIM_SERVER_CONFIG_PATH="$3/server.config"; export GZ_SIM_SYSTEM_PLUGIN_PATH="${GZ_SIM_SYSTEM_PLUGIN_PATH:+$GZ_SIM_SYSTEM_PLUGIN_PATH:}$4"; exec gz sim -r -s -v 2 "$PX4_GZ_WORLDS/$2.sdf"' \
+        _ "$PX4_BUILD" "$SIM_WORLD" "$KOSU_DIR/uretim" "$YAYIM_BUILD" || exit 1
     pg="$LAST_PG"
     local t0 t1 ok=0
     for ((i = 0; i < KOSU_GZ_HAZIR_SN * 2; i++)); do
@@ -232,14 +273,15 @@ komut_baslat() {
         log_fail "Gazebo simülasyon saati ${KOSU_GZ_HAZIR_SN} sn içinde ilerlemedi"; dump_log "$KOSU_DIR/gz_sunucu.log"; exit 1
     fi
     log_ok "Gazebo sunucusu hazır (simülasyon saati ilerliyor: $t0 → $t1 sn)"
+    if [[ -f "$KOSU_DIR/kayit/gazebo_damga.jsonl" ]]; then log_ok "Damga bileşeni yüklendi (kayit/gazebo_damga.jsonl açıldı)"; else log_fail "Damga bileşeni yüklenmedi (kayit/gazebo_damga.jsonl yok)"; dump_log "$KOSU_DIR/gz_sunucu.log"; exit 1; fi
 
     for ((i = 0; i < N_ARAC; i++)); do
         mkdir -p "$KOSU_DIR/calisma/px4_$i"
         # shellcheck disable=SC2016  # tek tırnak bilerek: $1/$2/$3 alt kabukta açılır
         start_group "px4_$i" "$KOSU_DIR/px4_$i.log" env LC_NUMERIC=C GZ_PARTITION="$part" GZ_IP=127.0.0.1 HEADLESS=1 \
             PX4_SIM_MODEL="$SIM_MODEL" PX4_GZ_WORLD="$SIM_WORLD" PX4_GZ_MODEL_POSE="${POSES[$i]}" \
-            bash -c '. "$1/rootfs/gz_env.sh"; cd "$2"; exec "$1/bin/px4" -i "$3" -d -s "$1/etc/init.d-posix/rcS" "$1/etc"' _ \
-            "$PX4_BUILD" "$KOSU_DIR/calisma/px4_$i" "$i" || exit 1
+            bash -c '. "$1/rootfs/gz_env.sh"; export PX4_GZ_MODELS="$4"; cd "$2"; exec "$1/bin/px4" -i "$3" -d -s "$1/etc/init.d-posix/rcS" "$1/etc"' _ \
+            "$PX4_BUILD" "$KOSU_DIR/calisma/px4_$i" "$i" "$KOSU_DIR/uretim/modeller" || exit 1
         pg="$LAST_PG"
         if ! wait_for_log "$KOSU_DIR/px4_$i.log" 'Startup script returned successfully' "$KOSU_PX4_HAZIR_SN" "$pg"; then
             log_fail "PX4 örneği $i ${KOSU_PX4_HAZIR_SN} sn içinde hazır olmadı"; dump_log "$KOSU_DIR/px4_$i.log"; exit 1

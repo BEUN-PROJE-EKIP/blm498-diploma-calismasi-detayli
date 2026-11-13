@@ -16,6 +16,7 @@ import threading
 import time
 
 from . import rota as _rota
+from .kamera_alici_gz import KameraAliciGz
 from .durum_makinesi import (AD, STATE_BARIYER_BEKLE, STATE_HAZIR, STATE_TAMAMLANDI, STATE_TARAMA, STATE_WAIT, DurumMakinesi)
 
 CIKIS_KIMLIK = 3
@@ -49,6 +50,8 @@ class Arac:
         self.log_yol = os.path.join(self.klasor, f"arac_{self.arac_kimligi}.log") if self.klasor else None
         self.kayit_yol = os.path.join(self.klasor, "kayit", f"arac_durum_{self.arac_kimligi}.jsonl") if self.klasor else None
         self.adapter = None
+        self.kamera = None
+        self.kamera_yol = os.path.join(self.klasor, "kayit", f"kamera_alici_{self.arac_kimligi}.jsonl") if self.klasor else None
 
     # --- günlük ---------------------------------------------------------------------------------------------------------------------------
     def log(self, olay, **kv):
@@ -104,7 +107,7 @@ class Arac:
             m.sim_stamp = self._zaman(self.sim_ns() or 0)
             cur, tot = d["gorev_ilerleme"]
             m.mission_item_current, m.mission_item_total = max(cur, 0), max(tot, 0)
-            m.last_frame_number = -1                  # kamera bu sürümde yok
+            m.last_frame_number = self.kamera.son_numara()    # son numaralanan görev karesi; yoksa -1
             self.pub_durum.publish(m)
 
     def _durum_geldi(self, m):
@@ -119,6 +122,7 @@ class Arac:
         with self.kilit:
             ok = self.sm.tarama_baslat(m.mission_id, t_s)
         if ok:
+            self.kamera.tarama_basladi(t_s)           # görev karesi kabulü t_s'den başlar
             self.log("tarama_baslat_alindi", mission_id=m.mission_id, t_s_ns=t_s)
             self._yayinla()                           # geçiş anında ek yayım (TARAMA)
             self.baslat_olayi.set()
@@ -134,6 +138,7 @@ class Arac:
     def _son_nokta_geri_cagrisi(self, bilgi):
         """Bağdaştırıcının döngü iş parçacığında çalışır: yalnız zamanı yakalar ve akış iş parçacığını uyandırır."""
         self.t_b_ns = self.sim_ns()
+        self.kamera.tarama_bitti(self.t_b_ns)         # yeni görev karesi kabulü durur; n_son belirlenir (zaman damgası hemen alınır)
         self.log("son_nokta_geri_cagrisi", ilerleme=bilgi["ilerleme"], px4_zaman_us=bilgi["px4_zaman_us"], t_b_ns=self.t_b_ns)
         self.son_nokta_olayi.set()
 
@@ -171,6 +176,8 @@ class Arac:
                 aralik = self.sm.kare_araligi()
                 mission_id, t_s_ns = self.sm.mission_id, self.sm.t_s_ns
             self._yayinla()                           # geçiş anında ek yayım (WAIT): COMPLETE'ten önce de gözlenebilsin
+            if aralik != (self.kamera.alici.n_ilk, self.kamera.alici.n_son):
+                raise RuntimeError(f"kare aralığı uyuşmuyor: durum makinesi {aralik}, alıcı {(self.kamera.alici.n_ilk, self.kamera.alici.n_son)}")
             m = ScanFinished()
             m.mission_id, m.vehicle_id, m.numbering_mode = mission_id, self.arac_kimligi, ScanFinished.NUMBERING_GRID
             m.n_first, m.n_last = aralik
@@ -203,6 +210,8 @@ class Arac:
 
         self.sm = DurumMakinesi(gunluk=lambda s: self.log("durum_makinesi", ayrinti=s))
         self.saat_baslat()
+        self.kamera = KameraAliciGz(self.ham, self.arac_no, self.arac_kimligi, self.kamera_yol, self.log)
+        self.kamera.baslat()
         self.adapter = px4_adapter.Px4Adapter(self.arac_no, deney_env=self.ham, son_nokta_geri_cagrisi=self._son_nokta_geri_cagrisi)
         rclpy.init()
         node = Node("vehicle", namespace=self.ad_alani)
@@ -234,6 +243,7 @@ class Arac:
             self.dur_olayi.set()
             akis.join(10)
             self.adapter.kapat()
+            self.kamera.kapat()
             node.destroy_node()
             rclpy.shutdown()
             self.log("kapandi", cikis_kodu=self.cikis_kodu)
