@@ -203,15 +203,15 @@ Normal. Ağ ayarı yeniden başlatmada silinir. Şunu çalıştır: `./setup/60_
 ## Tamamlanma Yüzdesi
 
 <!-- ILERLEME:BASLA -->
-**Projenin tamamlanma oranı: %14,5**  (19 / 74 madde bitti)
+**Projenin tamamlanma oranı: %16,2**  (20 / 74 madde bitti)
 
-`███░░░░░░░░░░░░░░░░░` %14,5
+`███░░░░░░░░░░░░░░░░░` %16,2
 
 | Paket | Tarih | Ağırlık | Biten madde | Paketin ilerlemesi |
 |---|---|---|---|---|
 | K. Kurulum ve doğrulama testleri | 1 Şubat 2027 - 14 Şubat 2027 | %10 | 14 / 14 | %100,0 |
 | A. Veri ve model | 15 Şubat 2027 - 21 Mart 2027 | %20 | 0 / 13 | %0,0 |
-| B. Sürü yazılımı | 15 Şubat 2027 - 21 Mart 2027 | %25 | 5 / 21 | %18,2 |
+| B. Sürü yazılımı | 15 Şubat 2027 - 21 Mart 2027 | %25 | 6 / 21 | %25,0 |
 | C. Kabul testleri ve pilot koşular | 22 Mart 2027 - 18 Nisan 2027 | %20 | 0 / 14 | %0,0 |
 | D. Ana deneyler | 19 Nisan 2027 - 9 Mayıs 2027 | %15 | 0 / 5 | %0,0 |
 | E. Analiz ve raporlama | 10 Mayıs 2027 - 28 Mayıs 2027 | %10 | 0 / 7 | %0,0 |
@@ -258,12 +258,12 @@ Aşağıdaki başlıklara tıklayınca maddeleri görürsün. Biten maddeler iş
 </details>
 
 <details>
-<summary><b>B. Sürü yazılımı</b> · 15 Şubat 2027 - 21 Mart 2027 · 5 / 21 madde · %18,2</summary>
+<summary><b>B. Sürü yazılımı</b> · 15 Şubat 2027 - 21 Mart 2027 · 6 / 21 madde · %25,0</summary>
 
 - [x] **B1 [TAMAMLANDI]** - *`swarm_msgs`: durum, görev, tarama başlatma/bitiş, COMPLETE, kare sonucu, "kare alınamadı", komut (araç kimliği, sıra numarası, onay durumu) mesaj tanımları (FR-2, FR-3, FR-4, FR-12)*
 - [ ] B2 - Alanın üç çakışmayan tarama bölgesine ayrılması, şerit planı (w = 2·30·tan(görüş açısı/2), komşu izler ≥ 2 m örtüşür), rota dosyaları (FR-1)
 - [x] **B3 [TAMAMLANDI]** - *`px4_adapter`: araç başına ayrı MAVSDK System ve mavsdk_server; sistem kimliği doğrulaması; rotanın yerden 30 m görev (mission) olarak yüklenmesi; PX4'e komut yazan tek modül (FR-7, FR-8)*
-- [ ] B4 - Araç süreci (`swarm_vehicle`): tek ROS 2 düğümü /uav_N, durum/görev modülü, 2 Hz durum, diğer iki aracın durumunu alma ve kaydetme, durum makinesi (HAZIR → BARİYER_BEKLE → TARAMA → WAIT → TAMAMLANDI) (FR-2, FR-4)
+- [x] **B4 [TAMAMLANDI]** - *Araç süreci (`swarm_vehicle`): tek ROS 2 düğümü /uav_N, durum/görev modülü, 2 Hz durum, diğer iki aracın durumunu alma ve kaydetme, durum makinesi (HAZIR → BARİYER_BEKLE → TARAMA → WAIT → TAMAMLANDI) (FR-2, FR-4)*
 - [ ] B5 - Yer istasyonu (`swarm_gcs`): `/gcs/mission_coordinator` (hazır bildirimleri, başlangıç bariyeri, t0; COMPLETE koşulları, t1), izleme ve komut arayüzü (FR-3, FR-5)
 - [ ] B6 - Araç gövdesine sabit, aşağı bakan kamera (640 × 480 RGB8, sıkıştırmasız, 2 kare/s) ve kalibrasyon dosyası (FR-9)
 - [ ] B7 - Gazebo sunucusunda damga bileşeni: araç kimliği, simülasyon zamanı, kare numarası (n = 2·t_sim), üretim anının monotonik zamanı (FR-10, FR-23)
