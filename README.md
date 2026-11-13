@@ -203,15 +203,15 @@ Normal. Ağ ayarı yeniden başlatmada silinir. Şunu çalıştır: `./setup/60_
 ## Tamamlanma Yüzdesi
 
 <!-- ILERLEME:BASLA -->
-**Projenin tamamlanma oranı: %16,2**  (20 / 74 madde bitti)
+**Projenin tamamlanma oranı: %19,7**  (23 / 74 madde bitti)
 
-`███░░░░░░░░░░░░░░░░░` %16,2
+`████░░░░░░░░░░░░░░░░` %19,7
 
 | Paket | Tarih | Ağırlık | Biten madde | Paketin ilerlemesi |
 |---|---|---|---|---|
 | K. Kurulum ve doğrulama testleri | 1 Şubat 2027 - 14 Şubat 2027 | %10 | 14 / 14 | %100,0 |
 | A. Veri ve model | 15 Şubat 2027 - 21 Mart 2027 | %20 | 0 / 13 | %0,0 |
-| B. Sürü yazılımı | 15 Şubat 2027 - 21 Mart 2027 | %25 | 6 / 21 | %25,0 |
+| B. Sürü yazılımı | 15 Şubat 2027 - 21 Mart 2027 | %25 | 9 / 21 | %38,6 |
 | C. Kabul testleri ve pilot koşular | 22 Mart 2027 - 18 Nisan 2027 | %20 | 0 / 14 | %0,0 |
 | D. Ana deneyler | 19 Nisan 2027 - 9 Mayıs 2027 | %15 | 0 / 5 | %0,0 |
 | E. Analiz ve raporlama | 10 Mayıs 2027 - 28 Mayıs 2027 | %10 | 0 / 7 | %0,0 |
@@ -258,16 +258,16 @@ Aşağıdaki başlıklara tıklayınca maddeleri görürsün. Biten maddeler iş
 </details>
 
 <details>
-<summary><b>B. Sürü yazılımı</b> · 15 Şubat 2027 - 21 Mart 2027 · 6 / 21 madde · %25,0</summary>
+<summary><b>B. Sürü yazılımı</b> · 15 Şubat 2027 - 21 Mart 2027 · 9 / 21 madde · %38,6</summary>
 
 - [x] **B1 [TAMAMLANDI]** - *`swarm_msgs`: durum, görev, tarama başlatma/bitiş, COMPLETE, kare sonucu, "kare alınamadı", komut (araç kimliği, sıra numarası, onay durumu) mesaj tanımları (FR-2, FR-3, FR-4, FR-12)*
 - [ ] B2 - Alanın üç çakışmayan tarama bölgesine ayrılması, şerit planı (w = 2·30·tan(görüş açısı/2), komşu izler ≥ 2 m örtüşür), rota dosyaları (FR-1)
 - [x] **B3 [TAMAMLANDI]** - *`px4_adapter`: araç başına ayrı MAVSDK System ve mavsdk_server; sistem kimliği doğrulaması; rotanın yerden 30 m görev (mission) olarak yüklenmesi; PX4'e komut yazan tek modül (FR-7, FR-8)*
 - [x] **B4 [TAMAMLANDI]** - *Araç süreci (`swarm_vehicle`): tek ROS 2 düğümü /uav_N, durum/görev modülü, 2 Hz durum, diğer iki aracın durumunu alma ve kaydetme, durum makinesi (HAZIR → BARİYER_BEKLE → TARAMA → WAIT → TAMAMLANDI) (FR-2, FR-4)*
 - [ ] B5 - Yer istasyonu (`swarm_gcs`): `/gcs/mission_coordinator` (hazır bildirimleri, başlangıç bariyeri, t0; COMPLETE koşulları, t1), izleme ve komut arayüzü (FR-3, FR-5)
-- [ ] B6 - Araç gövdesine sabit, aşağı bakan kamera (640 × 480 RGB8, sıkıştırmasız, 2 kare/s) ve kalibrasyon dosyası (FR-9)
-- [ ] B7 - Gazebo sunucusunda damga bileşeni: araç kimliği, simülasyon zamanı, kare numarası (n = 2·t_sim), üretim anının monotonik zamanı (FR-10, FR-23)
-- [ ] B8 - Kamera alıcısı: gz-transport doğrudan abone (ros_gz_bridge yok), kare numaralandırma, "kare alınamadı" ve "geç geldi" kuralları; damgalar doğrulanmazsa yedek yol (FR-10, FR-11)
+- [x] **B6 [TAMAMLANDI]** - *Araç gövdesine sabit, aşağı bakan kamera (640 × 480 RGB8, sıkıştırmasız, 2 kare/s) ve kalibrasyon dosyası (FR-9)*
+- [x] **B7 [TAMAMLANDI]** - *Gazebo sunucusunda damga bileşeni: araç kimliği, simülasyon zamanı, kare numarası (n = 2·t_sim), üretim anının monotonik zamanı (FR-10, FR-23)*
+- [x] **B8 [TAMAMLANDI]** - *Kamera alıcısı: gz-transport doğrudan abone (ros_gz_bridge yok), kare numaralandırma, "kare alınamadı" ve "geç geldi" kuralları; damgalar doğrulanmazsa yedek yol (FR-10, FR-11)*
 - [ ] B9 - Çıkarım işçisi (alt süreç, IP kullanmayan yerel kanal): YOLO26L, GPU, FP32, batch=1, nms=False, güven 0,25; B planında YOLO26s + ONNX Runtime CPU (FR-13, FR-15, FR-16)
 - [ ] B10 - Kare sonuç iletisi: tespit yoksa açık "tespit yok", işlem hatası ve "kare alınamadı" "tespit yok" olarak kodlanmaz (FR-12)
 - [ ] B11 - Uçta mod: kare sonuçları, "kare alınamadı" kayıtları reliable DDS QoS ile; durum ve görev mesajları DDS ile (FR-13)
