@@ -202,6 +202,65 @@ class KayipKaydiOlayi(unittest.TestCase):
         self.assertEqual(kayip[0]["sim_damga_ns"], 21 * YARIM)
 
 
+class TsSiniri(unittest.TestCase):
+    """t_s sınır durumu: tarama başlatma bildirimi, damgası t_s'ye eşit karenin gelişinden SONRA yapılır (t_s okuması bir saat adımı eski)."""
+
+    def test_kare_bildirimden_once_gelir_gorev_karesi_olur(self):
+        c = Cihaz(t_s=None)
+        c.ver(19, 20)                                          # 20 → damga 10,0 s; bildirim henüz yok → "görev öncesi" sayılır
+        self.assertEqual(c.kuyruk, [])
+        c.a.tarama_basladi(int(9.99 * NS), c.mono + 1000)      # eski t_s = 9,99 s → n_ilk = 20; kare 20 bildirimden 1 µs önce gelmişti
+        self.assertEqual(c.a.n_ilk, 20)
+        self.assertEqual(c.kuyruk, [20])                       # görev karesi olarak iç kuyruğa verildi
+        self.assertEqual(c.alinamadi(), [])                    # kayip_tespit YOK
+        self.assertEqual([r["n"] for r in c.olaylar("kuyruga_giris")], [20])
+        self.assertEqual(c.a.sayac["gorev_oncesi_kabul"], 1)
+        c.ver(21)
+        self.assertEqual(c.kuyruk, [20, 21])
+        self.assertEqual(c.alinamadi(), [])
+
+    def test_bir_saniyeden_eski_kare_kabul_edilmez(self):
+        c = Cihaz(t_s=None)
+        c.ver(20)
+        c.a.tarama_basladi(int(9.99 * NS), c.mono + 2 * NS)    # kare 2 sn önce geldi: kabul edilmez
+        self.assertEqual(c.kuyruk, [])
+        c.ver(21)
+        self.assertEqual(c.alinamadi(), [20])                  # 20 sonradan kayıp sayılır (alıcı kuralı)
+
+    def test_n_ilk_den_kucuk_kare_kabul_edilmez(self):
+        c = Cihaz(t_s=None)
+        c.ver(19)
+        c.a.tarama_basladi(10 * NS, c.mono + 10)               # n_ilk = 20; kare 19 < 20
+        self.assertEqual(c.kuyruk, [])
+        self.assertEqual(c.a.sayac["gorev_oncesi_kabul"], 0)
+
+    def test_mono_verilmezse_eski_davranis(self):
+        c = Cihaz(t_s=None)
+        c.ver(20)
+        c.a.tarama_basladi(int(9.99 * NS))
+        self.assertEqual(c.kuyruk, [])
+
+
+class KayipGeriCagrisiVeZorlaKapatma(unittest.TestCase):
+    def test_kayip_geri_cagrisi_her_kayip_icin_bir_kez(self):
+        kayiplar = []
+        a = ka.KameraAlici(1, 2, None, None, kayip_ver=lambda n, m: kayiplar.append(n))
+        a.tarama_basladi(10 * NS)
+        a.tarama_bitti(12 * NS)
+        for n in (20, 23, 24, 25):
+            a.kare(n * YARIM, 1000 + n)
+        self.assertEqual(kayiplar, [21, 22])
+
+    def test_kapat_zorla_sondaki_kayiplari_kapatir(self):
+        c = Cihaz(10.0, 12.0)                                   # n_ilk 20, n_son 24
+        c.ver(20, 21, 22)                                       # 23, 24 gelmedi; kapanış karesi (25) de gelmedi
+        self.assertEqual(c.a.kapat_zorla(5000), [23, 24])
+        self.assertEqual(c.alinamadi(), [23, 24])
+        self.assertEqual(c.a.kapat_zorla(6000), [])             # ikinci çağrı bir şey yazmaz
+        c.ver(25)
+        self.assertEqual(c.alinamadi(), [23, 24])
+
+
 class EnjeksiyonCozumu(unittest.TestCase):
     def test_kapali(self):
         self.assertFalse(ka.Enjeksiyon("").acik)

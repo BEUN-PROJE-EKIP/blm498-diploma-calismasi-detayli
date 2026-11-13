@@ -12,7 +12,9 @@
 #   kapanis   sunucu SIGTERM / SIGKILL ile durdurulunca bileşen kaydının sonu
 # Kamera yatay görüş açısı kilitli CAM_HFOV_RAD değeridir. Ham kayıtlar .generated/yayim/<zaman>/ altına yazılır (depoya girmez). sudo gerekmez.
 # Her oturum kendi GZ_PARTITION değerini kullanır; süreçler `setsid` ile ayrı grupta çalışır ve her çıkışta öldürülür.
+# TAM KOŞU KAPALIDIR (çıkış 2): keşif `442da7e` sürümünde koşturuldu, bileşen kalıcı hâle getirildi; --verify ve --dry-run çalışır. Aşağıdaki ölçüm açıklamaları tarihsel kayıttır.
 # Bu betik install_all.sh/verify_all.sh sırasına GİRMEZ (adı NN_ desenine uymaz).
+# shellcheck disable=SC2317  # tam koşu kapalıdır (exit 2 sonrası kod erişilemez; tarihsel ölçüm gövdesi korunur)
 set -Eeuo pipefail
 # shellcheck source=lib/common.sh
 source "$(dirname "${BASH_SOURCE[0]}")/lib/common.sh"
@@ -148,6 +150,13 @@ if [[ "$DRY_RUN" -eq 1 ]]; then
     print_plan
     component_finish "$COMPONENT_NAME"
 fi
+
+# Tam koşu KAPALIDIR: yayımlanma anı keşfi `442da7e` sürümünde koşturuldu (yöntem karşılaştırması: abone/bilgi/kare, CSV çıktısı); damga bileşeni sonradan kalıcı hâle getirildi
+# (`<yontem>` parametresi ve CSV çıktısı kalktı), bu yüzden ölçüm bu betikle yeniden üretilemez. Kalıcı bileşenin doğrulaması setup/kamera_alici_testi.sh'tadır (damga birleşmesi,
+# üretim→alım gecikmesi). --verify (önkoşullar) ve --dry-run çalışmaya devam eder.
+log_info "Tam koşu kapatıldı: kare yayımlanma anı keşfi \`442da7e\` sürümünde koşturuldu; damga bileşeni kalıcı hâle getirildi (<yontem> parametresi ve CSV çıktısı kalktı), ölçüm bu betikle yeniden üretilemez."
+log_info "Sonuçlar planlama/kararlar.md'dedir; kalıcı bileşenin doğrulaması için setup/kamera_alici_testi.sh kullanın. Hiçbir süreç başlatılmadı, derleme yapılmadı (çıkış 2)."
+exit 2
 
 check_prereqs
 [[ "$COUNT_FAIL" -eq 0 ]] || fail_stop "Önkoşullar eksik"

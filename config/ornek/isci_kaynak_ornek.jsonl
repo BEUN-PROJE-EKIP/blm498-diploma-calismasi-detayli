@@ -1,0 +1,3 @@
+{"surum": 1, "tur": "isci_kaynak", "arac_kimligi": 1, "isci_pid": 4321, "mono_ns": 5000000000, "gpu_kullanim_yuzde": null, "gpu_bellek_mib": null, "ana_bellek_rss_mib": 1955.3, "cpu_yuzde": null}
+{"surum": 1, "tur": "isci_kaynak", "arac_kimligi": 1, "isci_pid": 4321, "mono_ns": 6000000000, "gpu_kullanim_yuzde": 4, "gpu_bellek_mib": 690.0, "ana_bellek_rss_mib": 1955.4, "cpu_yuzde": 12.5}
+{"surum": 1, "tur": "isci_kaynak", "arac_kimligi": 1, "isci_pid": 4321, "mono_ns": 7000000000, "gpu_kullanim_yuzde": 0, "gpu_bellek_mib": 690.0, "ana_bellek_rss_mib": 1955.4, "cpu_yuzde": 1.0}

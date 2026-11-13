@@ -7,6 +7,8 @@ ROS 2, MAVSDK ve gz-transport içe aktarılmaz (birim testi için). El kitabı (
 - Alıcı, aralıkta numarası daha büyük bir kare aldığında alınmamış her numara için bir "kare alınamadı" kaydı üretir. Sondaki kayıplar, n_son'dan büyük ilk karenin gelmesiyle
   kapanır; bu kare görev girdisi sayılmaz.
 - Kayıp kaydı KESİNDİR: kayıttan sonra aynı numarayla gelen kare işlenmez (iç kuyruğa verilmez, ağa gönderilmez), yalnız yerel kayda "geç geldi" olarak yazılır.
+- t_s sınır durumu: tarama başlatma bildirimi (t_s okuması ≤ bir saat adımı eski olabilir) bir karenin gelişinden hemen sonra yapılabilir. Bildirimden önceki son 1 saniyede "görev öncesi" sayılmış ve numarası
+  n_ilk'e eşit ya da büyük kare görev karesi olarak kabul edilir (iç kuyruğa verilir, `kuyruga_giris` kaydı ayrıca yazılır); böylece damgası t_s'ye eşit kare kaybolmaz.
 Yedek yol (alıcı numarası k) K9 kararıyla uygulanmaz; seçilirse açık hata verilir.
 Kayıtlar planlama/sozlesmeler.md §8.3 `kare_olay` şemasındadır; kaynak "kamera_alicisi". Zamanlar tam sayı ns (CLOCK_MONOTONIC / simülasyon).
 Alıcının yerel kayıt türleri: olay `kuyruga_giris` (görev karesi iç kuyruğa verildi), olay `kayip_tespit` + sonuc_durumu `kare_alinamadi` (alıcı kaybı tespit etti, kayıp kaydı üretildi; yer istasyonunda "kullanılabilir" olma anı değildir),
@@ -42,13 +44,15 @@ def n_son_hesapla(t_b_ns, hz):
 
 
 class KameraAlici:
-    def __init__(self, arac_kimligi, hz, olay_yaz=None, kuyruga_ver=None, kip="izgara"):
-        """olay_yaz(sözlük): her `kare_olay` kaydı için; kuyruga_ver(n, damga_ns, mono_ns): kabul edilen görev karesi için (kareyi tutmaz)."""
+    def __init__(self, arac_kimligi, hz, olay_yaz=None, kuyruga_ver=None, kip="izgara", kayip_ver=None):
+        """olay_yaz(sözlük): her `kare_olay` kaydı için; kuyruga_ver(n, damga_ns, mono_ns): kabul edilen görev karesi için (kareyi tutmaz);
+        kayip_ver(n, mono_ns): bir numara için "kare alınamadı" kaydı yazıldığında (kare sonucu üretimi için)."""
         kipi_dogrula(kip)
         if hz != int(hz) or hz <= 0:
             raise ValueError("CAM_RATE_HZ pozitif tam sayı olmalı (ızgara kuralı)")
         self.arac_kimligi, self.hz = int(arac_kimligi), int(hz)
-        self._yaz, self._kuyruk = olay_yaz, kuyruga_ver
+        self._yaz, self._kuyruk, self._kayip = olay_yaz, kuyruga_ver, kayip_ver
+        self._oncesi = []                    # son "görev öncesi" sayılan kareler: (n, damga_ns, mono_ns) — t_s sınır durumu için
         self.n_ilk = None
         self.n_son = None
         self.kapali = False
@@ -56,7 +60,7 @@ class KameraAlici:
         self.gorulen = set()                 # görev karesi olarak kabul edilen numaralar
         self.alinamadi = set()               # "kare alınamadı" kaydı yazılmış numaralar
         self.son_gorev_numarasi = -1
-        self.sayac = {"gorev": 0, "kare_alinamadi": 0, "gec_geldi": 0, "gorev_oncesi": 0, "kapanis_sonrasi": 0, "izgara_disi": 0, "tekrar": 0, "gorev_siniri_asildi": 0}
+        self.sayac = {"gorev": 0, "kare_alinamadi": 0, "gec_geldi": 0, "gorev_oncesi": 0, "kapanis_sonrasi": 0, "izgara_disi": 0, "tekrar": 0, "gorev_siniri_asildi": 0, "gorev_oncesi_kabul": 0, "kapanis_zorla": 0}
 
     # --- kayıt ---------------------------------------------------------------------------------------------------------------------------
     def _kayit(self, n, damga_ns, olay, mono_ns, **ek):
@@ -74,14 +78,23 @@ class KameraAlici:
         self.alinamadi.add(n)
         self.sayac["kare_alinamadi"] += 1
         self._kayit(n, n * _NS // self.hz, "kayip_tespit", mono_ns, sonuc_durumu="kare_alinamadi")
+        if self._kayip is not None:
+            self._kayip(n, mono_ns)
 
     # --- olaylar -------------------------------------------------------------------------------------------------------------------------
-    def tarama_basladi(self, t_s_ns):
-        """Tarama başlatma mesajı alındı (t_s: o anki simülasyon saati, ns). Yalnız ilk çağrı geçerlidir."""
+    def tarama_basladi(self, t_s_ns, mono_ns=None):
+        """Tarama başlatma mesajı alındı (t_s: o anki simülasyon saati, ns; mono_ns: bildirim anı, CLOCK_MONOTONIC ns). Yalnız ilk çağrı geçerlidir.
+        mono_ns verilirse, son 1 saniyede "görev öncesi" sayılmış ve numarası n_ilk'e eşit/büyük kareler görev karesi olarak kabul edilir (t_s sınır durumu)."""
         if self.n_ilk is not None:
             return False
         self.n_ilk = n_ilk_hesapla(t_s_ns, self.hz)
         self.sonraki = self.n_ilk
+        if mono_ns is not None:
+            for n, damga_ns, mono in sorted(self._oncesi):
+                if n >= self.n_ilk and 0 <= mono_ns - mono <= _NS and n not in self.gorulen and n not in self.alinamadi:
+                    self.sayac["gorev_oncesi_kabul"] += 1
+                    self._gorev_karesi(n, damga_ns, mono_ns)
+        self._oncesi = []
         return True
 
     def tarama_bitti(self, t_b_ns):
@@ -102,6 +115,8 @@ class KameraAlici:
             return None
         if self.n_ilk is None or n < self.n_ilk:
             self._yoksay(n, damga_ns, mono_ns, "gorev_oncesi")
+            if self.n_ilk is None:
+                self._oncesi = (self._oncesi + [(n, damga_ns, mono_ns)])[-8:]
             return None
         if n in self.alinamadi:
             self.sayac["gec_geldi"] += 1
@@ -118,6 +133,9 @@ class KameraAlici:
                 self.sonraki = self.n_son + 1
             self._yoksay(n, damga_ns, mono_ns, "kapanis_sonrasi")
             return None
+        return self._gorev_karesi(n, damga_ns, mono_ns)
+
+    def _gorev_karesi(self, n, damga_ns, mono_ns):
         for m in range(self.sonraki, n):                         # aradaki alınmamış her numara için "kare alınamadı"
             self._kare_alinamadi(m, mono_ns)
         self.sonraki = n + 1
@@ -128,6 +146,18 @@ class KameraAlici:
         if self._kuyruk is not None:
             self._kuyruk(n, damga_ns, mono_ns)
         return n
+
+    def kapat_zorla(self, mono_ns):
+        """Süreç kapanırken kapanış karesi hiç gelmediyse sondaki kayıpları şimdi kapatır (kapanış karesiyle aynı kural). Dönen: yazılan kayıp numaraları."""
+        if self.n_son is None or self.kapali:
+            return []
+        self.kapali = True
+        eksik = list(range(self.sonraki, self.n_son + 1))
+        for m in eksik:
+            self._kare_alinamadi(m, mono_ns)
+        self.sonraki = self.n_son + 1
+        self.sayac["kapanis_zorla"] += 1
+        return eksik
 
 
 # --- hata enjeksiyonu (YALNIZ test; varsayılan kapalı) ----------------------------------------------------------------------------------------

@@ -135,7 +135,13 @@ Mevcut anahtarlar (ağ, kimlik/port, kamera, çıkarım, eğitim) değişmedi. E
 | `DURUM_YAYIN_HZ` | 2 | belge (durum 2 Hz) |
 | `KONU_DURUM`, `KONU_TARAMA_BASLAT`, `KONU_TARAMA_BITIS`, `KONU_COMPLETE` | bkz. §9 | varsayım (konu adları) |
 | `ARAC_KAPANIS_BEKLE_SN`, `ARAC_SIM_SAAT_SN` | 3, 30 | varsayım (TAMAMLANDI sonrası durum yayımı sürdürme süresi; gz saatinin ilk gelişi için üst sınır, gerçek saniye) |
-| `PX4A_KABUL_YARICAPI_M` | 2 | varsayım (her görev öğesinin kabul yarıçapı, m; PX4'ün öntanımlı kabul yarıçapı 10 m "son noktaya ulaşıldı" anını son noktadan uzağa kaydırır; PX4 parametresi değiştirilmez, değer öğe başına yazılır) |
+| `PX4A_KABUL_YARICAPI_M` | 2 | varsayım (her görev öğesinin kabul yarıçapı, m; PX4'ün öntanımlı kabul yarıçapı 10 m "son noktaya ulaşıldı" anını son noktadan uzağa kaydırır; NAV_ACC_RAD gibi gezinme parametreleri değiştirilmez, değer öğe başına yazılır; tek PX4 parametre yazımı kalkış irtifasıdır, bkz. kararlar) |
+| `PX4A_HEARTBEAT_SN`, `PX4A_BASLAT_TOLERANS_M` | 5, 1 | varsayım (bağlantıdan sonra HEARTBEAT kaynak kimliğini okuma bekleme üst sınırı, gerçek sn; görev başlatmadan önce aracın ilk noktada sayılması için kabul yarıçapına ve irtifa payına eklenen ek pay, m) |
+| `ISCI_ARKA_UC`, `ISCI_CPU_ONNX` | `gpu`, `.generated/models/yolo26s.onnx` | belge/kararlar (kilitli deney yolu GPU; `cpu` yalnız B planı yapı uyumu için, deneylerde kullanılmaz) |
+| `ISCI_MANTIKSAL_CPU`, `ISCI_CPU_SABITLE` | 2, 1 | belge (işçiye aynı fiziksel çekirdeğe ait iki mantıksal CPU)/varsayım (varsayılan açık; araç sırasına göre çekirdek çifti çalışma anında okunan topolojiden seçilir) |
+| `ISCI_ISINMA_KARE`, `ISCI_HAZIR_SN`, `ISCI_KARE_ZAMAN_ASIMI_SN` | 5, 300, 30 | varsayım (ısınma çıkarımı sayısı; işçinin hazır olması için üst sınır, gerçek sn; tek kare için işçi zaman aşımı, gerçek sn) |
+| `ISCI_YENIDEN_BASLAT_MAKS`, `ISCI_KAPANIS_BEKLE_SN`, `ISCI_KAYNAK_SN` | 3, 60, 1 | varsayım (işçi ölümü/zaman aşımında yeniden başlatma üst sınırı; COMPLETE sonrası kare sonuçlarının tamamlanması için üst sınır; işçi kaynak örnekleme aralığı, gerçek sn) |
+| `MODEL_ESLEME_COCO` | `person=insan` | varsayım (COCO ön eğitimli ağırlıkla yalnız M1 boru hattı sınaması; proje modeli iki sınıflı olacak ve birebir eşlenir) |
 
 Betikler ve doğrulayıcı bu anahtarları yalnızca bu dosyadan okur; mevcut test ve ölçüm betikleri `source` ile okumaya devam eder (yeni anahtarlar eski betikleri etkilemez).
 
@@ -169,6 +175,10 @@ Bir koşunun başlatılması, durdurulması ve kayıt düzeni. Bu bölüm **tasl
   kayit/arac_durum_<arac>.jsonl   araç sürecinin DİĞER araçlardan aldığı durumlar (8.5)
   kayit/gazebo_damga.jsonl        Gazebo damga bileşeni: her araç kamera karesi için `uretim` olayı (8.3; kaynak gazebo_damga; kosu.sh baslat yüklemesi)
   kayit/kamera_alici_<arac>.jsonl kamera alıcısı: görev karesi, kare alınamadı, geç geldi, yok sayılan kare kayıtları (8.3, 10.1; kaynak kamera_alicisi)
+  kayit/cikarim_iscisi_<arac>.jsonl çıkarım işçisi: her işlenen kare için `cikarim_basi` ve `cikarim_sonu` (8.3, 10.2; kaynak cikarim_iscisi)
+  kayit/kare_sonuc_<arac>.jsonl   araç sürecinin kare sonuçları: her görev numarası için tam bir kayıt (8.6)
+  kayit/isci_kaynak_<arac>.jsonl  çıkarım işçisinin periyodik GPU kullanımı/belleği, ana bellek ve CPU kaydı (8.7)
+  cikarim_isci_<arac>.log         çıkarım işçisinin standart hata günlüğü (serbest biçim; hazır bilgisi, kare hataları, kapanış özeti)
   uretim/                         koşu için üretilen araç modeli (modeller/) ve Gazebo sunucu yapılandırması (server.config); config/deney.env'den, PX4 dosyalarına dokunmadan
   gorus_deneme.jsonl, gorus_ornek_*.png  yalnız kamera yönelim denemesinin çıktısı (serbest biçim, depoya girmez)
 .generated/kosular/aktif          yaşayan koşunun kimliği (varsa); durdurma/temizleme siler
@@ -232,6 +242,27 @@ Her araç süreci, ortak durum konusundan (bkz. §9) aldığı **diğer araçlar
 
 Ondalık saniye yazılmaz. Doğrulayıcı: `sozlesme_dogrula.py <dosya>.jsonl` (ilk dolu satırdaki `tur` ile ayrılır). Örnek: `config/ornek/arac_durum_kaydi_ornek.jsonl`.
 
+### 8.6 Kare sonucu kaydı (`tur: "kare_sonuc"`, JSON Lines, taslak sürüm)
+
+Araç süreci (B10), kamera alıcısının kabul ettiği HER görev numarası için ve alıcının "kare alınamadı" kaydı yazdığı her numara için **tam bir** `swarm_msgs/FrameResult` üretir; bu kayıt, o iletinin yerel kopyasıdır. Bu sürümde ileti ağa **gönderilmez** (B11); yerel kancaya verilir ve `kayit/kare_sonuc_<arac_kimligi>.jsonl` dosyasına yazılır. Satır başına bir kayıt:
+
+| Alan | Açıklama |
+|---|---|
+| `surum`, `tur` | `1`, `"kare_sonuc"` |
+| `arac_kimligi` | `UAV_SYS_IDS` değeri; dosyada hep aynı. |
+| `n`, `sim_damga_ns` | Izgara kare numarası ve `n · 10⁹ / CAM_RATE_HZ` ns (kare sonucu yalnız ızgara numaralı görev karelerine aittir; `numbering_mode = NUMBERING_GRID`). Dosyada her `n` **bir kez** bulunur. |
+| `durum` | **Dört durum ayrıdır ve karışmaz** [belge]: `tespit` (`STATUS_DETECTIONS`; çıkarım bitti, proje sınıfında en az bir tespit), `tespit_yok` (`STATUS_NO_DETECTION`; çıkarım BAŞARIYLA bitti, proje sınıfında tespit yok), `islem_hatasi` (`STATUS_PROCESSING_ERROR`; kare alındı ama işlenemedi: işçi hatası, ölümü, zaman aşımı, bozuk görüntü, kapanışta işlenememe), `kare_alinamadi` (`STATUS_FRAME_NOT_RECEIVED`; alıcıya ulaşmayan görev karesi). |
+| `tespit_sayisi`, `tespitler` | `tespit` durumunda en az bir öğe, diğer üç durumda **boş liste** (boş liste + `islem_hatasi` "tespit yok" demek değildir). Öğe: `sinif` (`MODEL_SINIFLAR` adı), `sinif_no` (o listedeki sıra: insan 0, enkaz 1 = `Detection.CLASS_*`), `guven` ([`INF_CONF`, 1]), `kutu` ([x_min, y_min, x_maks, y_maks] piksel, orijin sol üst, görüntü içinde), `konum` (**null**: tahmini konum B14'tür; `has_position = false`), `aday` (**false**: birleştirme adayı B15'tir; `candidate = false`). |
+| `atilan_sinif_disi` | Çıkarımın bulduğu ama proje sınıfına eşlenmediği için atılan tespit sayısı (COCO ön eğitimli ağırlıkta `person` dışındaki sınıflar). `kare_alinamadi` için 0. |
+| `hata` | `islem_hatasi` durumunda boş olmayan metin; diğer durumlarda `null`. |
+| `mono_ns` | Kare sonucunun araç sürecinde oluşturulduğu an, `CLOCK_MONOTONIC` ns (pozitif tam sayı). |
+
+[varsayım] Sınıf eşlemesi: işçi modelin kendi sınıf adını döndürür; araç süreci adı `MODEL_SINIFLAR`'daki bir ada eşitse birebir kullanır (M5 modeli), değilse `MODEL_ESLEME_COCO` tablosuna bakar (COCO ön eğitimli ağırlık, yalnız M1 boru hattı sınaması: `person → insan`); tabloda olmayan sınıf atılır ve `atilan_sinif_disi` ile sayılır. Çıkarım bitip hiç proje sınıfı tespiti kalmazsa durum `tespit_yok`'tur. Doğrulayıcı: `sozlesme_dogrula.py <dosya>.jsonl` (ilk dolu satırdaki `tur`). Örnek: `config/ornek/kare_sonuc_ornek.jsonl`.
+
+### 8.7 İşçi kaynak kaydı (`tur: "isci_kaynak"`, JSON Lines, taslak sürüm)
+
+Çıkarım işçisi, kendi sürecinin kaynak kullanımını `ISCI_KAYNAK_SN` aralıkla (gerçek saniye) `kayit/isci_kaynak_<arac_kimligi>.jsonl` dosyasına yazar [belge: GPU kullanımı ve GPU belleği süreç başına periyodik; ana bellek]. Alanlar: `surum`, `tur`, `arac_kimligi`, `isci_pid`, `mono_ns` (`CLOCK_MONOTONIC` ns), `gpu_kullanim_yuzde` (NVML `nvmlDeviceGetProcessUtilization`: son örneklemeden beri sürecin SM kullanımı, 0–100 tam sayı; NVML yoksa `null`), `gpu_bellek_mib` (NVML `nvmlDeviceGetComputeRunningProcesses`: sürecin GPU belleği; yoksa `null`), `ana_bellek_rss_mib` (`/proc/self/statm`), `cpu_yuzde` (sürecin CPU süresi / geçen süre, tek mantıksal CPU = %100; ilk kayıtta `null`). `sudo` gerekmez. Bellek ve GPU için üst sınır konmaz [belge]. Örnek: `config/ornek/isci_kaynak_ornek.jsonl`.
+
 ## 9. ROS 2 konuları (taslak)
 
 Belge konu adlarını ve QoS değerlerini **tanımlamaz**; aşağıdaki her ad ve ayar **[varsayım]**dır. Adlar `config/deney.env`'de (`KONU_*`) tek yerde durur. **Kesin QoS B11/M2'de belirlenir (U14, U21)**; bu bölüm yalnız bu sürümün çalışan ayarıdır. Bütün araç süreçleri ve yer istasyonu aynı Fast DDS profilini (`config/fastdds_profil.xml`) ve ölçülen sürü ağını kullanır; araç süreci kendi adresini `SWARM_BIND_ADDR` ile alır.
@@ -266,4 +297,24 @@ Kaynak `kamera_alicisi`, dosya `kayit/kamera_alici_<arac>.jsonl`. Her kamera kar
 | Kayıp kaydı yazılmış numarayla sonradan gelen kare | `olay: gec_geldi`; işlenmez, iç kuyruğa ve ağa verilmez (kayıp kaydı kesindir) |
 | Görev girdisi olmayan kare | `olay: yok_sayildi`, `neden` (§8.3) |
 
+**t_s sınır durumu.** Tarama başlatma bildirimi (t_s okuması bir saat adımı eski olabilir) bir karenin gelişinden hemen sonra yapılabilir. Bildirimden önceki son 1 saniyede "görev öncesi" sayılmış ve numarası `n_ilk`'e eşit ya da büyük kare görev karesi olarak kabul edilir: iç kuyruğa verilir, `kuyruga_giris` kaydı ayrıca yazılır (aynı numaranın daha önceki `yok_sayildi`/`gorev_oncesi` kaydı dosyada kalır; görev sınıfı `kuyruga_giris` ile belirlenir) ve `kayip_tespit` yazılmaz. Özet sayacı: `gorev_oncesi_kabul`. Kapanış karesi hiç gelmeden süreç kapanırsa sondaki kayıplar araç süreci kapanışında aynı kuralla yazılır (`kapanis_zorla`).
+
 Hiçbir numara hem görev karesi hem `kare_alinamadi` olamaz. Yedek yol (alıcı numarası `k`) uygulanmaz (K9): `KARE_NUMARALAMA` `izgara` dışında bir değerse alıcı açık hata verir. Hata enjeksiyonu yalnız testler içindir: ortam değişkeni `KAMERA_ENJEKSIYON` (`bekle=<sn>;dusur=<n>,…;gecik=<n>,…`; `+k` = `n_ilk + k`, `son` = `n_son`), varsayılan kapalıdır ve durumu (`kapali` ya da açık değer) her araç günlüğüne `kamera_enjeksiyon` olayıyla yazılır.
+
+### 10.2 Çıkarım işçisi (B9) ve kare sonucu akışı (B10)
+
+**Süreç yapısı [belge].** Uçta modda her araç sürecinin başlattığı AYRI bir alt süreç, çıkarım işçisidir (`src/swarm_vehicle/swarm_vehicle/cikarim_isci.py`); araç süreciyle IP kullanmayan bir kanalla (`socket.socketpair(AF_UNIX)`) haberleşir; işçide `rclpy`, gz-transport, DDS ve ağ soketi yoktur (kanıt: işçinin soketleri yalnız `unix`, `rclpy_yuklu=false`). Alt süreç `subprocess.Popen` ile taze bir yorumlayıcıda başlar (`multiprocessing` fork/spawn seçilmedi: araç sürecinin rclpy/DDS/MAVSDK durumu miras kalmasın). Kanal çerçevesi: `!II` (JSON başlığı uzunluğu, yük uzunluğu) + JSON başlık + ham yük; 921 600 baytlık RGB8 görüntü alıcıdaki bayt nesnesinden doğrudan gönderilir.
+
+**Çıkarım ayarları (kilitli, yalnız `INF_*`).** GPU yolu (PyTorch + CUDA, `INF_GPU_MODEL` = YOLO26L, `.generated/models/`; ağırlık İNDİRİLMEZ, `YOLO_OFFLINE`): FP32, batch=1, `imgsz` 640, güven `INF_CONF`, `max_det` 300, **`nms=False`**. Kanıt (işçi her başlangıçta ve her karede denetler): Ultralytics başlığı uçtan uca (`end2end=True`) kipindedir, başlığın ham çıktısı `[1, 300, 6]`'dır (NMS'li yol `[1, 4+nc, N]` verir) ve `torchvision.ops.nms` ısınmadan sonra hiç çağrılmaz; biri bozulursa kare işlem hatası olur. Ön işleme: RGB8 → BGR (Ultralytics numpy girdi sözleşmesi) → letterbox (`imgsz`'e oranı koruyarak, 114 dolgu, [0,1] FP32); kutular özgün 640×480 piksel koordinatına geri çevrilir. **B planı yapı uyumu:** `ISCI_ARKA_UC=cpu` aynı arayüzle `ISCI_CPU_ONNX` (YOLO26s, NMS'siz ONNX) + ONNX Runtime CPU ile çalışır ve aynı sonuç yapısını döndürür; kararlar gereği deneylerde kullanılmaz.
+
+**Zamanlar.** `cikarim_basi` = işçinin kare çerçevesini okuyup işleme başladığı an; `cikarim_sonu` = sonucun işçide ana belleğe alındığı an (`torch.cuda.synchronize()` ve `.cpu()` sonrası) [belge]. Her ikisi `kayit/cikarim_iscisi_<arac>.jsonl` dosyasına `kare_olay` (`kaynak: cikarim_iscisi`) olarak yazılır. İşçi hatası döndüğü karede de ikisi yazılır (sonu = hata sonucunun oluştuğu an); işçinin ölümünde yalnız `cikarim_basi` kalır (ölüm enjeksiyonunda ölmeden hemen önce yazılır). Süreç içi kare sonucu zamanı `kare_sonuc.mono_ns`'tir.
+
+**Hazırlık [belge].** İşçi araç süreci başlarken başlatılır; modeli yükler ve `ISCI_ISINMA_KARE` ısınma çıkarımı yapar (hazırlık evresinde, kalkışla paralel); araç, işçi `hazir` bildirmeden BARIYER_BEKLE'ye geçmez; ısınma ve yükleme süresi araç günlüğünde (`isci_hazir`, `isci_hazir_bekleme_bitti`). İşçi başlatılamazsa araç HAZIR'dan ilerlemez (çıkış kodu 1).
+
+**CPU eşlemesi [belge].** `ISCI_CPU_SABITLE=1` iken işçi, çalışma anında `/sys/devices/system/cpu/cpu*/topology/thread_siblings_list`'ten okunan çekirdek kümelerinden, araç sırasına göre `k`. kümenin `ISCI_MANTIKSAL_CPU` mantıksal CPU'suna `sched_setaffinity` ile sabitlenir (üç araç için çakışmayan, aynı fiziksel çekirdeğe ait çiftler); eşleme araç günlüğüne yazılır. Diğer süreçlerin bu kümenin dışında tutulması bu sürümde yoktur (M6).
+
+**Kuyruk [varsayım: belgede iç kuyruğun yapısı yok].** Alıcının iç kuyruğu bellek içidir ve sınırsızdır; tüketici tek iş parçacığıdır, uçuştaki kare sayısı 1'dir; işçi geride kalırsa sıradaki kareler bekler (atılmaz) ve kuyruk derinliği araç günlüğüne (`kuyruk_derinligi`) ve özet satırına (`kuyruk_maks`) yazılır. Disk destekli kuyruk B13'tür; `kuyruga_giris` olayının anlamı bu sürümde "alıcının iç kuyruğa verme anı" olarak kalır (B13'te kesinleşir).
+
+**İşçi ölümü ve zaman aşımı [varsayım: belgede işçi ölümü kuralı yok].** İşçi bir kareyi işlerken ölürse ya da `ISCI_KARE_ZAMAN_ASIMI_SN` içinde yanıt vermezse (işçi öldürülür): o kare `islem_hatasi` olur (hata metni nedeni yazar); işçi yeniden başlatılır (en çok `ISCI_YENIDEN_BASLAT_MAKS` kez; yeni işçi de ısınır); yeni işçi hazır olana dek sıradaki kareler kuyrukta bekler ve sonra işlenir (en az kare kaybı). Sınır aşılırsa ya da model yüklenemezse kalan kareler `islem_hatasi` olur; hiçbir durumda "tespit yok" yazılmaz. Test enjeksiyonu (varsayılan kapalı; durumu araç günlüğüne `isci_enjeksiyon_durumu` olarak yazılır): ortam değişkeni `ISCI_ENJEKSIYON=hata=<belirteç,…>;olum=<belirteç,…>` (`+k` = `n_ilk + k`).
+
+**Kare sonucu tamlığı.** COMPLETE sonrası araç süreci kuyruğun boşalmasını bekler (`ISCI_KAPANIS_BEKLE_SN`); süre dolarsa kapanış karesi gelmemişse sondaki kayıpları yazdırır, hâlâ sonuçsuz kalan numaralar için `islem_hatasi` yazar (kayıtta hata metni "kapanışta işlenemedi"). Araç günlüğünün `kare_sonuclari_tamam` satırı dört durumun sayısını, `cift_sonuc` (ikinci sonuç denemesi, 0 beklenir) ve işçi başlatma/yeniden başlatma sayılarını verir.

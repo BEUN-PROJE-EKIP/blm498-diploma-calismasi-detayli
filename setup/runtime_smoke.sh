@@ -29,6 +29,9 @@ ENV_SH="$SETUP_DIR/env.sh"
 VENV_PY="$ROOT_DIR/.venv/bin/python"
 PX4_BUILD="$ROOT_DIR/third_party/PX4-Autopilot/build/px4_sitl_default"
 PX4_BIN="$PX4_BUILD/bin/px4"
+# Kamerasız temel gövde adı yapılandırmadan okunur (yalnız bu anahtar; deney.env'in tamamı bu betiğin değişkenlerine karışmasın diye source edilmez)
+DENEY_ENV="${DENEY_ENV:-$ROOT_DIR/config/deney.env}"
+SIM_MODEL_TEMEL="$(sed -n 's/^SIM_MODEL_TEMEL="\(.*\)"$/\1/p' "$DENEY_ENV" 2>/dev/null | head -n 1)"
 TMP_DIR=""
 PGIDS=()           # başlatılan süreç grupları (grup lideri PID'leri)
 LAST_PG=""
@@ -248,7 +251,7 @@ test_t4() {
     # (cmake -E env PX4_SIM_MODEL=gz_x500 PX4_GZ_WORLD=… GZ_IP=127.0.0.1 …/bin/px4). Derleme ağacına dosya yazmasın
     # ve ninja yeniden yapılandırması tetiklenmesin diye aynı ortamla ikili doğrudan, geçici çalışma dizininde başlatılır
     # (-d: etkileşimli kabuk yok; günlük/parametre dosyaları geçici dizinde kalır ve silinir).
-    start_group "$d/px4.log" env LC_NUMERIC=C GZ_PARTITION="$part" GZ_IP=127.0.0.1 HEADLESS=1 PX4_SIM_MODEL=gz_x500 PX4_GZ_WORLD=default \
+    start_group "$d/px4.log" env LC_NUMERIC=C GZ_PARTITION="$part" GZ_IP=127.0.0.1 HEADLESS=1 PX4_SIM_MODEL="$SIM_MODEL_TEMEL" PX4_GZ_WORLD=default \
         bash -c '. "$1/rootfs/gz_env.sh"; cd "$2"; exec "$1/bin/px4" -d -s "$1/etc/init.d-posix/rcS" "$1/etc"' _ "$PX4_BUILD" "$d/work"
     local pxpg="$LAST_PG"
     if ! wait_for_log "$d/px4.log" 'Startup script returned successfully' 60; then
@@ -303,13 +306,14 @@ check_prereqs() {
     check "PX4 SITL ikilisi" test -x "$PX4_BIN"
     check "PX4 gz_env.sh (rootfs)" test -f "$PX4_BUILD/rootfs/gz_env.sh"
     check "setup/env.sh" test -f "$ENV_SH"
+    check "SIM_MODEL_TEMEL (config/deney.env)" test -n "$SIM_MODEL_TEMEL"
 }
 
 print_plan() {
     log_info "[dry-run] T1: gz sim -s -r -v 2 empty.sdf (GZ_PARTITION ayrı) + venv Python: /clock >=5 mesaj, Image yayın/al"
     log_info "[dry-run] T2: source setup/env.sh; python: import torch, ultralytics, rclpy; rclpy.init/düğüm/shutdown"
     log_info "[dry-run] T3: ros2 run demo_nodes_cpp talker|listener, sonra demo_nodes_py (sistem Python); ayrı ROS_DOMAIN_ID, <=8 sn, >=3 mesaj"
-    log_info "[dry-run] T4: HEADLESS=1 PX4_SIM_MODEL=gz_x500 $PX4_BIN -d (geçici dizin) + MAVSDK udp://:14540 (health/konum, arm/kalkış YOK)"
+    log_info "[dry-run] T4: HEADLESS=1 PX4_SIM_MODEL=$SIM_MODEL_TEMEL $PX4_BIN -d (geçici dizin) + MAVSDK udp://:14540 (health/konum, arm/kalkış YOK)"
     log_info "[dry-run] Süreç grupları (setsid) her çıkışta öldürülür; sonda süreç/port/tc/ip karşılaştırması"
     log_info "[dry-run] Hiçbir süreç başlatılmadı"
 }

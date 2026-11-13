@@ -53,3 +53,18 @@ olay_gec_geldi_uygulanmaz.jsonl | 'uygulanmaz' yalnız aktarım aşamalarında
 olay_kayip_tespit_yer_istasyonunda.jsonl | yalnız kamera alıcısı yazar
 olay_kayip_tespit_sonuc_yanlis.jsonl | 'kayip_tespit' olayında 'kare_alinamadi' zorunlu
 olay_kayip_tespit_sonucsuz.jsonl | 'kayip_tespit' olayında 'kare_alinamadi' zorunlu
+kare_sonuc_tespit_yok_hatali.jsonl | yalnız 'islem_hatasi' durumunda hata metni olabilir
+kare_sonuc_islem_hatasi_hatasiz.jsonl | boş olmayan hata metni zorunlu
+kare_sonuc_kare_alinamadi_tespitli.jsonl | durumunda tespit listesi boş olmalı
+kare_sonuc_tespit_bos.jsonl | en az bir tespit olmalı
+kare_sonuc_yinelenen_numara.jsonl | ikinci sonuç
+kare_sonuc_sinif_gecersiz.jsonl | MODEL_SINIFLAR değerlerinden biri olmalı
+kare_sonuc_guven_esik_alti.jsonl | INF_CONF eşiği
+kare_sonuc_kutu_disarida.jsonl | görüntü içinde ve x_min < x_maks
+kare_sonuc_konum_dolu.jsonl | bu sürümde null olmalı
+kare_sonuc_damga_uyumsuz.jsonl | n = 2·t_sim olmalı
+kare_sonuc_yazar_karisik.jsonl | yazarı aynı olmalı
+kare_sonuc_bilinmeyen_alan.jsonl | bilinmeyen alan
+isci_kaynak_gpu_yuzde_gecersiz.jsonl | [0, 100] aralığında tam sayı
+isci_kaynak_mono_geriye.jsonl | geriye gidiyor
+isci_kaynak_rss_bos.jsonl | null olamaz

@@ -91,6 +91,7 @@ class Px4Adapter:
         self._baglan_sn, self._komut_sn = float(ham["PX4A_BAGLAN_SN"]), float(ham["PX4A_KOMUT_SN"])
         self._hazir_sn, self._kapat_sn = float(ham["PX4A_HAZIR_SN"]), float(ham["PX4A_KAPAT_SN"])
         self._kabul_m = float(ham["PX4A_KABUL_YARICAPI_M"])
+        self._hb_sn, self._baslat_tol = float(ham["PX4A_HEARTBEAT_SN"]), float(ham["PX4A_BASLAT_TOLERANS_M"])
         self._hazirlik_sn, self._yukseklik_tol = float(ham["PX4A_HAZIRLIK_SN"]), float(ham["PX4A_IRTIFA_TOLERANS_M"])
         self._cb = son_nokta_geri_cagrisi
 
@@ -290,7 +291,7 @@ class Px4Adapter:
             asyncio.create_task(self._akis("havada", self._sys.telemetry.in_air(), self._havada_isle)),
             asyncio.create_task(self._akis("gorev_ilerleme", self._sys.mission.mission_progress(), self._ilerleme_isle)),
         ]
-        sinir = time.monotonic() + 5
+        sinir = time.monotonic() + self._hb_sn
         while not self._hb_kimlikleri and time.monotonic() < sinir:
             await asyncio.sleep(0.1)
         if not self._hb_kimlikleri:
@@ -504,7 +505,7 @@ class Px4Adapter:
             if not self._hazir_tamam or not await self._havada():
                 raise Px4Hatasi("hazırlık tamamlanmadı ya da araç yerde: görev başlatma reddedildi (arm/kalkış yapılmaz)")
             u = self._ilk_noktaya_uzaklik()
-            if u is None or u[0] > self._kabul_m + 1.0 or abs(u[1]) > self._yukseklik_tol + 1.0:
+            if u is None or u[0] > self._kabul_m + self._baslat_tol or abs(u[1]) > self._yukseklik_tol + self._baslat_tol:
                 raise Px4Hatasi(f"araç ilk noktada değil (uzaklık/yükseklik farkı {u}): görev başlatma reddedildi")
             t0 = time.monotonic()
             self._ara_gorulen = self._ilerleme[0] < self._ilerleme[1]

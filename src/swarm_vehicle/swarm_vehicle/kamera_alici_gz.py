@@ -1,7 +1,8 @@
 """Kamera alıcısının gz-transport tarafı (B8): aracın kamera konusuna DOĞRUDAN abone olur (ros_gz_bridge yok), kareleri `kamera_alici.KameraAlici` mantığına verir,
-her kare olayını koşu klasöründe KENDİ dosyasına (kayit/kamera_alici_<araç kimliği>.jsonl) `kare_olay` şemasıyla yazar. Kabul edilen görev kareleri iç kuyruğa verilir;
-kuyruk tüketicisi (bu sürümde) yalnız sayar ve numarayı kaydeder, kareyi bellekte biriktirmez (çıkarım işçisi sonraki adımda bağlanır). Görüntü verisi saklanmaz;
-yalnız boyutu denetlenir (CAM_WIDTH × CAM_HEIGHT × 3 bayt, RGB8, sıkıştırmasız).
+her kare olayını koşu klasöründe KENDİ dosyasına (kayit/kamera_alici_<araç kimliği>.jsonl) `kare_olay` şemasıyla yazar. Kabul edilen görev kareleri iç kuyruğa (numara + görüntü baytları) verilir; kuyruk tüketicisi `tuketici(n, damga_ns, mono_ns, veri, w, h)` geri çağrısını çağırır (araç süreci:
+çıkarım işçisine gönderir; geri çağrı yoksa yalnız sayar). İç kuyruk bellek içidir ve sınırsızdır, kare atılmaz (disk destekli kuyruk B13'tür). Görüntü baytları yalnız son
+birkaç karenin önbelleğinde (damgaya göre) ve kuyruktaki karelerde tutulur. Kare boyutu denetlenir (CAM_WIDTH × CAM_HEIGHT × 3 bayt, RGB8, sıkıştırmasız); bozuk boyutlu kare de
+kuyruğa girer (işçi onu işlem hatası yapar).
 Hata enjeksiyonu (yalnız test, varsayılan kapalı): ortam değişkeni KAMERA_ENJEKSIYON (bkz. kamera_alici.Enjeksiyon); durumu aracın günlüğüne yazılır.
 Kanal: gz-transport geri çağrı iş parçacığı → (isteğe bağlı gecikme hattı iş parçacığı) → mantık (kilit altında) → kuyruk → tüketici iş parçacığı.
 """
@@ -16,7 +17,7 @@ from .kamera_alici import Enjeksiyon, KameraAlici
 
 
 class KameraAliciGz:
-    def __init__(self, ham, arac_no, arac_kimligi, kayit_yol, log, enjeksiyon_metni=None):
+    def __init__(self, ham, arac_no, arac_kimligi, kayit_yol, log, enjeksiyon_metni=None, tuketici=None, kayip_ver=None):
         self.ham, self.arac_no, self.arac_kimligi, self.log = ham, arac_no, arac_kimligi, log
         self.hz = int(float(ham["CAM_RATE_HZ"]))
         self.w, self.h = int(ham["CAM_WIDTH"]), int(ham["CAM_HEIGHT"])
@@ -26,8 +27,11 @@ class KameraAliciGz:
         self._dosya_kilit = threading.Lock()
         self._k = threading.RLock()
         self.enj = Enjeksiyon(enjeksiyon_metni if enjeksiyon_metni is not None else os.environ.get("KAMERA_ENJEKSIYON", ""))
-        self.alici = KameraAlici(arac_kimligi, self.hz, self._yaz, self._kuyruga, ham.get("KARE_NUMARALAMA", "izgara"))
+        self.alici = KameraAlici(arac_kimligi, self.hz, self._yaz, self._kuyruga, ham.get("KARE_NUMARALAMA", "izgara"), kayip_ver)
+        self.tuketici = tuketici
         self._q = queue.SimpleQueue()
+        self._veri = collections.OrderedDict()           # damga_ns → (genişlik, yükseklik, bayt): son kareler (kuyruğa verilirken görüntüyü bulmak için)
+        self.kuyruk_maks = 0
         self.tuketilen, self.tuketilen_son = 0, -1
         self.alinan, self.boyut_hatasi, self.ilk_bilgi = 0, 0, None
         self.dusurulen, self._tutulan = [], []
@@ -44,14 +48,24 @@ class KameraAliciGz:
                 f.write(json.dumps(d, ensure_ascii=False) + "\n")
 
     def _kuyruga(self, n, damga_ns, mono_ns):
-        self._q.put(n)
+        w, h, veri = self._veri.get(damga_ns, (0, 0, b""))
+        self._q.put((n, damga_ns, mono_ns, veri, w, h))
+        self.kuyruk_maks = max(self.kuyruk_maks, self._q.qsize())
 
     def _tuket(self):
         while not self._dur.is_set() or not self._q.empty():
             try:
-                n = self._q.get(timeout=0.2)
+                n, damga, mono, veri, w, h = self._q.get(timeout=0.2)
             except queue.Empty:
                 continue
+            if self.tuketici is not None:
+                derinlik = self._q.qsize()
+                if derinlik >= 1:
+                    self.log("kuyruk_derinligi", n=n, bekleyen=derinlik)
+                try:
+                    self.tuketici(n, damga, mono, veri, w, h)
+                except Exception as e:  # noqa: BLE001
+                    self.log("tuketici_hatasi", n=n, hata=repr(e))
             self.tuketilen += 1
             self.tuketilen_son = n
 
@@ -74,6 +88,9 @@ class KameraAliciGz:
         mono = time.monotonic_ns()                        # alım anı: geri çağrının girişi
         damga = m.header.stamp.sec * 10 ** 9 + m.header.stamp.nsec
         self.alinan += 1
+        self._veri[damga] = (m.width, m.height, m.data)
+        while len(self._veri) > 16:
+            self._veri.popitem(last=False)
         if self.ilk_bilgi is None:
             self.ilk_bilgi = (m.width, m.height, len(m.data), int(m.pixel_format_type))
             self.ilk_damga_ns = damga
@@ -112,7 +129,7 @@ class KameraAliciGz:
     # --- araç sürecinden gelen olaylar --------------------------------------------------------------------------------------------------------
     def tarama_basladi(self, t_s_ns):
         with self._k:
-            return self.alici.tarama_basladi(t_s_ns)
+            return self.alici.tarama_basladi(t_s_ns, time.monotonic_ns())
 
     def tarama_bitti(self, t_b_ns):
         with self._k:
@@ -120,6 +137,11 @@ class KameraAliciGz:
 
     def son_numara(self):
         return self.alici.son_gorev_numarasi
+
+    def kapanis_kapat_zorla(self):
+        """Kapanış karesi gelmediyse sondaki kayıpları şimdi kapatır (bkz. KameraAlici.kapat_zorla). Dönen: kayıp numaraları."""
+        with self._k:
+            return self.alici.kapat_zorla(time.monotonic_ns())
 
     def kapat(self):
         self._dur.set()
@@ -129,5 +151,5 @@ class KameraAliciGz:
             a = self.alici
             self.log("kamera_alici_ozet", alinan=self.alinan, gorev=a.sayac["gorev"], kare_alinamadi=a.sayac["kare_alinamadi"], gec_geldi=a.sayac["gec_geldi"],
                      gorev_oncesi=a.sayac["gorev_oncesi"], kapanis_sonrasi=a.sayac["kapanis_sonrasi"], izgara_disi=a.sayac["izgara_disi"], tekrar=a.sayac["tekrar"],
-                     boyut_hatasi=self.boyut_hatasi, n_ilk=a.n_ilk, n_son=a.n_son, kuyruktan_tuketilen=self.tuketilen, son_tuketilen=self.tuketilen_son,
+                     boyut_hatasi=self.boyut_hatasi, n_ilk=a.n_ilk, n_son=a.n_son, kuyruktan_tuketilen=self.tuketilen, son_tuketilen=self.tuketilen_son, kuyruk_maks=self.kuyruk_maks, gorev_oncesi_kabul=a.sayac["gorev_oncesi_kabul"], kapanis_zorla=a.sayac["kapanis_zorla"],
                      dusurulen=",".join(map(str, self.dusurulen)) or "yok", gorev_siniri_asildi=a.sayac["gorev_siniri_asildi"])

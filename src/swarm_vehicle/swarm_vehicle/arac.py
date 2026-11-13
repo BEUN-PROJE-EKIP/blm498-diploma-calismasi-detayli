@@ -1,12 +1,15 @@
 """Araç süreci: her İHA için tek bir ROS 2 düğümü (/uav_N): px4_adapter + durum/görev modülü + görev durum makinesi (FR-2, FR-3, FR-4, FR-5 araç tarafı, FR-7).
 
 Kullanım:  python -m swarm_vehicle.arac <araç sırası 1..N>      (rclpy, swarm_msgs ve MAVSDK aynı süreçte: ROS kurulu ve .venv etkin ortam; setup/env.sh)
-Akış (GŞÖA 7.4, 7.5): bağlan → kimlik → rota yükle → HAZIR → hazırlık (kalkış + ilk nokta; t0 ÖNCESİ) → BARIYER_BEKLE (yayımı hazır bildirimidir) →
+Akış (GŞÖA 7.4, 7.5): bağlan → kimlik → rota yükle → HAZIR → hazırlık (kalkış + ilk nokta; t0 ÖNCESİ; çıkarım işçisi bu sırada başlar, modeli yükler ve ısınır) →
+çıkarım işçisi hazır → BARIYER_BEKLE (yayımı hazır bildirimidir; işçi hazır olmadan geçilmez) →
 tarama başlatma mesajı (t_s = o anki simülasyon saati) → görevi başlat → TARAMA → son nokta (t_b) → tarama bitişi yayımı → WAIT → eşleşen COMPLETE → TAMAMLANDI.
 İş parçacıkları: ana iş parçacığı ROS yürütücüsü; bağdaştırıcının döngü iş parçacığı (MAVSDK asenkron döngüsü, son nokta geri çağrısı burada çalışır);
 akış iş parçacığı (engelleyen bağdaştırıcı çağrıları); gz-transport saat geri çağrısı. Durum makinesine erişim tek kilitle serileşir.
 Çıkış kodları: 0 TAMAMLANDI; 1 beklenmeyen hata; 2 yapılandırma/kullanım; 3 kimlik doğrulanamadı (HAZIR'a geçilmez); 143 SIGTERM.
-Simülasyon zamanı gz-transport'tan doğrudan okunur (ros_gz_bridge yok). 2 Hz durum yayımı duvar saati zamanlayıcısıyla yapılır [varsayım: RTF ≈ 1]; her durum geçişinde ayrıca bir ek ileti yayımlanır (2 Hz'lik akış yarım saniyeden kısa süren durumu — ör. en son bitiren aracın WAIT'i — kaçırmasın).
+Çıkarım işçisi bu sürecin ALT SÜRECİDİR (cikarim_istemci.py; IP kullanmayan AF_UNIX kanal); kabul edilen her görev karesi işçiye gider, her görev numarası için tam bir kare sonucu
+(`swarm_msgs/FrameResult`) üretilir, yerel kayda (`kayit/kare_sonuc_<araç>.jsonl`) yazılır ve `kare_sonucu_kancasi`na verilir (ağa gönderim B11'dir; bu sürümde kanca yalnız sayar).
+Simülasyon zamanı gz-transport'tan doğrudan okunur (ros_gz_bridge yok); gz-transport `GZ_IP=127.0.0.1` ile kilitlenir (başka değer verilmişse süreç açık hata ile çıkar). 2 Hz durum yayımı duvar saati zamanlayıcısıyla yapılır [varsayım: RTF ≈ 1]; her durum geçişinde ayrıca bir ek ileti yayımlanır (2 Hz'lik akış yarım saniyeden kısa süren durumu — ör. en son bitiren aracın WAIT'i — kaçırmasın).
 """
 import json
 import os
@@ -16,10 +19,22 @@ import threading
 import time
 
 from . import rota as _rota
+from .cikarim_istemci import IsciIstemcisi
+from .kamera_alici import n_ilk_hesapla
 from .kamera_alici_gz import KameraAliciGz
+from .kare_isleyici import KareIsleyici
 from .durum_makinesi import (AD, STATE_BARIYER_BEKLE, STATE_HAZIR, STATE_TAMAMLANDI, STATE_TARAMA, STATE_WAIT, DurumMakinesi)
 
 CIKIS_KIMLIK = 3
+GZ_IP_YEREL = "127.0.0.1"
+
+
+def gz_ip_ayarla(ortam):
+    """gz-transport'un yalnız yerel döngü arayüzünde kalmasını güvenceye alır [belge: 127.0.0.1 üzerinden gz-transport]: GZ_IP tanımsızsa 127.0.0.1 yapar; başka bir değerse ValueError."""
+    mevcut = ortam.get("GZ_IP")
+    if mevcut and mevcut != GZ_IP_YEREL:
+        raise ValueError(f"GZ_IP={mevcut!r}: gz-transport yalnız {GZ_IP_YEREL} üzerinde çalışabilir (görüntü trafiği sürü ağına girmemeli); değişkeni kaldırın ya da {GZ_IP_YEREL} yapın")
+    ortam["GZ_IP"] = GZ_IP_YEREL
 
 
 class Arac:
@@ -52,6 +67,12 @@ class Arac:
         self.adapter = None
         self.kamera = None
         self.kamera_yol = os.path.join(self.klasor, "kayit", f"kamera_alici_{self.arac_kimligi}.jsonl") if self.klasor else None
+        self.sonuc_yol = os.path.join(self.klasor, "kayit", f"kare_sonuc_{self.arac_kimligi}.jsonl") if self.klasor else None
+        self.isci = None
+        self.isleyici = None
+        self.kare_sonucu_kancasi = None          # B11 bağlanacak: callable(FrameResult); bu sürümde yalnız sayılır
+        self.kare_sonucu_mesaj_sayisi = 0
+        self._FrameResult = self._Detection = None
 
     # --- günlük ---------------------------------------------------------------------------------------------------------------------------
     def log(self, olay, **kv):
@@ -110,6 +131,14 @@ class Arac:
             m.last_frame_number = self.kamera.son_numara()    # son numaralanan görev karesi; yoksa -1
             self.pub_durum.publish(m)
 
+    def _kare_sonucu_uret(self, kayit):
+        """Kare sonucu kaydından `FrameResult` iletisini oluşturur ve yerel kancaya verir (ağa gönderilmez)."""
+        from . import kare_sonuc as ks
+        m = ks.mesaj_olustur(kayit, self._FrameResult, self._Detection, self._zaman)
+        self.kare_sonucu_mesaj_sayisi += 1
+        if self.kare_sonucu_kancasi is not None:
+            self.kare_sonucu_kancasi(m)
+
     def _durum_geldi(self, m):
         if m.vehicle_id == self.arac_kimligi:
             return
@@ -122,6 +151,7 @@ class Arac:
         with self.kilit:
             ok = self.sm.tarama_baslat(m.mission_id, t_s)
         if ok:
+            self.isci.n_ilk = n_ilk_hesapla(t_s, self.kamera.hz)   # işçi enjeksiyonu belirteçleri (+k) için; kareler kuyruğa girmeden önce
             self.kamera.tarama_basladi(t_s)           # görev karesi kabulü t_s'den başlar
             self.log("tarama_baslat_alindi", mission_id=m.mission_id, t_s_ns=t_s)
             self._yayinla()                           # geçiş anında ek yayım (TARAMA)
@@ -162,6 +192,13 @@ class Arac:
             self.log("durum", durum=AD[STATE_HAZIR])
             h = self.adapter.hazirlik()
             self.log("hazirlik_bitti", kalkis_sure_s=f"{h['kalkis_sure_s']:.1f}", gidis_sure_s=f"{h['gidis_sure_s']:.1f}", sure_s=f"{h['sure_s']:.1f}")
+            t_isci = time.monotonic()
+            bilgi = self.isci.hazir_bekle()                         # model yükleme + ısınma hazırlık evresindedir; işçi hazır olmadan BARIYER_BEKLE'ye geçilmez
+            if bilgi is None:
+                self.log("hata", neden=f"çıkarım işçisi hazır olamadı: {self.isci.kalici_hata}")
+                self.cikis_kodu = 1
+                return
+            self.log("isci_hazir_bekleme_bitti", ek_bekleme_s=f"{time.monotonic() - t_isci:.1f}", isinma_s=bilgi["isinma_s"], yukleme_s=bilgi["yukleme_s"], rclpy_yuklu=bilgi["rclpy_yuklu"])
             with self.kilit:
                 self.sm.hazir()
             self.log("durum", durum=AD[STATE_BARIYER_BEKLE])
@@ -186,6 +223,7 @@ class Arac:
             self.log("durum", durum=AD[STATE_WAIT])
             self._bekle(self.complete_olayi, "COMPLETE")
             self.log("durum", durum=AD[STATE_TAMAMLANDI])
+            self._sonuclari_tamamla(aralik)                                # her görev numarası için tam bir kare sonucu
             self.dur_olayi.wait(float(self.ham["ARAC_KAPANIS_BEKLE_SN"]))   # dinleyiciler son durumu alsın
         except InterruptedError as e:
             self.log("durduruldu", ayrinti=str(e))
@@ -195,6 +233,20 @@ class Arac:
             self.cikis_kodu = 1
         finally:
             self.dur_olayi.set()
+
+    def _sonuclari_tamamla(self, aralik):
+        """COMPLETE sonrası: kuyruk boşalıp [n_ilk, n_son] için bütün kare sonuçları gelene dek bekler (ISCI_KAPANIS_BEKLE_SN); süre dolarsa kalan numaralar için kayıp/işlem hatası yazar."""
+        n_ilk, n_son = aralik
+        t0 = time.monotonic()
+        zamaninda, zorla, hatali = self.isleyici.kapanis_tamamla(n_ilk, n_son, float(self.ham["ISCI_KAPANIS_BEKLE_SN"]), self.kamera.kapanis_kapat_zorla)
+        s = self.isleyici.defter.durum_sayilari()
+        self.log("kare_sonuclari_tamam", zamaninda=zamaninda, bekleme_s=f"{time.monotonic() - t0:.1f}", beklenen=n_son - n_ilk + 1, yazilan=len(self.isleyici.defter.kayitlar),
+                 tespit=s["tespit"], tespit_yok=s["tespit_yok"], islem_hatasi=s["islem_hatasi"], kare_alinamadi=s["kare_alinamadi"], cift_sonuc=self.isleyici.defter.cift_sayisi,
+                 zorla_kayip=",".join(map(str, zorla)) or "yok", kapanista_islem_hatasi=",".join(map(str, hatali)) or "yok", mesaj=self.kare_sonucu_mesaj_sayisi,
+                 atilan_sinif_disi=self.isleyici.atilan_toplam, kuyruk_maks=self.kamera.kuyruk_maks, isci_baslatma=self.isci.baslatma, isci_yeniden=self.isci.yeniden)
+        sm = sorted(self.isleyici.sureler_ms)
+        if sm:
+            self.log("cikarim_sureleri", adet=len(sm), medyan_ms=f"{sm[len(sm) // 2]:.2f}", p99_ms=f"{sm[min(len(sm) - 1, int(0.99 * len(sm)))]:.2f}", en_buyuk_ms=f"{sm[-1]:.2f}")
 
     # --- giriş -----------------------------------------------------------------------------------------------------------------------------
     def calistir(self):
@@ -208,9 +260,15 @@ class Arac:
         from swarm_msgs.msg import Complete, ScanFinished, ScanStart, VehicleState
         from . import px4_adapter
 
+        from swarm_msgs.msg import Detection, FrameResult
+        self._FrameResult, self._Detection = FrameResult, Detection
         self.sm = DurumMakinesi(gunluk=lambda s: self.log("durum_makinesi", ayrinti=s))
         self.saat_baslat()
-        self.kamera = KameraAliciGz(self.ham, self.arac_no, self.arac_kimligi, self.kamera_yol, self.log)
+        self.isci = IsciIstemcisi(self.ham, self.arac_no, self.arac_kimligi, self.klasor, self.log)
+        self.isleyici = KareIsleyici(self.ham, self.arac_kimligi, self.isci, self.sonuc_yol, self.log, self._kare_sonucu_uret)
+        self.kamera = KameraAliciGz(self.ham, self.arac_no, self.arac_kimligi, self.kamera_yol, self.log, tuketici=self.isleyici.goruntu, kayip_ver=self.isleyici.kayip)
+        self.log("isci_enjeksiyon_durumu", durum=self.isci.enj.ozet())
+        self.isci.baslat()                                             # alt süreç: model yükleme ve ısınma hazırlık evresiyle paralel sürer
         self.kamera.baslat()
         self.adapter = px4_adapter.Px4Adapter(self.arac_no, deney_env=self.ham, son_nokta_geri_cagrisi=self._son_nokta_geri_cagrisi)
         rclpy.init()
@@ -233,7 +291,7 @@ class Arac:
             self.dur_olayi.set()
         signal.signal(signal.SIGTERM, durdur)
         signal.signal(signal.SIGINT, durdur)
-        self.log("basladi", arac_kimligi=self.arac_kimligi, ad_alani=self.ad_alani, adres=self.adres, dunya=self.dunya)
+        self.log("basladi", arac_kimligi=self.arac_kimligi, ad_alani=self.ad_alani, adres=self.adres, dunya=self.dunya, gz_ip=os.environ.get("GZ_IP"), isci_enjeksiyon=self.isci.enj.ozet())
         akis = threading.Thread(target=self._akis, name="arac_akis", daemon=True)
         akis.start()
         try:
@@ -244,6 +302,7 @@ class Arac:
             akis.join(10)
             self.adapter.kapat()
             self.kamera.kapat()
+            self.isci.kapat()
             node.destroy_node()
             rclpy.shutdown()
             self.log("kapandi", cikis_kodu=self.cikis_kodu)
@@ -256,6 +315,7 @@ def main(argv=None):
         print(__doc__, file=sys.stderr)
         return 2
     try:
+        gz_ip_ayarla(os.environ)                                      # gz-transport içe aktarılmadan ÖNCE: yalnız 127.0.0.1
         ham = _rota.deney_env_oku()
         arac_no = int(a[0])
         if not 1 <= arac_no <= len(ham["UAV_SYS_IDS"].split()):
