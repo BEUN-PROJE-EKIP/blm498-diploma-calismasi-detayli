@@ -166,7 +166,7 @@ Bir koşunun başlatılması, durdurulması ve kayıt düzeni. Bu bölüm **tasl
 | `depo` | `commit` (40 onaltılık), `calisma_agaci_temiz` (bool). |
 | `yapilandirma_sha256`, `ortam_kilidi_sha256` | `config/deney.env` ve `setup/locks/sha256sums.txt` özetleri. |
 | `arac_sayisi`, `arac_kimlikleri` | 1…`UAV_SYS_IDS` uzunluğu; kimlikler `UAV_SYS_IDS` değerleri (MAV_SYS_ID). |
-| `mimari_modu` | Şimdilik `"yok"`; sonraki kartlarda `KOSU_MIMARILER` değerleri. |
+| `mimari_modu` | Şimdilik `"yok"`; sonraki adımlarda `KOSU_MIMARILER` değerleri. |
 | `sahne_kimligi` | Şimdilik `null`; sonra sahne dosyasının kimliği. |
 | `dunya`, `model`, `gz_partition` | `SIM_WORLD`, `SIM_MODEL` ve koşuya özgü izole Gazebo bölümü. |
 | `surecler` | `{ad, pid, grup}` listesi (`gz_sunucu`, `px4_<i>`). |
