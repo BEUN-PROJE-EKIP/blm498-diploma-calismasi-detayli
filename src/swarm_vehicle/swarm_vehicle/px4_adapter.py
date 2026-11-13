@@ -6,7 +6,7 @@ kimliği doğrulanmadan PX4'e komut verilmez; PX4'e görev komutu yazan tek uygu
 
 Bu dosya, depoda MAVSDK'yı içe aktaran TEK dosyadır. PX4'e yazan her çağrı (görev yükleme/temizleme, arm, görev başlatma) `_yaz` iç yönteminden geçer:
 kimlik denetimi + komut sayacı + günlük. Okumalar (parametre okuma, görev indirme, telemetri akışları) `_yaz`'dan geçmez ve komut sayacına girmez.
-Hiçbir PX4 parametresi yazılmaz. rclpy içe aktarılmaz; dışa açık yöntemler eşzamanlıdır ve iş parçacığı güvenlidir (ROS geri çağrısından çağrılabilir).
+Tek PX4 parametresi yazımı: kalkış irtifası (MIS_TAKEOFF_ALT, `action.set_takeoff_altitude`), değeri ROTA_IRTIFA_M. rclpy içe aktarılmaz; dışa açık yöntemler eşzamanlıdır ve iş parçacığı güvenlidir (ROS geri çağrısından çağrılabilir).
 
 Yerel ENU çerçevesi planlama/sozlesmeler.md'dedir: orijin alan merkezi (x doğu, y kuzey, z yukarı). [varsayım] Alan merkezi = Gazebo dünya orijini; bu yüzden
 aracın başlangıç konumu (UAV_START_POSES) bu çerçevededir. ENU → enlem/boylam dönüşümünün dayanağı çalışma anında elde edilir: PX4 ev konumu (araç başlangıç
@@ -91,6 +91,7 @@ class Px4Adapter:
         self._baglan_sn, self._komut_sn = float(ham["PX4A_BAGLAN_SN"]), float(ham["PX4A_KOMUT_SN"])
         self._hazir_sn, self._kapat_sn = float(ham["PX4A_HAZIR_SN"]), float(ham["PX4A_KAPAT_SN"])
         self._kabul_m = float(ham["PX4A_KABUL_YARICAPI_M"])
+        self._hazirlik_sn, self._yukseklik_tol = float(ham["PX4A_HAZIRLIK_SN"]), float(ham["PX4A_IRTIFA_TOLERANS_M"])
         self._cb = son_nokta_geri_cagrisi
 
         self.komut_sayaci = 0                 # PX4'e giden yazma komutu sayısı (yalnız _yaz artırır)
@@ -110,6 +111,8 @@ class Px4Adapter:
         self._kimlik_ok = False
         self._origin = None                   # (enlem, boylam): yerel ENU orijini
         self._yuklu = 0                       # PX4'e yüklenip geri indirilerek doğrulanan görev öğesi sayısı
+        self._ilk_hedef = None                # rotanın ilk noktası (enlem, boylam)
+        self._hazir_tamam = False             # hazırlık: havada ve ilk noktada
         self._ilerleme = (0, 0)
         self._izle_son = False                # görev başlatıldı, son nokta bekleniyor
         self._ara_gorulen = False
@@ -171,10 +174,15 @@ class Px4Adapter:
         """PX4'teki görevi siler (yazma komutu)."""
         return self._cagir(self._gorev_temizle(), self._komut_sn * 2)
 
+    def hazirlik(self):
+        """Hazırlık evresi (t0'dan ÖNCE; toplam görev süresine girmez): doğrulanmış yüklü görev varsa arm eder, ROTA_IRTIFA_M irtifaya kalkar ve rotanın
+        ilk noktasına gider; ilk noktaya PX4A_KABUL_YARICAPI_M içinde ve irtifada (± PX4A_IRTIFA_TOLERANS_M) varınca döner. Dönen sözlük: kalkis_sure_s,
+        gidis_sure_s, sure_s. Yüklü görev yoksa, kimlik doğrulanamazsa ya da araç havadaysa reddedilir (arm edilmez)."""
+        return self._cagir(self._hazirlik(), self._hazirlik_sn + self._hazir_sn + self._komut_sn * 8)
+
     def gorev_baslat(self):
-        """Doğrulanmış yüklü görev varsa arm eder ve görevi başlatır (kalkışı PX4 görev başlangıcında kendisi yapar). Yüklü görev yoksa ya da kimlik
-        doğrulanamazsa reddedilir ve arm edilmez."""
-        return self._cagir(self._gorev_baslat(), self._hazir_sn + self._komut_sn * 5)
+        """Görevi başlatır (ilk öğeden). YALNIZ hazırlık tamamlandıysa ve araç havada, ilk noktadayken; yerdeyken reddedilir. Arm/kalkış yapmaz."""
+        return self._cagir(self._gorev_baslat(), self._komut_sn * 4)
 
     def durum(self):
         """Durum önbelleğinin kopyası: araç kimliği, PX4 kaynak damgası (odometri time_usec), konum/yönelim, görev ilerlemesi."""
@@ -317,6 +325,7 @@ class Px4Adapter:
     def _konum_isle(self, p):
         with self._kilit:
             self._durum.update(enlem_derece=p.latitude_deg, boylam_derece=p.longitude_deg, goreli_yukseklik_m=p.relative_altitude_m,
+                               mutlak_yukseklik_m=p.absolute_altitude_m,
                                gnss_alinma_ns=time.monotonic_ns())
 
     def _saglik_isle(self, h):
@@ -421,6 +430,8 @@ class Px4Adapter:
                 if sapma > 0.05 or abs(g["goreli_yukseklik_m"] - self._irtifa) > 0.01:
                     raise Px4Hatasi(f"görev öğesi {k} uyuşmuyor: yatay sapma {sapma:.3f} m, yükseklik {g['goreli_yukseklik_m']:.2f} m (beklenen {self._irtifa:g})")
             self._yuklu = len(ogeler)
+            self._ilk_hedef = hedef[0]
+            self._hazir_tamam = False
             sure = time.monotonic() - t0
             self._gunluk("yukleme", oge_sayisi=len(ogeler), en_buyuk_sapma_m=f"{en_buyuk:.4f}", sure_s=f"{sure:.3f}")
             return {"oge_sayisi": len(ogeler), "en_buyuk_sapma_m": en_buyuk, "sure_s": sure}
@@ -433,24 +444,72 @@ class Px4Adapter:
         async with self._islem:
             await self._yaz("mission.clear", self._sys.mission.clear_mission)
             self._yuklu = 0
+            self._hazir_tamam = False
 
-    async def _gorev_baslat(self):
+    def _ilk_noktaya_uzaklik(self):
+        """Önbellekteki GNSS konumundan ilk rota noktasına (yatay m, yükseklik farkı m); konum yoksa None."""
+        with self._kilit:
+            lat, lon, yuk = (self._durum.get(k) for k in ("enlem_derece", "boylam_derece", "goreli_yukseklik_m"))
+        if lat is None or self._ilk_hedef is None:
+            return None
+        de, dn = enu_ofseti(self._ilk_hedef[0], self._ilk_hedef[1], lat, lon)
+        return math.hypot(de, dn), yuk - self._irtifa
+
+    async def _hazirlik(self):
         async with self._islem:
             await self._kimlik_dogrula()
-            if self._yuklu <= 0:
-                raise Px4Hatasi("doğrulanmış yüklü görev yok: görev başlatma reddedildi (arm edilmedi)")
+            if self._yuklu <= 0 or self._ilk_hedef is None:
+                raise Px4Hatasi("doğrulanmış yüklü görev yok: hazırlık reddedildi (arm edilmedi)")
             if await self._havada():
-                raise Px4Hatasi("araç zaten havada: görev başlatma reddedildi")
+                raise Px4Hatasi("araç zaten havada: hazırlık reddedildi")
             t0 = time.monotonic()
             sinir = t0 + self._hazir_sn
             while not (self._saglik is not None and self._saglik.is_armable):
                 if time.monotonic() > sinir:
                     raise Px4Hatasi(f"araç {self._hazir_sn:g} sn içinde arm edilebilir olmadı (sağlık: {self._saglik})")
                 await asyncio.sleep(0.2)
+            sinir = time.monotonic() + self._hazirlik_sn
+            await self._yaz("action.set_takeoff_altitude", self._sys.action.set_takeoff_altitude, self._irtifa)
+            await self._yaz("action.arm", self._sys.action.arm)
+            await self._yaz("action.takeoff", self._sys.action.takeoff)
+            while True:                                                   # kalkış: irtifaya yaklaşana dek
+                with self._kilit:
+                    yuk = self._durum.get("goreli_yukseklik_m")
+                if yuk is not None and yuk >= self._irtifa - self._yukseklik_tol:
+                    break
+                if time.monotonic() > sinir:
+                    raise Px4Hatasi(f"kalkış {self._hazirlik_sn:g} sn içinde bitmedi (yükseklik {yuk})")
+                await asyncio.sleep(0.2)
+            t_kalkis = time.monotonic()
+            with self._kilit:
+                zemin_mutlak = self._durum["mutlak_yukseklik_m"] - self._durum["goreli_yukseklik_m"]
+            await self._yaz("action.goto_location", self._sys.action.goto_location, self._ilk_hedef[0], self._ilk_hedef[1], zemin_mutlak + self._irtifa, float("nan"))
+            while True:                                                   # ilk noktaya gidiş
+                u = self._ilk_noktaya_uzaklik()
+                if u is not None and u[0] <= self._kabul_m and abs(u[1]) <= self._yukseklik_tol:
+                    break
+                if time.monotonic() > sinir:
+                    raise Px4Hatasi(f"ilk noktaya varılamadı ({self._hazirlik_sn:g} sn); son uzaklık {u}")
+                await asyncio.sleep(0.2)
+            self._hazir_tamam = True
+            t1 = time.monotonic()
+            self._gunluk("hazirlik", kalkis_sure_s=f"{t_kalkis - t0:.2f}", gidis_sure_s=f"{t1 - t_kalkis:.2f}", sure_s=f"{t1 - t0:.2f}")
+            return {"kalkis_sure_s": t_kalkis - t0, "gidis_sure_s": t1 - t_kalkis, "sure_s": t1 - t0}
+
+    async def _gorev_baslat(self):
+        async with self._islem:
+            await self._kimlik_dogrula()
+            if self._yuklu <= 0:
+                raise Px4Hatasi("doğrulanmış yüklü görev yok: görev başlatma reddedildi")
+            if not self._hazir_tamam or not await self._havada():
+                raise Px4Hatasi("hazırlık tamamlanmadı ya da araç yerde: görev başlatma reddedildi (arm/kalkış yapılmaz)")
+            u = self._ilk_noktaya_uzaklik()
+            if u is None or u[0] > self._kabul_m + 1.0 or abs(u[1]) > self._yukseklik_tol + 1.0:
+                raise Px4Hatasi(f"araç ilk noktada değil (uzaklık/yükseklik farkı {u}): görev başlatma reddedildi")
+            t0 = time.monotonic()
             self._ara_gorulen = self._ilerleme[0] < self._ilerleme[1]
             self._izle_son = True
             try:
-                await self._yaz("action.arm", self._sys.action.arm)
                 await self._yaz("mission.start", self._sys.mission.start_mission)
             except BaseException:
                 self._izle_son = False

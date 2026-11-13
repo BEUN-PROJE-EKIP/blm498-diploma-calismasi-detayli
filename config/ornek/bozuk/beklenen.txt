@@ -34,3 +34,12 @@ olay_kaynak_karisik.jsonl | her bileşen kendi dosyasına yazar
 olay_yinelenen.jsonl | yinelenen kayıt
 olay_bos_satir.jsonl | boş satır olamaz
 olay_damga_ondalik_saniye.jsonl | ondalık saniye yazılmaz
+arac_durum_durum_gecersiz.jsonl | durum: ['HAZIR', 'BARIYER_BEKLE', 'TARAMA', 'WAIT', 'TAMAMLANDI'] değerlerinden biri olmalı
+arac_durum_kendi_arac.jsonl | DİĞER araçların durumlarını içerir
+arac_durum_kimlik_gecersiz.jsonl | kaynak_arac_kimligi: UAV_SYS_IDS değerlerinden biri olmalı
+arac_durum_sim_ondalik.jsonl | sim_damga_ns: negatif olmayan tam sayı
+arac_durum_mono_sifir.jsonl | alinma_mono_ns: pozitif tam sayı
+arac_durum_yazar_karisik.jsonl | yazarı aynı olmalı
+arac_durum_mono_geriye.jsonl | geriye gidiyor
+arac_durum_bos_satir.jsonl | boş satır olamaz
+arac_durum_bilinmeyen_alan.jsonl | bilinmeyen alan

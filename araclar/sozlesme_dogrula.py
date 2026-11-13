@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
-"""Sözleşme dosyası doğrulayıcı: sahne, bölge/rota, kamera kalibrasyonu, hedef listesi, koşu üst verisi (JSON) ve kare olay kaydı (JSON Lines).
+"""Sözleşme dosyası doğrulayıcı: sahne, bölge/rota, kamera kalibrasyonu, hedef listesi, koşu üst verisi (JSON), kare olay kaydı ve araç durum kaydı (JSON Lines).
 
 Kullanım:
   sozlesme_dogrula.py [--yapilandirma config/deney.env] <dosya.json> [--sahne sahne.json]
   sozlesme_dogrula.py [--yapilandirma ...] --hedef-listesi-uret <sahne.json>
 Dosya türü dosyadaki "tur" alanından anlaşılır (sahne | bolge_rota | kamera_kalibrasyon | hedef_listesi | kosu_ustveri).
-Uzantısı .jsonl olan dosya kare olay kaydıdır (satır başına bir JSON nesnesi, tur: kare_olay).
+Uzantısı .jsonl olan dosya JSON Lines'tır (satır başına bir JSON nesnesi): tur: kare_olay (öntanımlı) ya da tur: arac_durum_kaydi (ilk dolu satırdan anlaşılır).
 --sahne yalnız hedef_listesi için: listenin verilen sahnedeki hedeflerle birebir aynı olduğu da denetlenir.
 Çıkış: 0 geçerli, 1 geçersiz (Türkçe, alan yoluyla "nokta nokta" hata listesi), 2 kullanım/okuma hatası.
 Yalnız standart kitaplık kullanılır. Eşikler ve aralıklar config/deney.env'den okunur (tek kaynak); biçimler planlama/sozlesmeler.md'dedir.
@@ -406,6 +406,7 @@ def dogrula_bolge_rota(c, d):
 # ---------------------------------------------------------------------------------------------------------------------------------
 # Kamera kalibrasyonu
 # ---------------------------------------------------------------------------------------------------------------------------------
+ARAC_DURUMLARI = ("HAZIR", "BARIYER_BEKLE", "TARAMA", "WAIT", "TAMAMLANDI")    # swarm_msgs/VehicleState.STATE_* adları (GŞÖA 7.4)
 BEKLENEN_R = [[0, -1, 0], [-1, 0, 0], [0, 0, -1]]      # kamera (OpenCV: x sağ, y aşağı, z ileri) → gövde (FLU: x ileri, y sol, z yukarı); aşağı bakan
 
 
@@ -658,6 +659,58 @@ def dogrula_kare_olay_dosyasi(c, satirlar):
     return hatalar
 
 
+def dogrula_arac_durum_kaydi(c, d):
+    """Tek bir araç durum kaydı (JSON Lines'ın bir satırı): bir aracın başka bir aracın ortak durum konusundan aldığı durum iletisi."""
+    h = Hatalar()
+    if not alan_denetle(h, "", d, ["surum", "tur", "arac_kimligi", "kaynak_arac_kimligi", "durum", "sim_damga_ns", "alinma_mono_ns"]):
+        return h.liste
+    ust_alanlar(h, d, "arac_durum_kaydi")
+    for alan in ("arac_kimligi", "kaynak_arac_kimligi"):
+        if not tam_sayi_mi(d.get(alan)) or d.get(alan) not in c.arac_kimlikleri:
+            h.ekle(alan, f"UAV_SYS_IDS değerlerinden biri olmalı ({c.arac_kimlikleri}; bulunan: {d.get(alan)!r})")
+    if d.get("arac_kimligi") == d.get("kaynak_arac_kimligi") and tam_sayi_mi(d.get("arac_kimligi")):
+        h.ekle("kaynak_arac_kimligi", "kayıt yalnız DİĞER araçların durumlarını içerir; kaynak araç kaydı yazan araçla aynı olamaz")
+    if d.get("durum") not in ARAC_DURUMLARI:
+        h.ekle("durum", f"{list(ARAC_DURUMLARI)} değerlerinden biri olmalı (bulunan: {d.get('durum')!r})")
+    if not (tam_sayi_mi(d.get("sim_damga_ns")) and d["sim_damga_ns"] >= 0):
+        h.ekle("sim_damga_ns", "negatif olmayan tam sayı (ns) olmalı; ondalık saniye yazılmaz")
+    if not (tam_sayi_mi(d.get("alinma_mono_ns")) and d["alinma_mono_ns"] > 0):
+        h.ekle("alinma_mono_ns", "pozitif tam sayı (CLOCK_MONOTONIC, ns) olmalı; 0, boş ve ondalık değer yazılamaz")
+    return h.liste
+
+
+def dogrula_arac_durum_dosyasi(c, satirlar):
+    """Bir araç sürecinin kayıt dosyası: tek yazar araç, alınma zamanı geriye gitmez, boş satır yok."""
+    hatalar = []
+    yazar = None
+    son_mono = None
+    dolu = 0
+    for no, ham in enumerate(satirlar, 1):
+        if not ham.strip():
+            hatalar.append(f"satır {no}: boş satır olamaz")
+            continue
+        try:
+            d = json.loads(ham)
+        except json.JSONDecodeError as e:
+            hatalar.append(f"satır {no}: JSON geçersiz: {e}")
+            continue
+        dolu += 1
+        hs = dogrula_arac_durum_kaydi(c, d)
+        hatalar.extend(f"satır {no}: {x}" for x in hs)
+        if hs:
+            continue
+        if yazar is None:
+            yazar = d["arac_kimligi"]
+        elif d["arac_kimligi"] != yazar:
+            hatalar.append(f"satır {no}: arac_kimligi: dosyadaki kayıtların yazarı aynı olmalı ({yazar} ile {d['arac_kimligi']} karışık; her araç kendi dosyasına yazar)")
+        if son_mono is not None and d["alinma_mono_ns"] < son_mono:
+            hatalar.append(f"satır {no}: alinma_mono_ns: geriye gidiyor ({d['alinma_mono_ns']} < {son_mono}); alınma sırası monotoniktir")
+        son_mono = d["alinma_mono_ns"]
+    if dolu == 0 and not hatalar:
+        hatalar.append("dosya boş: en az bir kayıt olmalı")
+    return hatalar
+
+
 # ---------------------------------------------------------------------------------------------------------------------------------
 TURLER = {"sahne": dogrula_sahne, "bolge_rota": dogrula_bolge_rota, "kamera_kalibrasyon": dogrula_kalibrasyon, "hedef_listesi": dogrula_hedef_listesi,
           "kosu_ustveri": dogrula_kosu_ustveri}
@@ -716,13 +769,23 @@ def ana(argv):
                 satirlar = f.read().split("\n")
             if satirlar and satirlar[-1] == "":
                 satirlar.pop()   # son satır sonu
-            hatalar = dogrula_kare_olay_dosyasi(c, satirlar)
+            tur_ad = "kare_olay"
+            for ham in satirlar:                     # dosya türü ilk dolu satırdaki "tur" alanından anlaşılır (öntanımlı: kare_olay)
+                if ham.strip():
+                    try:
+                        ilk = json.loads(ham)
+                        if isinstance(ilk, dict) and ilk.get("tur") == "arac_durum_kaydi":
+                            tur_ad = "arac_durum_kaydi"
+                    except json.JSONDecodeError:
+                        pass
+                    break
+            hatalar = dogrula_arac_durum_dosyasi(c, satirlar) if tur_ad == "arac_durum_kaydi" else dogrula_kare_olay_dosyasi(c, satirlar)
             for ln in hatalar:
                 print(f"HATA {dosya}: {ln}")
             if hatalar:
                 print(f"SONUÇ: GEÇERSİZ ({len(hatalar)} hata)")
                 return 1
-            print(f"SONUÇ: GEÇERLİ (kare_olay, {len(satirlar)} satır, {dosya})")
+            print(f"SONUÇ: GEÇERLİ ({tur_ad}, {len(satirlar)} satır, {dosya})")
             return 0
         d = json_oku(dosya)
     except (OSError, json.JSONDecodeError) as e:

@@ -91,8 +91,8 @@ check_prereqs() {
 print_plan() {
     log_info "[dry-run] statik: colcon build --base-paths src --packages-select swarm_vehicle (venv dışı); px4_adapter/rota rclpy olmadan içe aktarılır; git grep taraması"
     log_info "[dry-run] rota: rota_uret.py iki kez (bayt bayt aynı), doğrulayıcı, örnekle değerce aynılık, --check (+) ve bozuk kopyada (-)"
-    log_info "[dry-run] tek: kosu.sh baslat --arac 1 → deneme kimlik (yanlış kimlik reddi, yüklenmemiş görev reddi) → deneme tam (araç 1 tam görev, Gazebo pozu kanıtı) → durdur"
-    log_info "[dry-run] uc: kosu.sh baslat --arac 3 → deneme uc (3 bağdaştırıcı, 3 mavsdk_server, 3 rota yükle/indir/doğrula/başlat, ilk noktaya yaklaşma) → durdur"
+    log_info "[dry-run] tek: kosu.sh baslat --arac 1 → deneme kimlik (yanlış kimlik reddi, yüklenmemiş görev reddi) → deneme tam (araç 1: yükle, hazırlık, başlat, son nokta; Gazebo pozu kanıtı) → durdur"
+    log_info "[dry-run] uc: kosu.sh baslat --arac 3 → deneme uc (3 bağdaştırıcı, 3 mavsdk_server, 3 rota yükle/indir/doğrula, eş zamanlı hazırlık, başlat, ikinci noktaya varış) → durdur"
     log_info "[dry-run] yetim: baslat → bağdaştırıcıyı barındıran sürece SIGKILL → yetim mavsdk_server → kosu.sh temizle kapatır"
     log_info "[dry-run] Sonda px4/gz/mavsdk_server/ruby, port, /dev/shm, ros2 daemon, tc/ip denetimi. Hiçbir süreç başlatılmadı, hiçbir şey derlenmedi"
 }
@@ -262,7 +262,7 @@ test_tek() {
         if [[ -f "$out" ]]; then
             log_ok "$ad: bağdaştırıcı günlüğü koşu klasöründe: ${out#"$ROOT_DIR"/} ($(wc -l < "$out") satır)"
             log_info "$ad: günlükteki olay türleri: $(awk '{print $3}' "$out" | LC_ALL=C sort | uniq -c | awk '{printf "%s×%s ", $2, $1}')"
-            if grep -q ' yukleme ' "$out" && grep -q ' baslatma ' "$out" && grep -q ' son_nokta ' "$out"; then log_ok "$ad: günlükte yükleme, başlatma ve son_nokta olayları var"; else log_fail "$ad: günlükte yükleme/başlatma/son_nokta olayı eksik"; fi
+            if grep -q ' yukleme ' "$out" && grep -q ' hazirlik ' "$out" && grep -q ' baslatma ' "$out" && grep -q ' son_nokta ' "$out"; then log_ok "$ad: günlükte yükleme, hazırlık, başlatma ve son_nokta olayları var"; else log_fail "$ad: günlükte yükleme/hazırlık/başlatma/son_nokta olayı eksik"; fi
         else
             log_fail "$ad: bağdaştırıcı günlüğü yok: ${out#"$ROOT_DIR"/}"
         fi

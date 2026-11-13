@@ -4,9 +4,9 @@
 Kullanım:  python araclar/px4_adapter_deneme.py {donusum|kimlik|tam|uc|yetim}
   donusum  SITL gerekmez: ENU↔enlem/boylam gidiş-dönüşü, rota dosyası, rclpy olmadan içe aktarma
   kimlik   yaşayan tek araçlı koşu: yanlış beklenen kimlik reddi (a); görev yüklenmeden başlatma reddi (b)
-  tam      yaşayan tek araçlı koşu: araç 1 tam görev (bağlan → kimlik → yükle → indirip karşılaştır → başlat → son nokta bir kez);
+  tam      yaşayan tek araçlı koşu: araç 1 tam görev (bağlan → kimlik → yükle → indirip karşılaştır → hazırlık (kalkış + ilk nokta) → başlat → son nokta bir kez);
            bağımsız kanıt Gazebo model pozudur (PX4 telemetrisi değil); havadayken yükleme reddi
-  uc       yaşayan üç araçlı koşu: üç bağdaştırıcı, üç mavsdk_server, üç rota; her biri ilk rota noktasına yaklaşır (Gazebo pozu)
+  uc       yaşayan üç araçlı koşu: üç bağdaştırıcı, üç mavsdk_server, üç rota; eş zamanlı hazırlık (ilk noktada, Gazebo pozu), başlatma, ikinci noktaya varış
   yetim    tek bağdaştırıcı açar, "HAZIR <sunucu pid>" yazıp bekler (testin SIGKILL ile yetim bıraktığı süreç)
 Gazebo erişimi için GZ_PARTITION ve GZ_IP ortam değişkenleri koşuya göre verilmelidir (setup/px4_adapter_testi.sh verir).
 Her sonuç satırı "SONUC <gecti|kaldi> <ad> | <ayrıntı>" biçimindedir; kaldı varsa çıkış kodu 1.
@@ -156,6 +156,18 @@ def kimlik():
         p = gz.bekle(model_adi(0))
         sonuc(b.komut_sayaci == 0 and d.get("silahli") is False and not d.get("havada") and p[2] < 1.0, "kimlik_b_arm_yok",
               f"komut sayısı {b.komut_sayaci}, silahli={d.get('silahli')}, havada={d.get('havada')}, Gazebo z={p[2]:.2f} m")
+        # (c) görev yüklü ama hazırlık yapılmadı (araç yerde): görev başlatma reddedilir, arm/kalkış yok
+        b.gorev_yukle(noktalar)
+        sayac = b.komut_sayaci
+        try:
+            b.gorev_baslat()
+            sonuc(False, "kimlik_c_yerde_baslat", "yerdeyken gorev_baslat KABUL EDİLDİ")
+        except pa.Px4Hatasi as e:
+            time.sleep(2)
+            d = b.durum()
+            p = gz.al(model_adi(0))[0]
+            sonuc(b.komut_sayaci == sayac and d.get("silahli") is False and p[2] < 1.0, "kimlik_c_yerde_baslat",
+                  f"görev yüklüyken yerde reddedildi (Px4Hatasi): {e}; komut sayısı {b.komut_sayaci} (yükleme sonrası {sayac}), silahli={d.get('silahli')}, Gazebo z={p[2]:.2f} m")
     finally:
         b.kapat()
     sonuc(not sunucu_yasiyor(b.sunucu_pid), "kimlik_b_sunucu_kapandi", f"mavsdk_server pid {b.sunucu_pid} kapandı")
@@ -185,9 +197,20 @@ def tam():
               f"yükleme süresi {y['sure_s']:.2f} sn; komut sayısı {a.komut_sayaci}")
         p0 = gz.bekle(model)
         sonuc(p0[2] < 1.0, "tam_kalkis_oncesi", f"yüklemede araç yerde (Gazebo z={p0[2]:.2f} m): rota kalkıştan önce yüklendi")
+        try:
+            a.gorev_baslat()
+            sonuc(False, "tam_yerde_baslat_reddi", "hazırlıksız (yerde) gorev_baslat KABUL EDİLDİ")
+        except pa.Px4Hatasi as e:
+            sonuc(a.komut_sayaci == 1, "tam_yerde_baslat_reddi", f"yerdeyken reddedildi: {e}; komut sayısı {a.komut_sayaci} (yalnız yükleme)")
+        h = a.hazirlik()
+        ph = gz.al(model)[0]
+        hata_h = yatay(ph, noktalar[0])
+        sonuc(hata_h <= YAKLASMA_M and abs(ph[2] - IRTIFA) <= 2.0, "tam_hazirlik",
+              f"hazırlık: kalkış {h['kalkis_sure_s']:.1f} sn, ilk noktaya gidiş {h['gidis_sure_s']:.1f} sn, toplam {h['sure_s']:.1f} sn (gerçek); Gazebo pozu: ilk noktaya yatay {hata_h:.2f} m (≤ {YAKLASMA_M:g}), "
+              f"yükseklik {ph[2]:.2f} m ({IRTIFA:g} ± 2); komut sayısı {a.komut_sayaci}")
         _, sim0 = gz.al(model)
         b = a.gorev_baslat()
-        sonuc(True, "tam_baslat", f"arm + görev başlatma {b['sure_s']:.2f} sn; komut sayısı {a.komut_sayaci}")
+        sonuc(True, "tam_baslat", f"görev başlatma (havada, ilk noktada) {b['sure_s']:.2f} sn; komut sayısı {a.komut_sayaci}")
         en_yakin = [1e9] * len(noktalar)
         ilk_varis_sim = None
         ara_varis = set()
@@ -214,8 +237,8 @@ def tam():
             sonuc(hata <= YAKLASMA_M and abs(o["poz"][2] - IRTIFA) <= 2.0, "tam_son_nokta_gazebo",
                   f"Gazebo pozu: son noktaya yatay hata {hata:.2f} m (≤ {YAKLASMA_M:g}), yükseklik {o['poz'][2]:.2f} m ({IRTIFA:g} ± 2); "
                   f"görev süresi {sure:.1f} sim sn (başlatmadan bildirime); rota uzunluğu {uzunluk:.0f} m; bildirimdeki ilerleme {o['bilgi']['ilerleme']}")
-        sonuc(ilk_varis_sim is not None, "tam_ilk_nokta", f"ilk rota noktasına varış (≤ {YAKLASMA_M:g} m, yükseklik {IRTIFA:g} ± 2): "
-              f"{'sim ' + format(ilk_varis_sim - sim0, '.1f') + ' sn' if ilk_varis_sim is not None else 'GÖRÜLMEDİ'}")
+        sonuc(ilk_varis_sim is not None, "tam_ilk_nokta", f"ilk rota noktasında (≤ {YAKLASMA_M:g} m, yükseklik {IRTIFA:g} ± 2) görev başlangıcında: "
+              f"{'sim ' + format(ilk_varis_sim - sim0, '.1f') + ' sn sonra tarama noktası 0 görüldü' if ilk_varis_sim is not None else 'GÖRÜLMEDİ'}")
         sonuc(len(ara_varis) >= 1, "tam_ara_nokta", f"ilk varıştan sonra yaklaşılan ara rota noktaları: {sorted(ara_varis)}; her noktaya en yakın yatay uzaklık (m): "
               + ", ".join(f"{k}:{d:.1f}" for k, d in enumerate(en_yakin)))
         time.sleep(10)
@@ -268,13 +291,41 @@ def uc():
         modeller = [model_adi(i) for i in range(n)]
         for m in modeller:
             gz.bekle(m)
+        # hazırlık evresi: üç araç eş zamanlı (her biri kendi iş parçacığından); en küçük araçlar arası uzaklık izlenir
+        sonuclar, hatalar = {}, {}
+        en_az_ayrim = 1e9
+
+        def hazirla(a):
+            try:
+                sonuclar[a.arac_kimligi] = a.hazirlik()
+            except Exception as e:  # noqa: BLE001
+                hatalar[a.arac_kimligi] = e
+        izler = [threading.Thread(target=hazirla, args=(a,)) for a in adaptorler]
+        for t in izler:
+            t.start()
+        while any(t.is_alive() for t in izler):
+            pozlar = [gz.al(m)[0] for m in modeller]
+            for i in range(n):
+                for j in range(i + 1, n):
+                    if pozlar[i] and pozlar[j]:
+                        en_az_ayrim = min(en_az_ayrim, math.dist(pozlar[i], pozlar[j]))
+            time.sleep(0.25)
+        for t in izler:
+            t.join()
+        for i, a in enumerate(adaptorler):
+            ph = gz.al(modeller[i])[0]
+            h = sonuclar.get(a.arac_kimligi)
+            hata = yatay(ph, rotalar[a.arac_kimligi][0])
+            sonuc(h is not None and hata <= YAKLASMA_M and abs(ph[2] - IRTIFA) <= 2.0, f"uc_hazirlik_{a.arac_kimligi}",
+                  (f"hazırlık {h['sure_s']:.1f} sn (kalkış {h['kalkis_sure_s']:.1f}, gidiş {h['gidis_sure_s']:.1f}); Gazebo: ilk noktaya yatay {hata:.2f} m, yükseklik {ph[2]:.2f} m"
+                   if h else f"hazırlık HATA: {hatalar.get(a.arac_kimligi)!r}"))
+        sonuc(en_az_ayrim > 1.0, "uc_hazirlik_carpisma_yok", f"hazırlık evresinde araçlar arası en küçük 3B uzaklık {en_az_ayrim:.1f} m (> 1 m)")
         _, sim0 = gz.al(modeller[0])
         for a in adaptorler:
             b = a.gorev_baslat()
-            sonuc(True, f"uc_baslat_{a.arac_kimligi}", f"başlatıldı ({b['sure_s']:.2f} sn)")
+            sonuc(True, f"uc_baslat_{a.arac_kimligi}", f"başlatıldı (havada, ilk noktada; {b['sure_s']:.2f} sn)")
         en_yakin = {a.arac_kimligi: 1e9 for a in adaptorler}
         varis = {}
-        en_az_ayrim = 1e9
         yere_indi = []
         yukseklik_goruldu = set()
         sinir = time.monotonic() + 300
@@ -285,7 +336,7 @@ def uc():
                 p = pozlar[i]
                 if p is None:
                     continue
-                d = yatay(p, rotalar[a.arac_kimligi][0])
+                d = yatay(p, rotalar[a.arac_kimligi][1])           # görev akıyor mu: ikinci rota noktası
                 en_yakin[a.arac_kimligi] = min(en_yakin[a.arac_kimligi], d)
                 if p[2] > IRTIFA - 5:
                     yukseklik_goruldu.add(a.arac_kimligi)
@@ -300,9 +351,9 @@ def uc():
             time.sleep(0.25)
         for a in adaptorler:
             v = varis.get(a.arac_kimligi)
-            sonuc(v is not None, f"uc_ilk_nokta_{a.arac_kimligi}",
-                  (f"ilk rota noktasına varış: sim {v[0]:.1f} sn, yatay {v[1]:.2f} m, yükseklik {v[2]:.1f} m (Gazebo)" if v else
-                   f"ilk noktaya varılamadı (en yakın yatay uzaklık {en_yakin[a.arac_kimligi]:.1f} m)"))
+            sonuc(v is not None, f"uc_ikinci_nokta_{a.arac_kimligi}",
+                  (f"görev başlangıcından {v[0]:.1f} sim sn sonra ikinci rota noktasına varış: yatay {v[1]:.2f} m, yükseklik {v[2]:.1f} m (Gazebo)" if v else
+                   f"ikinci noktaya varılamadı (en yakın yatay uzaklık {en_yakin[a.arac_kimligi]:.1f} m)"))
         # başlangıç konumları 3 m arayla (UAV_START_POSES); çarpışma ölçütü: hiçbir an iki araç 1 m'den (gövde + pervane açıklığı) yakın olmamalı
         sonuc(en_az_ayrim > 1.0, "uc_carpisma_yok", f"araçlar arası en küçük 3B uzaklık {en_az_ayrim:.1f} m (> 1 m; başlangıç aralığı 3 m, yani yaklaşma olmadı)")
         sonuc(not yere_indi, "uc_beklenmeyen_inis_yok", f"görev sırasında beklenmeyen iniş: {yere_indi or 'yok'}")

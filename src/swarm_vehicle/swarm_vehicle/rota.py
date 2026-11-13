@@ -9,7 +9,15 @@ import math
 import os
 import re
 
-KOK = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
+def _kok_bul():
+    """Depo kökü: PROJE_ROOT ortam değişkeni (setup/env.sh verir; kurulu paket için gerekli), yoksa kaynak ağacındaki konumdan."""
+    ortam = os.environ.get("PROJE_ROOT")
+    if ortam and os.path.isfile(os.path.join(ortam, "config", "deney.env")):
+        return ortam
+    return os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
+
+
+KOK = _kok_bul()
 
 _SATIR = re.compile(r'^([A-Z][A-Z0-9_]*)=(?:"([^"]*)"|(\S*))')
 
@@ -24,6 +32,17 @@ _ORTUSME_PAYI_M = 0.01
 def varsayilan_deney_env():
     """DENEY_ENV ortam değişkeni varsa onu, yoksa depodaki config/deney.env yolunu verir."""
     return os.environ.get("DENEY_ENV") or os.path.join(KOK, "config", "deney.env")
+
+
+def aktif_kosu_klasoru():
+    """Yaşayan koşunun klasörü (araclar/kosu.sh `aktif` işaretinden); yoksa None."""
+    aktif = os.path.join(KOK, ".generated", "kosular", "aktif")
+    if not os.path.isfile(aktif):
+        return None
+    with open(aktif, encoding="utf-8") as f:
+        kimlik = f.read().strip()
+    klasor = os.path.join(KOK, ".generated", "kosular", kimlik)
+    return klasor if kimlik and os.path.isdir(klasor) else None
 
 
 def deney_env_oku(yol=None):

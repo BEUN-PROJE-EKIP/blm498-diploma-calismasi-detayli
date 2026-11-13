@@ -127,6 +127,10 @@ Mevcut anahtarlar (ağ, kimlik/port, kamera, çıkarım, eğitim) değişmedi. E
 | `KOSU_GZ_HAZIR_SN`, `KOSU_PX4_HAZIR_SN` | 60, 90 | varsayım (hazır olma bekleme üst sınırları, saniye) |
 | `KOSU_KAPANIS_SN` | 30 | varsayım (süreç grubu başına SIGTERM sonrası bekleme üst sınırı, saniye) |
 | `PX4A_BAGLAN_SN`, `PX4A_KOMUT_SN`, `PX4A_HAZIR_SN`, `PX4A_KAPAT_SN` | 60, 20, 90, 5 | varsayım (px4_adapter zaman aşımları, gerçek saniye: bağlanma, tek komut/okuma, ev konumu ve arm edilebilirlik, mavsdk_server'a SIGTERM sonrası bekleme) |
+| `PX4A_HAZIRLIK_SN`, `PX4A_IRTIFA_TOLERANS_M` | 240, 1 | varsayım (hazırlık evresi üst sınırı, gerçek saniye; kalkışta ve ilk noktada irtifa kabul payı, m) |
+| `DURUM_YAYIN_HZ` | 2 | belge (durum 2 Hz) |
+| `KONU_DURUM`, `KONU_TARAMA_BASLAT`, `KONU_TARAMA_BITIS`, `KONU_COMPLETE` | bkz. §9 | varsayım (konu adları) |
+| `ARAC_KAPANIS_BEKLE_SN`, `ARAC_SIM_SAAT_SN` | 3, 30 | varsayım (TAMAMLANDI sonrası durum yayımı sürdürme süresi; gz saatinin ilk gelişi için üst sınır, gerçek saniye) |
 | `PX4A_KABUL_YARICAPI_M` | 2 | varsayım (her görev öğesinin kabul yarıçapı, m; PX4'ün öntanımlı kabul yarıçapı 10 m "son noktaya ulaşıldı" anını son noktadan uzağa kaydırır; PX4 parametresi değiştirilmez, değer öğe başına yazılır) |
 
 Betikler ve doğrulayıcı bu anahtarları yalnızca bu dosyadan okur; mevcut test ve ölçüm betikleri `source` ile okumaya devam eder (yeni anahtarlar eski betikleri etkilemez).
@@ -153,9 +157,12 @@ Bir koşunun başlatılması, durdurulması ve kayıt düzeni. Bu bölüm **tasl
 .generated/kosular/<kosu_kimligi>/
   kosu.json                       koşu üst verisi (başlatma yazar; durdurma/temizleme tamamlar)
   gz_sunucu.log, px4_<i>.log      süreç günlükleri
+  arac_<arac_kimligi>.log         araç süreci olay günlüğü (durum geçişleri, yok sayılan olaylar, t_s/t_b, tarama bitişi; satır: ISO saat, monotonik ns, sim_ns, olay, anahtar=değer)
+  koordinator_deneme.jsonl        yalnız deneme koordinatörü test çıktısı (serbest biçim, şema değildir)
   px4_adapter_<arac_kimligi>.log  px4_adapter olay günlüğü (satır başına: ISO saat, monotonik ns, olay, anahtar=değer; yeni şema değil)
   calisma/px4_<i>/                PX4 örneği çalışma klasörü
   kayit/<kaynak>[_<arac>].jsonl   kare olay kayıtları (8.3); her bileşen KENDİ dosyasına yazar
+  kayit/arac_durum_<arac>.jsonl   araç sürecinin DİĞER araçlardan aldığı durumlar (8.5)
 .generated/kosular/aktif          yaşayan koşunun kimliği (varsa); durdurma/temizleme siler
 ```
 
@@ -200,3 +207,35 @@ Zamanlar ondalık saniye değildir; ölçekleme ve yuvarlama yapılmaz [belge]. 
 ### 8.4 Koşu betiği
 
 `araclar/kosu.sh baslat [--arac N] | durdur | durum | temizle` (hepsi `--dry-run` destekler). `baslat` önce başka `gz sim`/`ruby`/`px4`/`mavsdk_server` süreci ya da bitmemiş koşu olmadığını denetler; Gazebo sunucusunu, sonra N PX4 SITL örneğini ayrı süreç gruplarında başlatır. `durdur` SIGTERM ile ters sırada (PX4'ler, **Gazebo en son**: sunucuda çalışan kayıt bileşeninin son boşaltmayı yapması için) kapatır; `KOSU_KAPANIS_SN` dolarsa SIGKILL uygular ve `kosu.json`'a `zorla_kapatildi` yazar. `temizle` bu betiğin başlattığı süreç gruplarını kapatır, koşu klasörünü silmez, `yarida_kaldi` yazar. `durdur` ve `temizle`, `MAVSDK_GRPC_PORTS` üzerinde dinleyen yetim `mavsdk_server` süreçlerini de (bağdaştırıcı kapatmadıysa) önce SIGTERM ile kapatır ve kosu.json süreç listesine `mavsdk_server_<gRPC portu>` adıyla yazar.
+
+### 8.5 Araç durum kaydı (`tur: "arac_durum_kaydi"`, JSON Lines, taslak sürüm)
+
+Her araç süreci, ortak durum konusundan (bkz. §9) aldığı **diğer araçların** durum iletilerini kendi dosyasına (`kayit/arac_durum_<arac_kimligi>.jsonl`) yazar [belge: her araç diğer iki aracın durumunu alıp kaydeder, FR-2]. Aracın kendi geçişleri bu dosyaya yazılmaz; `arac_<arac_kimligi>.log` dosyasındadır [varsayım: ayrı dosya]. Satır başına bir kayıt:
+
+| Alan | Açıklama |
+|---|---|
+| `surum`, `tur` | `1`, `"arac_durum_kaydi"` |
+| `arac_kimligi` | Kaydı yazan araç (`UAV_SYS_IDS` değeri); bir dosyada hep aynı. |
+| `kaynak_arac_kimligi` | Durumu yayımlayan araç (`UAV_SYS_IDS` değeri); `arac_kimligi`'nden farklı. |
+| `durum` | `HAZIR`, `BARIYER_BEKLE`, `TARAMA`, `WAIT`, `TAMAMLANDI` (`VehicleState.STATE_*` adları). |
+| `sim_damga_ns` | İletideki `sim_stamp` (yayımlayanın simülasyon saati), ns, tam sayı. |
+| `alinma_mono_ns` | İletinin alındığı an, `CLOCK_MONOTONIC` ns, pozitif tam sayı; dosyada geriye gitmez. |
+
+Ondalık saniye yazılmaz. Doğrulayıcı: `sozlesme_dogrula.py <dosya>.jsonl` (ilk dolu satırdaki `tur` ile ayrılır). Örnek: `config/ornek/arac_durum_kaydi_ornek.jsonl`.
+
+## 9. ROS 2 konuları (taslak)
+
+Belge konu adlarını ve QoS değerlerini **tanımlamaz**; aşağıdaki her ad ve ayar **[varsayım]**dır. Adlar `config/deney.env`'de (`KONU_*`) tek yerde durur. **Kesin QoS B11/M2'de belirlenir (U14, U21)**; bu bölüm yalnız bu sürümün çalışan ayarıdır. Bütün araç süreçleri ve yer istasyonu aynı Fast DDS profilini (`config/fastdds_profil.xml`) ve ölçülen sürü ağını kullanır; araç süreci kendi adresini `SWARM_BIND_ADDR` ile alır.
+
+| Konu (varsayım) | Tür | Yayımlayan → abone | QoS (varsayım) |
+|---|---|---|---|
+| `/swarm/vehicle_state` (`KONU_DURUM`) | `swarm_msgs/VehicleState` | her araç, 2 Hz [belge] → diğer araçlar ve yer istasyonu | reliable, volatile, keep_last 10 |
+| `/swarm/scan_start` (`KONU_TARAMA_BASLAT`) | `swarm_msgs/ScanStart` | yer istasyonu (görev koordinatörü), bir kez (t0) → araçlar | reliable, transient_local, keep_last 1 |
+| `/swarm/scan_finished` (`KONU_TARAMA_BITIS`) | `swarm_msgs/ScanFinished` | her araç, rota bitince bir kez → yer istasyonu (ve diğer araçlar) | reliable, transient_local, keep_last 10 |
+| `/swarm/complete` (`KONU_COMPLETE`) | `swarm_msgs/Complete` | yer istasyonu, bir kez (t1) → araçlar | reliable, transient_local, keep_last 1 |
+
+- **Tek durum konusu:** üç araç ve yer istasyonu aynı konuya yayımlar/abone olur; durum iletisi `vehicle_id` taşır [belge: "ortak durum konusu"]. Araç, kendi iletisini kayda almaz.
+- **Kontrol iletileri** (başlatma, bitiş, COMPLETE) kaybolmamalıdır [belge: WAIT'ten yalnız COMPLETE ile çıkılır]: reliable. **transient_local** seçilmesinin gerekçesi, yazıcının aboneyi sonradan keşfetmesi durumunda (keşif sırası belirsizdir) iletinin yine de teslim edilmesidir; eski bir koşunun iletisi ise durum makinesinin kurallarıyla (BARIYER_BEKLE dışında başlatma yok sayılır, görev kimliği eşleşmeyen COMPLETE yok sayılır) etkisizdir. Derinlik 1: yalnız son başlatma/COMPLETE tutulur.
+- **Durum iletisi** 2 Hz sürekli akıştır; kaybolan bir ileti sonraki ile telafi edilir, geç katılana eski durum verilmez: volatile.
+- Araç komut konusu bu sürümde **yoktur** (komut türleri belgede tanımsız).
+- Durum yayımı duvar saati zamanlayıcısıyla (2 Hz) yapılır; ayrıca her durum geçişinde bir ek ileti yayımlanır [varsayım: 2 Hz'lik akış yarım saniyeden kısa süren bir durumu — örneğin tarama bitişini en son yapan aracın WAIT'ini — kaçırabilir]; iletideki `sim_stamp` simülasyon saatidir [varsayım: RTF ≈ 1; ölçüm sim zamanına göre de raporlanır].

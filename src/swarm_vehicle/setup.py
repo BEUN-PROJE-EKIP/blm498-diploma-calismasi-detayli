@@ -16,4 +16,9 @@ setup(
     maintainer_email='takim@example.com',
     description="Sürü yazılımının araç süreci paketi (px4_adapter, rota üretimi).",
     license='Apache-2.0',
+    entry_points={
+        'console_scripts': [
+            'arac = swarm_vehicle.arac:main',
+        ],
+    },
 )
