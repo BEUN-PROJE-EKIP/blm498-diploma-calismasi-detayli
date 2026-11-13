@@ -94,7 +94,7 @@ dump_log() {
 [[ -f "$DENEY_ENV" ]] || fail_stop "Yapılandırma yok: $DENEY_ENV"
 # shellcheck source=/dev/null
 source "$DENEY_ENV"
-for v in UAV_SYS_IDS UAV_NAMESPACES UAV_START_POSES PX4_MAVLINK_PORTS MAVSDK_GRPC_PORTS SIM_WORLD SIM_MODEL; do
+for v in UAV_SYS_IDS UAV_NAMESPACES UAV_START_POSES PX4_MAVLINK_PORTS MAVSDK_GRPC_PORTS SIM_WORLD SIM_MODEL_TEMEL; do
     [[ -n "${!v:-}" ]] || fail_stop "$DENEY_ENV içinde $v tanımsız"
 done
 read -r -a SYS_IDS <<< "$UAV_SYS_IDS"
@@ -129,7 +129,7 @@ check_prereqs() {
 
 print_plan() {
     local i
-    log_info "[dry-run] testler: ${TESTS[*]}; GZ_PARTITION oturum başına ayrı; dünya $SIM_WORLD, model $SIM_MODEL (başsız)"
+    log_info "[dry-run] testler: ${TESTS[*]}; GZ_PARTITION oturum başına ayrı; dünya $SIM_WORLD, model $SIM_MODEL_TEMEL (başsız)"
     for ((i = 0; i < N_UAV; i++)); do
         log_info "[dry-run] araç $((i + 1)): px4 -i $i (MAV_SYS_ID ${SYS_IDS[$i]}, UDP ${UDPS[$i]}, konum ${POSES[$i]}), mavsdk_server -p ${GRPCS[$i]} udpin://0.0.0.0:${UDPS[$i]}, ad alanı /${NSS[$i]}"
     done
@@ -178,7 +178,7 @@ start_session() {
         # shellcheck disable=SC2016  # tek tırnak bilerek: $1/$2/$3 alt kabukta açılır
         # İlk örnek Gazebo dünyasını başlatır; sonrakiler çalışan dünyaya model ekler (aynı GZ_PARTITION).
         start_group "$d/px4_$i.log" env LC_NUMERIC=C GZ_PARTITION="$OTURUM_PART" GZ_IP=127.0.0.1 HEADLESS=1 \
-            PX4_SIM_MODEL="$SIM_MODEL" PX4_GZ_WORLD="$SIM_WORLD" PX4_GZ_MODEL_POSE="${POSES[$i]}" \
+            PX4_SIM_MODEL="$SIM_MODEL_TEMEL" PX4_GZ_WORLD="$SIM_WORLD" PX4_GZ_MODEL_POSE="${POSES[$i]}" \
             bash -c '. "$1/rootfs/gz_env.sh"; cd "$2"; exec "$1/bin/px4" -i "$3" -d -s "$1/etc/init.d-posix/rcS" "$1/etc"' _ "$PX4_BUILD" "$d/w$i" "$i"
         pg="$LAST_PG"
         if ! wait_for_log "$d/px4_$i.log" 'Startup script returned successfully' 90; then
@@ -186,6 +186,14 @@ start_session() {
             dump_log "$d/px4_$i.log"; return 1
         fi
         log_info "$ad: PX4 örneği $i hazır (MAV_SYS_ID ${SYS_IDS[$i]}, UDP ${UDPS[$i]}, konum ${POSES[$i]})"
+        # başlatılan modelin kanıtı: Gazebo konu listesinde bu örneğin modeli var ve kamera/görüntü algılayıcısı YOK (kamerasız temel gövde: $SIM_MODEL_TEMEL)
+        local konular
+        konular="$(GZ_PARTITION="$OTURUM_PART" GZ_IP=127.0.0.1 timeout 10 gz topic -l 2>/dev/null || true)"
+        if [[ "$konular" == *"/model/${SIM_MODEL_TEMEL#gz_}_$i/"* && "$konular" != *"/image"* ]]; then
+            log_ok "$ad: başlatılan model ${SIM_MODEL_TEMEL#gz_}_$i (kamerasız temel gövde $SIM_MODEL_TEMEL; Gazebo konularında görüntü (kamera) konusu yok)"
+        else
+            log_fail "$ad: başlatılan model beklenen kamerasız ${SIM_MODEL_TEMEL#gz_}_$i değil (Gazebo konu listesi: $(grep -c . <<< "$konular") konu; görüntü konuları: $(grep '/image' <<< "$konular" | tr '\n' ' ' || true))"
+        fi
         : "$pg"
     done
     for ((i = 0; i < n; i++)); do

@@ -28,7 +28,7 @@ olay_mono_bos.jsonl | 0, boş ve ondalık değer yazılamaz
 olay_uretimde_uygulanmaz.jsonl | 'uygulanmaz' yalnız aktarım aşamalarında
 olay_turu_gecersiz.jsonl | olay: ['uretim'
 olay_sonuc_durumu_eksik.jsonl | zorunlu (bulunan: None)
-olay_sonuc_durumu_yanlis_olayda.jsonl | yalnız 'kullanilabilir' olayında bulunabilir
+olay_sonuc_durumu_yanlis_olayda.jsonl | yalnız 'kullanilabilir' ve 'kayip_tespit' olaylarında bulunabilir
 olay_sonuc_durumu_gecersiz.jsonl | zorunlu (bulunan: 'belki')
 olay_kaynak_karisik.jsonl | her bileşen kendi dosyasına yazar
 olay_yinelenen.jsonl | yinelenen kayıt
@@ -50,3 +50,6 @@ olay_neden_yanlis_olayda.jsonl | yalnız 'yok_sayildi' olayında bulunabilir
 olay_izgara_disi_neden_uyumsuz.jsonl | birlikte olmalı
 olay_gec_geldi_yer_istasyonunda.jsonl | yalnız kamera alıcısı yazar
 olay_gec_geldi_uygulanmaz.jsonl | 'uygulanmaz' yalnız aktarım aşamalarında
+olay_kayip_tespit_yer_istasyonunda.jsonl | yalnız kamera alıcısı yazar
+olay_kayip_tespit_sonuc_yanlis.jsonl | 'kayip_tespit' olayında 'kare_alinamadi' zorunlu
+olay_kayip_tespit_sonucsuz.jsonl | 'kayip_tespit' olayında 'kare_alinamadi' zorunlu

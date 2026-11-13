@@ -101,7 +101,7 @@ dump_log() {
 [[ -f "$DENEY_ENV" ]] || fail_stop "Yapılandırma yok: $DENEY_ENV"
 # shellcheck source=/dev/null
 source "$DENEY_ENV"
-for v in CAM_WIDTH CAM_HEIGHT CAM_RATE_HZ CAM_ALT_M CAM_HFOV_RAD CAM_WORLD CAM_TARGETS CAM_SPACING_M CAM_K9_SIM_SN CAM_YUK_SIM_SN SIM_MODEL; do
+for v in CAM_WIDTH CAM_HEIGHT CAM_RATE_HZ CAM_ALT_M CAM_HFOV_RAD CAM_WORLD CAM_TARGETS CAM_SPACING_M CAM_K9_SIM_SN CAM_YUK_SIM_SN SIM_MODEL_TEMEL; do
     [[ -n "${!v:-}" ]] || fail_stop "$DENEY_ENV içinde $v tanımsız"
 done
 # Bu ölçümde sahnenin görüş açısı kilitli CAM_HFOV_RAD'dır (kamera_olcum.py CAM_SDF_HFOV_RAD adını okur).
@@ -134,7 +134,7 @@ print_plan() {
     log_info "[dry-run] derleme: cmake -S src/yayim_damga -B .generated/yayim_damga/build (yalnız bu dizin), -j <çalışma anında tespit edilen çekirdek sayısı>"
     log_info "[dry-run] saat: saat_kontrol ikilisi 20 tur, Python time.monotonic_ns() ile aralık denetimi"
     log_info "[dry-run] k1: açık×2 (farklı GZ_PARTITION) + kapalı×1, ${CAM_K9_SIM_SN} sim sn; yöntemler abone, bilgi, kare"
-    log_info "[dry-run] uc: 3 kamera açık + kapalı, ${CAM_YUK_SIM_SN} sim sn; px4: 1 kamera + PX4 SITL ($SIM_MODEL) açık + kapalı, ${CAM_YUK_SIM_SN} sim sn"
+    log_info "[dry-run] uc: 3 kamera açık + kapalı, ${CAM_YUK_SIM_SN} sim sn; px4: 1 kamera + PX4 SITL ($SIM_MODEL_TEMEL) açık + kapalı, ${CAM_YUK_SIM_SN} sim sn"
     log_info "[dry-run] kapanis: 30 sim sn sonra sunucuya SIGTERM ve (ayrı oturumda) SIGKILL; bileşen kaydının sonu alıcıyla karşılaştırılır"
     log_info "[dry-run] Süreç grupları (setsid) her çıkışta öldürülür; sonda px4/gz/mavsdk_server/ruby, port, /dev/shm, ros2 daemon, tc/ip denetimi"
     log_info "[dry-run] Hiçbir süreç başlatılmadı, derleme yapılmadı"
@@ -213,12 +213,12 @@ start_session() {
         mkdir -p "$d/w0"
         # shellcheck disable=SC2016  # tek tırnak bilerek: $1/$2 alt kabukta açılır
         start_group "$d/px4.log" env LC_NUMERIC=C GZ_PARTITION="$OTURUM_PART" GZ_IP=127.0.0.1 HEADLESS=1 \
-            PX4_SIM_MODEL="$SIM_MODEL" PX4_GZ_WORLD="$CAM_WORLD" PX4_GZ_MODEL_POSE="40,0,0" \
+            PX4_SIM_MODEL="$SIM_MODEL_TEMEL" PX4_GZ_WORLD="$CAM_WORLD" PX4_GZ_MODEL_POSE="40,0,0" \
             bash -c '. "$1/rootfs/gz_env.sh"; cd "$2"; exec "$1/bin/px4" -i 0 -d -s "$1/etc/init.d-posix/rcS" "$1/etc"' _ "$PX4_BUILD" "$d/w0"
         if ! wait_for_log "$d/px4.log" 'Startup script returned successfully' 90; then
             log_fail "$ad: PX4 SITL 90 sn içinde hazır olmadı"; dump_log "$d/px4.log"; return 1
         fi
-        log_info "$ad: PX4 SITL ($SIM_MODEL) hazır ve çalışıyor (yük)"
+        log_info "$ad: PX4 SITL ($SIM_MODEL_TEMEL) hazır ve çalışıyor (yük)"
     fi
     return 0
 }

@@ -127,7 +127,8 @@ Mevcut anahtarlar (ağ, kimlik/port, kamera, çıkarım, eğitim) değişmedi. E
 | `KOSU_GZ_HAZIR_SN`, `KOSU_PX4_HAZIR_SN` | 60, 90 | varsayım (hazır olma bekleme üst sınırları, saniye) |
 | `KOSU_KAPANIS_SN` | 30 | varsayım (süreç grubu başına SIGTERM sonrası bekleme üst sınırı, saniye) |
 | `PX4A_BAGLAN_SN`, `PX4A_KOMUT_SN`, `PX4A_HAZIR_SN`, `PX4A_KAPAT_SN` | 60, 20, 90, 5 | varsayım (px4_adapter zaman aşımları, gerçek saniye: bağlanma, tek komut/okuma, ev konumu ve arm edilebilirlik, mavsdk_server'a SIGTERM sonrası bekleme) |
-| `SIM_MODEL` | `gz_x500_mono_cam_down` | PX4'ün x500 + aşağı bakan kamera adı (havaçerçevesi bu adla eşleşir); model dosyası `araclar/kamera_uret.py` ile üretilir (§10) |
+| `SIM_MODEL` | `gz_x500_mono_cam_down` | PX4'ün x500 + aşağı bakan kamera adı (havaçerçevesi bu adla eşleşir); model dosyası `araclar/kamera_uret.py` ile üretilir (§10); koşu betiği ve araç süreci kullanır |
+| `SIM_MODEL_TEMEL` | `gz_x500` | kamerasız temel gövde (PX4'ün x500 modeli); eski K aşaması test ve ölçüm betikleri (araç kimlik testi, kamera ve yayım ölçümleri) bunu kullanır |
 | `KAMERA_LINK`, `KAMERA_ALGILAYICI`, `CAM_CLIP_NEAR_M`, `CAM_CLIP_FAR_M` | `camera_link`, `camera`, 0,1, 200 | varsayım (üretilen modeldeki adlar ve kırpma düzlemleri) |
 | `KARE_NUMARALAMA` | `izgara` | belge/K9 (yedek yol uygulanmaz; başka değer açık hata verir) |
 | `PX4A_HAZIRLIK_SN`, `PX4A_IRTIFA_TOLERANS_M` | 240, 1 | varsayım (hazırlık evresi üst sınırı, gerçek saniye; kalkışta ve ilk noktada irtifa kabul payı, m) |
@@ -205,9 +206,9 @@ Satır başına bir kayıt; bir kare için her aşama ayrı kayıttır.
 | `arac_kimligi` | `UAV_SYS_IDS` değeri. |
 | `n` | Kare numarası: damga ızgaraya tam oturuyorsa `n = CAM_RATE_HZ · t_sim` (2·t_sim) tam sayısı; oturmuyorsa `"izgara_disi"`. **Yuvarlama yoktur** (risk U16); doğrulayıcı iki yönde de denetler. |
 | `sim_damga_ns` | Simülasyon damgası (`header.stamp`), ns, tam sayı. |
-| `olay` | `uretim`, `kuyruga_giris`, `aktarim_tamam`, `cikarim_basi`, `cikarim_sonu`, `kullanilabilir` [belge: üretim, uygulama kuyruğuna giriş, ilgili aktarımın tamamlanması, çıkarım başlangıcı, çıkarım bitişi, kullanılabilirlik]; ayrıca kamera alıcısının YEREL kayıtları `gec_geldi` ve `yok_sayildi` (aşağıda; zaman aşaması değildir, ağa gönderilmez) [varsayım: belge "geç geldi" kaydının yalnız yerel kayda yazılacağını söyler, olay adını söylemez]. |
+| `olay` | `uretim`, `kuyruga_giris`, `aktarim_tamam`, `cikarim_basi`, `cikarim_sonu`, `kullanilabilir` [belge: üretim, uygulama kuyruğuna giriş, ilgili aktarımın tamamlanması, çıkarım başlangıcı, çıkarım bitişi, kullanılabilirlik]; ayrıca kamera alıcısının YEREL kayıtları `kayip_tespit`, `gec_geldi` ve `yok_sayildi` (aşağıda; zaman aşaması değildir, ağa gönderilmez) [varsayım: belge "geç geldi" kaydının yalnız yerel kayda yazılacağını söyler, olay adını söylemez]. |
 | `mono_ns` | `CLOCK_MONOTONIC` ns, **pozitif tam sayı**; ya da `"uygulanmaz"`. [belge] Uygulanmayan aktarım aşaması "uygulanmaz" gösterilir, sıfır süreli gerçek aktarım gibi yorumlanmaz: `0`, boş (`null`) ve ondalık değer reddedilir. [varsayım] `"uygulanmaz"` yalnız `kuyruga_giris` ve `aktarim_tamam` için yazılabilir. |
-| `sonuc_durumu` | Yalnız `kullanilabilir` olayında zorunlu: `sonuc` \| `tespit_yok` \| `kare_alinamadi`. Üç durum ayrıdır ve karışmaz. **`gec_geldi` burada YOKTUR**: belge geç gelen kareyi işlemez ve ağa göndermez, yalnız yerel kayda "geç geldi" yazar; bu yüzden yer istasyonunda kullanılabilir bir durum değil, kamera alıcısının yerel olayıdır (`olay: gec_geldi`). |
+| `sonuc_durumu` | `kullanilabilir` olayında zorunlu: `sonuc` \| `tespit_yok` \| `kare_alinamadi` (`kullanilabilir` yer istasyonunda sonucun/kaydın kullanılabilir olduğu andır; kayıp tespitinde bunu alıcı değil yer istasyonu yazar). `kayip_tespit` olayında yalnız `kare_alinamadi`. Üç durum ayrıdır ve karışmaz. **`gec_geldi` burada YOKTUR**: belge geç gelen kareyi işlemez ve ağa göndermez, yalnız yerel kayda "geç geldi" yazar; bu yüzden yer istasyonunda kullanılabilir bir durum değil, kamera alıcısının yerel olayıdır (`olay: gec_geldi`). |
 | `neden` | Yalnız `yok_sayildi` olayında zorunlu: `gorev_oncesi` (damga n_ilk'ten önce ya da tarama başlamadan) \| `kapanis_sonrasi` (n_son'dan büyük kare) \| `izgara_disi` (n türetilemedi; `n = "izgara_disi"`) \| `tekrar` (numara zaten görev karesi olarak kabul edilmişti). |
 
 Zamanlar ondalık saniye değildir; ölçekleme ve yuvarlama yapılmaz [belge]. Bir dosyada aynı (araç, `n`, damga, olay) ikinci kez yazılamaz (yerel `gec_geldi`/`yok_sayildi` kayıtları için alım anı `mono_ns` de anahtardadır; aynı kare birden çok kez gelebilir). Örnekler: `config/ornek/kare_olay_gazebo_damga_ornek.jsonl`, `config/ornek/kare_olay_yer_istasyonu_ornek.jsonl`, `config/ornek/kare_olay_kamera_alici_ornek.jsonl`.
@@ -261,7 +262,7 @@ Kaynak `kamera_alicisi`, dosya `kayit/kamera_alici_<arac>.jsonl`. Her kamera kar
 | Durum | Kayıt |
 |---|---|
 | Görev karesi ([n_ilk, n_son]) iç kuyruğa verildi | `olay: kuyruga_giris`, `mono_ns` = kuyruğa verilme anı [varsayım: belge alıcının alım anı için ayrı bir aşama tanımlamaz; "uygulama kuyruğuna giriş" aşamasıdır] |
-| Aralıkta olup alınmamış numara, daha büyük numaralı kare geldiğinde (ya da n_son'dan büyük ilk kareyle) | `olay: kullanilabilir`, `sonuc_durumu: kare_alinamadi`, `sim_damga_ns` = `n · 10⁹ / CAM_RATE_HZ`, `mono_ns` = kaydın üretildiği an |
+| Aralıkta olup alınmamış numara, daha büyük numaralı kare geldiğinde (ya da n_son'dan büyük ilk kareyle) | `olay: kayip_tespit`, `sonuc_durumu: kare_alinamadi`, `sim_damga_ns` = `n · 10⁹ / CAM_RATE_HZ`, `mono_ns` = kaybın tespit edildiği an (yalnız `kamera_alicisi`; yer istasyonu kaydı `kullanilabilir` B11'de ayrıca yazılır) |
 | Kayıp kaydı yazılmış numarayla sonradan gelen kare | `olay: gec_geldi`; işlenmez, iç kuyruğa ve ağa verilmez (kayıp kaydı kesindir) |
 | Görev girdisi olmayan kare | `olay: yok_sayildi`, `neden` (§8.3) |
 

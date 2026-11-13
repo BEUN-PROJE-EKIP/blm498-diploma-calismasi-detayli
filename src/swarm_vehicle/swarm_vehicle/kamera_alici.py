@@ -9,7 +9,7 @@ ROS 2, MAVSDK ve gz-transport içe aktarılmaz (birim testi için). El kitabı (
 - Kayıp kaydı KESİNDİR: kayıttan sonra aynı numarayla gelen kare işlenmez (iç kuyruğa verilmez, ağa gönderilmez), yalnız yerel kayda "geç geldi" olarak yazılır.
 Yedek yol (alıcı numarası k) K9 kararıyla uygulanmaz; seçilirse açık hata verilir.
 Kayıtlar planlama/sozlesmeler.md §8.3 `kare_olay` şemasındadır; kaynak "kamera_alicisi". Zamanlar tam sayı ns (CLOCK_MONOTONIC / simülasyon).
-Alıcının yerel kayıt türleri: olay `kuyruga_giris` (görev karesi iç kuyruğa verildi), olay `kullanilabilir` + sonuc_durumu `kare_alinamadi` (kayıp kaydı üretildi),
+Alıcının yerel kayıt türleri: olay `kuyruga_giris` (görev karesi iç kuyruğa verildi), olay `kayip_tespit` + sonuc_durumu `kare_alinamadi` (alıcı kaybı tespit etti, kayıp kaydı üretildi; yer istasyonunda "kullanılabilir" olma anı değildir),
 olay `gec_geldi` (kayıp kaydından sonra gelen kare; yalnız yerel), olay `yok_sayildi` + neden (görev girdisi değil: gorev_oncesi | kapanis_sonrasi | izgara_disi | tekrar).
 """
 
@@ -73,7 +73,7 @@ class KameraAlici:
     def _kare_alinamadi(self, n, mono_ns):
         self.alinamadi.add(n)
         self.sayac["kare_alinamadi"] += 1
-        self._kayit(n, n * _NS // self.hz, "kullanilabilir", mono_ns, sonuc_durumu="kare_alinamadi")
+        self._kayit(n, n * _NS // self.hz, "kayip_tespit", mono_ns, sonuc_durumu="kare_alinamadi")
 
     # --- olaylar -------------------------------------------------------------------------------------------------------------------------
     def tarama_basladi(self, t_s_ns):

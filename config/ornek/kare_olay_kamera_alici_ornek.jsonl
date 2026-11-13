@@ -2,7 +2,7 @@
 {"surum": 1, "tur": "kare_olay", "kaynak": "kamera_alicisi", "arac_kimligi": 1, "n": "izgara_disi", "sim_damga_ns": 10004000000, "olay": "yok_sayildi", "mono_ns": 1000500000, "neden": "izgara_disi"}
 {"surum": 1, "tur": "kare_olay", "kaynak": "kamera_alicisi", "arac_kimligi": 1, "n": 20, "sim_damga_ns": 10000000000, "olay": "kuyruga_giris", "mono_ns": 1001000000}
 {"surum": 1, "tur": "kare_olay", "kaynak": "kamera_alicisi", "arac_kimligi": 1, "n": 21, "sim_damga_ns": 10500000000, "olay": "kuyruga_giris", "mono_ns": 1001500000}
-{"surum": 1, "tur": "kare_olay", "kaynak": "kamera_alicisi", "arac_kimligi": 1, "n": 22, "sim_damga_ns": 11000000000, "olay": "kullanilabilir", "mono_ns": 1002100000, "sonuc_durumu": "kare_alinamadi"}
+{"surum": 1, "tur": "kare_olay", "kaynak": "kamera_alicisi", "arac_kimligi": 1, "n": 22, "sim_damga_ns": 11000000000, "olay": "kayip_tespit", "mono_ns": 1002100000, "sonuc_durumu": "kare_alinamadi"}
 {"surum": 1, "tur": "kare_olay", "kaynak": "kamera_alicisi", "arac_kimligi": 1, "n": 23, "sim_damga_ns": 11500000000, "olay": "kuyruga_giris", "mono_ns": 1002100500}
 {"surum": 1, "tur": "kare_olay", "kaynak": "kamera_alicisi", "arac_kimligi": 1, "n": 22, "sim_damga_ns": 11000000000, "olay": "gec_geldi", "mono_ns": 1002300000}
 {"surum": 1, "tur": "kare_olay", "kaynak": "kamera_alicisi", "arac_kimligi": 1, "n": 24, "sim_damga_ns": 12000000000, "olay": "kuyruga_giris", "mono_ns": 1002600000}

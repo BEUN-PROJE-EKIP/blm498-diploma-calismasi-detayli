@@ -469,8 +469,8 @@ def dogrula_kalibrasyon(c, d):
 # Koşu kaydı: koşu üst verisi (kosu.json) ve kare olay kaydı (JSON Lines)
 # ---------------------------------------------------------------------------------------------------------------------------------
 BITIS_DURUMLARI = ("tamamlandi", "zorla_kapatildi", "yarida_kaldi")
-OLAY_TURLERI = ("uretim", "kuyruga_giris", "aktarim_tamam", "cikarim_basi", "cikarim_sonu", "kullanilabilir", "gec_geldi", "yok_sayildi")
-YEREL_OLAYLAR = ("gec_geldi", "yok_sayildi")       # kamera alıcısının YEREL kayıtları (zaman aşaması değil; ağa gönderilmez): geç gelen kare, görev girdisi olmayan kare
+OLAY_TURLERI = ("uretim", "kuyruga_giris", "aktarim_tamam", "cikarim_basi", "cikarim_sonu", "kullanilabilir", "kayip_tespit", "gec_geldi", "yok_sayildi")
+YEREL_OLAYLAR = ("kayip_tespit", "gec_geldi", "yok_sayildi")   # kamera alıcısının YEREL kayıtları (zaman aşaması değil): kayıp tespiti (yer istasyonundaki "kullanılabilir" kaydı değildir), geç gelen kare, görev girdisi olmayan kare
 YOK_SAYILMA_NEDENLERI = ("gorev_oncesi", "kapanis_sonrasi", "izgara_disi", "tekrar")
 UYGULANMAZ_OLABILEN = ("kuyruga_giris", "aktarim_tamam")   # [belge] yalnız aktarım aşamaları "uygulanmaz" olabilir
 KAYNAKLAR = ("gazebo_damga", "kamera_alicisi", "arac_sureci", "cikarim_iscisi", "yer_istasyonu")
@@ -622,8 +622,11 @@ def dogrula_kare_olay(c, d):
     if olay == "kullanilabilir":
         if sd not in SONUC_DURUMLARI:
             h.ekle("sonuc_durumu", f"'kullanilabilir' olayında {list(SONUC_DURUMLARI)} değerlerinden biri zorunlu (bulunan: {sd!r})")
+    elif olay == "kayip_tespit":
+        if d.get("sonuc_durumu") != "kare_alinamadi":
+            h.ekle("sonuc_durumu", f"'kayip_tespit' olayında 'kare_alinamadi' zorunlu (bulunan: {d.get('sonuc_durumu')!r})")
     elif "sonuc_durumu" in d:
-        h.ekle("sonuc_durumu", "yalnız 'kullanilabilir' olayında bulunabilir")
+        h.ekle("sonuc_durumu", "yalnız 'kullanilabilir' ve 'kayip_tespit' olaylarında bulunabilir")
     if olay == "yok_sayildi":
         if d.get("neden") not in YOK_SAYILMA_NEDENLERI:
             h.ekle("neden", f"'yok_sayildi' olayında {list(YOK_SAYILMA_NEDENLERI)} değerlerinden biri zorunlu (bulunan: {d.get('neden')!r})")

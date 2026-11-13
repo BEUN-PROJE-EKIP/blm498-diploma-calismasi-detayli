@@ -36,7 +36,7 @@ class Cihaz:
         return [r for r in self.kayit if r["olay"] == olay and all(r.get(k) == v for k, v in kosul.items())]
 
     def alinamadi(self):
-        return sorted(r["n"] for r in self.olaylar("kullanilabilir", sonuc_durumu="kare_alinamadi"))
+        return sorted(r["n"] for r in self.olaylar("kayip_tespit", sonuc_durumu="kare_alinamadi"))
 
 
 class Numaralandirma(unittest.TestCase):
@@ -75,7 +75,7 @@ class GorevKabulu(unittest.TestCase):
         self.assertEqual(c.kuyruk, [20, 21, 23, 24])
         # kayıp, sonraki kare gelince üretilir: "kare alınamadı" kaydı n=23'ün kuyruga_giris kaydından önce yazılır (zaman sırası)
         sira = [(r["olay"], r["n"]) for r in c.kayit if r["n"] in (22, 23)]
-        self.assertEqual(sira, [("kullanilabilir", 22), ("kuyruga_giris", 23)])
+        self.assertEqual(sira, [("kayip_tespit", 22), ("kuyruga_giris", 23)])
 
     def test_ardisik_coklu_kayip(self):
         c = Cihaz(10.0, 12.0)
@@ -190,6 +190,16 @@ class GorevKabulu(unittest.TestCase):
             self.assertLessEqual(gorev | kayip, set(range(20, 41)))
             self.assertEqual(len(c.kuyruk), len(gorev))            # her numara en çok bir kez kuyruğa verildi
             self.assertEqual(len(c.alinamadi()), len(kayip))       # her numara için en çok bir kayıp
+
+
+class KayipKaydiOlayi(unittest.TestCase):
+    def test_kayip_kaydi_kullanilabilir_degil(self):
+        c = Cihaz(10.0, 12.0)
+        c.ver(20, 22, 23, 24, 25)
+        self.assertEqual(c.olaylar("kullanilabilir"), [])               # alıcı "kullanılabilir" yazmaz
+        kayip = c.olaylar("kayip_tespit")
+        self.assertEqual([(r["n"], r["sonuc_durumu"], r["kaynak"]) for r in kayip], [(21, "kare_alinamadi", "kamera_alicisi")])
+        self.assertEqual(kayip[0]["sim_damga_ns"], 21 * YARIM)
 
 
 class EnjeksiyonCozumu(unittest.TestCase):

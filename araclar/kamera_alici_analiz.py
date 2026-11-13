@@ -89,7 +89,7 @@ def ana(argv):
         bitis = alog["tarama_bitis_yayimlandi"][0]
         # --- görev aralığı: her numara tam bir sınıfta -------------------------------------------------------------------------------------
         gorev = [r["n"] for r in al if r["olay"] == "kuyruga_giris"]
-        kayip = [r["n"] for r in al if r["olay"] == "kullanilabilir" and r.get("sonuc_durumu") == "kare_alinamadi"]
+        kayip = [r["n"] for r in al if r["olay"] == "kayip_tespit" and r.get("sonuc_durumu") == "kare_alinamadi"]
         gec = [r["n"] for r in al if r["olay"] == "gec_geldi"]
         aralik = set(range(n_ilk, n_son + 1))
         sinif_hatasi = [n for n in aralik if (n in gorev) + (n in kayip) != 1]
@@ -117,17 +117,17 @@ def ana(argv):
             # zaman sırası: her kayıp, kendisinden sonraki ilk kareyle AYNI anda üretildi ve dosyada o karenin kaydından ÖNCE yazıldı
             sira_hatasi = []
             for m in kayip:
-                kay = next(i for i, r in enumerate(al) if r["olay"] == "kullanilabilir" and r["n"] == m and r.get("sonuc_durumu") == "kare_alinamadi")
+                kay = next(i for i, r in enumerate(al) if r["olay"] == "kayip_tespit" and r["n"] == m and r.get("sonuc_durumu") == "kare_alinamadi")
                 sonraki = next((i for i, r in enumerate(al) if i > kay and r["olay"] in ("kuyruga_giris", "yok_sayildi") and isinstance(r["n"], int) and r["n"] > m), None)
                 if sonraki is None or al[sonraki]["mono_ns"] != al[kay]["mono_ns"]:
                     sira_hatasi.append(m)
                 # kayıp kaydı, kendisinden önceki hiçbir kareden önce yazılmamış olmalı
             sonuc(not sira_hatasi, f"kayip_zaman_sirasi_{k}", f"{len(kayip)} kayıp kaydının her biri, kendisinden sonra gelen ilk kareyle aynı alım anında (kayıt kesinleşti) ve onun kaydından önce yazıldı; ihlal: {sira_hatasi}")
-            son_kayit = next(r for r in al if r["olay"] == "kullanilabilir" and r["n"] == n_son)
+            son_kayit = next(r for r in al if r["olay"] == "kayip_tespit" and r["n"] == n_son)
             sonuc(son_kayit["mono_ns"] == kapanis[0]["mono_ns"], f"sondaki_kayip_{k}", f"n_son={n_son} kaydı, n_son+1={n_son + 1} (kapanış) karesinin alım anında yazıldı (sondaki kayıp ilk büyük kareyle kapandı)")
             for m in gec:
                 gk = next(r for r in al if r["olay"] == "gec_geldi" and r["n"] == m)
-                kk = next(r for r in al if r["olay"] == "kullanilabilir" and r["n"] == m)
+                kk = next(r for r in al if r["olay"] == "kayip_tespit" and r["n"] == m)
                 sonuc(gk["mono_ns"] > kk["mono_ns"] and m not in gorev, f"gec_geldi_{k}", f"n={m}: kare alınamadı kaydından {(gk['mono_ns'] - kk['mono_ns']) / 1e6:.0f} ms sonra teslim edildi; iç kuyruğa VERİLMEDİ (kuyruga_giris yok); yalnız yerel kayıt")
         # --- damga birleşmesi (B7) ---------------------------------------------------------------------------------------------------------
         dmn = {(r["sim_damga_ns"]): r for r in dm}
