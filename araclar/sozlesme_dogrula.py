@@ -1,10 +1,11 @@
 #!/usr/bin/env python3
-"""Sözleşme dosyası doğrulayıcı: sahne, bölge/rota, kamera kalibrasyonu ve hedef listesi (JSON).
+"""Sözleşme dosyası doğrulayıcı: sahne, bölge/rota, kamera kalibrasyonu, hedef listesi, koşu üst verisi (JSON) ve kare olay kaydı (JSON Lines).
 
 Kullanım:
   sozlesme_dogrula.py [--yapilandirma config/deney.env] <dosya.json> [--sahne sahne.json]
   sozlesme_dogrula.py [--yapilandirma ...] --hedef-listesi-uret <sahne.json>
-Dosya türü dosyadaki "tur" alanından anlaşılır (sahne | bolge_rota | kamera_kalibrasyon | hedef_listesi).
+Dosya türü dosyadaki "tur" alanından anlaşılır (sahne | bolge_rota | kamera_kalibrasyon | hedef_listesi | kosu_ustveri).
+Uzantısı .jsonl olan dosya kare olay kaydıdır (satır başına bir JSON nesnesi, tur: kare_olay).
 --sahne yalnız hedef_listesi için: listenin verilen sahnedeki hedeflerle birebir aynı olduğu da denetlenir.
 Çıkış: 0 geçerli, 1 geçersiz (Türkçe, alan yoluyla "nokta nokta" hata listesi), 2 kullanım/okuma hatası.
 Yalnız standart kitaplık kullanılır. Eşikler ve aralıklar config/deney.env'den okunur (tek kaynak); biçimler planlama/sozlesmeler.md'dedir.
@@ -37,7 +38,8 @@ class Yapilandirma:
         "ALAN_MERKEZ_X_M ALAN_MERKEZ_Y_M ALAN_GENISLIK_M ALAN_YUKSEKLIK_M ALAN_KENAR_PAYI_M ALAN_BOLGE_SAYISI ROTA_IRTIFA_M ROTA_ORTUSME_MIN_M ROTA_HIZ_MS "
         "SAHNE_BOLUMLER SAHNE_SINIFLAR SAHNE_TEST_INSAN SAHNE_TEST_ENKAZ SAHNE_MERKEZ_MESAFE_TEST_M SAHNE_MERKEZ_MESAFE_DIGER_M SAHNE_DIGER_HEDEF_MAKS "
         "SAHNE_INSAN_VARYANTLARI SAHNE_ENKAZ_VARYANTLARI SAHNE_TEST_OZEL_INSAN SAHNE_TEST_OZEL_ENKAZ SAHNE_ZEMIN_VARYANTLARI "
-        "SAHNE_GUNES_YUKSEKLIK_MIN_DERECE SAHNE_GUNES_YUKSEKLIK_MAKS_DERECE KAL_KAMERA_KONUM_Z_M CAM_WIDTH CAM_HEIGHT CAM_HFOV_DEG CAM_HFOV_RAD UAV_SYS_IDS"
+        "SAHNE_GUNES_YUKSEKLIK_MIN_DERECE SAHNE_GUNES_YUKSEKLIK_MAKS_DERECE KAL_KAMERA_KONUM_Z_M CAM_WIDTH CAM_HEIGHT CAM_HFOV_DEG CAM_HFOV_RAD UAV_SYS_IDS "
+        "CAM_RATE_HZ KOSU_MIMARILER"
     ).split()
 
     def __init__(self, ham):
@@ -64,6 +66,8 @@ class Yapilandirma:
         self.w_px, self.h_px = int(ham["CAM_WIDTH"]), int(ham["CAM_HEIGHT"])
         self.hfov_deg, self.hfov_rad = f(ham["CAM_HFOV_DEG"]), f(ham["CAM_HFOV_RAD"])
         self.arac_kimlikleri = [int(x) for x in ham["UAV_SYS_IDS"].split()]
+        self.kamera_hz = f(ham["CAM_RATE_HZ"])
+        self.mimariler = ham["KOSU_MIMARILER"].split()
 
     @property
     def x_aralik(self):
@@ -461,7 +465,202 @@ def dogrula_kalibrasyon(c, d):
 
 
 # ---------------------------------------------------------------------------------------------------------------------------------
-TURLER = {"sahne": dogrula_sahne, "bolge_rota": dogrula_bolge_rota, "kamera_kalibrasyon": dogrula_kalibrasyon, "hedef_listesi": dogrula_hedef_listesi}
+# Koşu kaydı: koşu üst verisi (kosu.json) ve kare olay kaydı (JSON Lines)
+# ---------------------------------------------------------------------------------------------------------------------------------
+BITIS_DURUMLARI = ("tamamlandi", "zorla_kapatildi", "yarida_kaldi")
+OLAY_TURLERI = ("uretim", "kuyruga_giris", "aktarim_tamam", "cikarim_basi", "cikarim_sonu", "kullanilabilir")
+UYGULANMAZ_OLABILEN = ("kuyruga_giris", "aktarim_tamam")   # [belge] yalnız aktarım aşamaları "uygulanmaz" olabilir
+KAYNAKLAR = ("gazebo_damga", "kamera_alicisi", "arac_sureci", "cikarim_iscisi", "yer_istasyonu")
+SONUC_DURUMLARI = ("sonuc", "tespit_yok", "kare_alinamadi", "gec_geldi")
+SHA_RE = re.compile(r"^[0-9a-f]{64}$")
+COMMIT_RE = re.compile(r"^[0-9a-f]{40}$")
+ISO_RE = re.compile(r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d+)?(Z|[+-]\d{2}:\d{2})$")
+
+
+def mutlak_yol_tara(h, yol, v):
+    """Kullanıcı adı / makine adı / mutlak yol sızmasın: hiçbir metin değeri '/' ile (mutlak yol) başlayamaz."""
+    if isinstance(v, str):
+        if v.startswith("/"):
+            h.ekle(yol, f"mutlak yol yazılamaz (depo köküne göreli olmalı): {v!r}")
+    elif isinstance(v, dict):
+        for k, x in v.items():
+            mutlak_yol_tara(h, f"{yol}.{k}" if yol else k, x)
+    elif isinstance(v, list):
+        for i, x in enumerate(v):
+            mutlak_yol_tara(h, f"{yol}[{i}]", x)
+
+
+def zaman_nesnesi_denetle(h, yol, z):
+    if not alan_denetle(h, yol, z, ["duvar_iso", "monotonik_ns"]):
+        return
+    if not (isinstance(z.get("duvar_iso"), str) and ISO_RE.match(z["duvar_iso"])):
+        h.ekle(f"{yol}.duvar_iso", "saat dilimli ISO 8601 zamanı olmalı (örn. 2026-11-13T12:00:00+00:00)")
+    if not (tam_sayi_mi(z.get("monotonik_ns")) and z["monotonik_ns"] > 0):
+        h.ekle(f"{yol}.monotonik_ns", "pozitif tam sayı (CLOCK_MONOTONIC, ns) olmalı")
+
+
+def dogrula_kosu_ustveri(c, d):
+    h = Hatalar()
+    zorunlu = ["surum", "tur", "kosu_kimligi", "baslangic", "bitis", "depo", "yapilandirma_sha256", "ortam_kilidi_sha256", "arac_sayisi",
+               "arac_kimlikleri", "mimari_modu", "sahne_kimligi", "dunya", "model", "gz_partition", "surecler", "bitis_durumu"]
+    if not alan_denetle(h, "", d, zorunlu, ["zorla_kapatilan"]):
+        return h.liste
+    ust_alanlar(h, d, "kosu_ustveri")
+    mutlak_yol_tara(h, "", d)
+    if not (isinstance(d.get("kosu_kimligi"), str) and KIMLIK_RE.match(d["kosu_kimligi"])):
+        h.ekle("kosu_kimligi", "1-64 karakter, yalnız harf/rakam/_/- olmalı")
+    zaman_nesnesi_denetle(h, "baslangic", d.get("baslangic"))
+    if d.get("bitis") is not None:
+        zaman_nesnesi_denetle(h, "bitis", d["bitis"])
+        b, e = d.get("baslangic"), d["bitis"]
+        if isinstance(b, dict) and isinstance(e, dict) and tam_sayi_mi(b.get("monotonik_ns")) and tam_sayi_mi(e.get("monotonik_ns")) \
+                and e["monotonik_ns"] < b["monotonik_ns"]:
+            h.ekle("bitis.monotonik_ns", "başlangıçtan önce olamaz")
+    dep = d.get("depo")
+    if alan_denetle(h, "depo", dep, ["commit", "calisma_agaci_temiz"]):
+        if not (isinstance(dep.get("commit"), str) and COMMIT_RE.match(dep["commit"])):
+            h.ekle("depo.commit", "40 karakterlik küçük harf onaltılık commit özeti olmalı")
+        if not isinstance(dep.get("calisma_agaci_temiz"), bool):
+            h.ekle("depo.calisma_agaci_temiz", "true/false olmalı")
+    for k in ("yapilandirma_sha256", "ortam_kilidi_sha256"):
+        if not (isinstance(d.get(k), str) and SHA_RE.match(d[k])):
+            h.ekle(k, "64 karakterlik küçük harf onaltılık SHA-256 olmalı")
+    n = d.get("arac_sayisi")
+    kim = d.get("arac_kimlikleri")
+    if not (tam_sayi_mi(n) and 1 <= n <= len(c.arac_kimlikleri)):
+        h.ekle("arac_sayisi", f"1..{len(c.arac_kimlikleri)} arasında tam sayı olmalı (bulunan: {n!r})")
+    if not (isinstance(kim, list) and all(tam_sayi_mi(x) for x in kim)):
+        h.ekle("arac_kimlikleri", "tam sayı listesi olmalı")
+    else:
+        if tam_sayi_mi(n) and len(kim) != n:
+            h.ekle("arac_kimlikleri", f"arac_sayisi ({n}) ile aynı uzunlukta olmalı (bulunan: {len(kim)})")
+        if len(set(kim)) != len(kim):
+            h.ekle("arac_kimlikleri", "yinelenen kimlik")
+        for x in kim:
+            if x not in c.arac_kimlikleri:
+                h.ekle("arac_kimlikleri", f"{x} yapılandırmadaki UAV_SYS_IDS içinde yok ({c.arac_kimlikleri})")
+    if d.get("mimari_modu") != "yok" and d.get("mimari_modu") not in c.mimariler:
+        h.ekle("mimari_modu", f"'yok' ya da {c.mimariler} değerlerinden biri olmalı (bulunan: {d.get('mimari_modu')!r})")
+    if d.get("sahne_kimligi") is not None and not (isinstance(d["sahne_kimligi"], str) and KIMLIK_RE.match(d["sahne_kimligi"])):
+        h.ekle("sahne_kimligi", "null ya da 1-64 karakterlik kimlik olmalı")
+    for k in ("dunya", "model", "gz_partition"):
+        if not (isinstance(d.get(k), str) and d[k]):
+            h.ekle(k, "boş olmayan metin olmalı")
+    sur = d.get("surecler")
+    adlar = []
+    if not isinstance(sur, list) or not sur:
+        h.ekle("surecler", "boş olmayan liste olmalı")
+    else:
+        for i, s in enumerate(sur):
+            yol = f"surecler[{i}]"
+            if not alan_denetle(h, yol, s, ["ad", "pid", "grup"]):
+                continue
+            if not (isinstance(s.get("ad"), str) and KIMLIK_RE.match(s["ad"])):
+                h.ekle(f"{yol}.ad", "1-64 karakterlik ad olmalı")
+            else:
+                adlar.append(s["ad"])
+            for k in ("pid", "grup"):
+                if not (tam_sayi_mi(s.get(k)) and s[k] > 0):
+                    h.ekle(f"{yol}.{k}", "pozitif tam sayı olmalı")
+        if len(set(adlar)) != len(adlar):
+            h.ekle("surecler", "yinelenen süreç adı")
+    bd = d.get("bitis_durumu")
+    if bd is not None and bd not in BITIS_DURUMLARI:
+        h.ekle("bitis_durumu", f"null ya da {list(BITIS_DURUMLARI)} değerlerinden biri olmalı (bulunan: {bd!r})")
+    if (bd is None) != (d.get("bitis") is None):
+        h.ekle("bitis_durumu", "bitis ile birlikte dolu ya da birlikte null olmalı (koşu sürerken ikisi de null)")
+    zk = d.get("zorla_kapatilan")
+    if bd == "zorla_kapatildi":
+        if not (isinstance(zk, list) and zk and all(isinstance(x, str) for x in zk)):
+            h.ekle("zorla_kapatilan", "bitis_durumu 'zorla_kapatildi' iken zorla kapatılan süreç adlarının boş olmayan listesi olmalı")
+        elif any(x not in adlar for x in zk):
+            h.ekle("zorla_kapatilan", "süreç listesinde olmayan ad var")
+    elif zk is not None:
+        h.ekle("zorla_kapatilan", "yalnız bitis_durumu 'zorla_kapatildi' iken bulunabilir")
+    return h.liste
+
+
+def dogrula_kare_olay(c, d):
+    """Tek bir kare olay kaydı (JSON Lines'ın bir satırı)."""
+    h = Hatalar()
+    if not alan_denetle(h, "", d, ["surum", "tur", "kaynak", "arac_kimligi", "n", "sim_damga_ns", "olay", "mono_ns"], ["sonuc_durumu"]):
+        return h.liste
+    ust_alanlar(h, d, "kare_olay")
+    if d.get("kaynak") not in KAYNAKLAR:
+        h.ekle("kaynak", f"{list(KAYNAKLAR)} değerlerinden biri olmalı (bulunan: {d.get('kaynak')!r})")
+    if d.get("arac_kimligi") not in c.arac_kimlikleri or not tam_sayi_mi(d.get("arac_kimligi")):
+        h.ekle("arac_kimligi", f"UAV_SYS_IDS değerlerinden biri olmalı ({c.arac_kimlikleri}; bulunan: {d.get('arac_kimligi')!r})")
+    sim = d.get("sim_damga_ns")
+    n = d.get("n")
+    sim_ok = tam_sayi_mi(sim) and sim >= 0
+    if not sim_ok:
+        h.ekle("sim_damga_ns", "negatif olmayan tam sayı (ns) olmalı; ondalık saniye yazılmaz")
+    hz = c.kamera_hz
+    if n == "izgara_disi":
+        if sim_ok and hz == int(hz) and (sim * int(hz)) % 1_000_000_000 == 0:
+            h.ekle("n", "damga 0,5 s ızgarasına tam oturuyor; 'izgara_disi' yazılamaz, n = 2·t_sim türetilmeli")
+    elif not (tam_sayi_mi(n) and n >= 0):
+        h.ekle("n", "negatif olmayan tam sayı ya da 'izgara_disi' olmalı")
+    elif sim_ok:
+        if hz != int(hz) or (sim * int(hz)) % 1_000_000_000 != 0:
+            h.ekle("n", "damga ızgaraya oturmuyor; numara türetilmez (yuvarlama yok), 'izgara_disi' yazılmalı")
+        elif n != sim * int(hz) // 1_000_000_000:
+            h.ekle("n", f"n = {int(hz)}·t_sim olmalı (damgadan türeyen: {sim * int(hz) // 1_000_000_000}, bulunan: {n})")
+    olay = d.get("olay")
+    if olay not in OLAY_TURLERI:
+        h.ekle("olay", f"{list(OLAY_TURLERI)} değerlerinden biri olmalı (bulunan: {olay!r})")
+    mono = d.get("mono_ns")
+    if mono == "uygulanmaz":
+        if olay not in UYGULANMAZ_OLABILEN:
+            h.ekle("mono_ns", f"'uygulanmaz' yalnız aktarım aşamalarında ({list(UYGULANMAZ_OLABILEN)}) yazılabilir (olay: {olay!r})")
+    elif not (tam_sayi_mi(mono) and mono > 0):
+        h.ekle("mono_ns", "pozitif tam sayı (CLOCK_MONOTONIC, ns) ya da 'uygulanmaz' olmalı; 0, boş ve ondalık değer yazılamaz")
+    sd = d.get("sonuc_durumu")
+    if olay == "kullanilabilir":
+        if sd not in SONUC_DURUMLARI:
+            h.ekle("sonuc_durumu", f"'kullanilabilir' olayında {list(SONUC_DURUMLARI)} değerlerinden biri zorunlu (bulunan: {sd!r})")
+    elif "sonuc_durumu" in d:
+        h.ekle("sonuc_durumu", "yalnız 'kullanilabilir' olayında bulunabilir")
+    return h.liste
+
+
+def dogrula_kare_olay_dosyasi(c, satirlar):
+    """Satır listesi (metin) için hata listesi; her bileşen kendi dosyasına yazar: dosyadaki bütün kayıtların kaynağı aynı olmalı."""
+    hatalar = []
+    kaynak = None
+    gorulen = {}
+    dolu = 0
+    for no, ham in enumerate(satirlar, 1):
+        if not ham.strip():
+            hatalar.append(f"satır {no}: boş satır olamaz")
+            continue
+        try:
+            d = json.loads(ham)
+        except json.JSONDecodeError as e:
+            hatalar.append(f"satır {no}: JSON geçersiz: {e}")
+            continue
+        dolu += 1
+        hs = dogrula_kare_olay(c, d)
+        hatalar.extend(f"satır {no}: {x}" for x in hs)
+        if hs:
+            continue
+        if kaynak is None:
+            kaynak = d["kaynak"]
+        elif d["kaynak"] != kaynak:
+            hatalar.append(f"satır {no}: kaynak: dosyadaki kayıtların kaynağı aynı olmalı ('{kaynak}' ile '{d['kaynak']}' karışık; her bileşen kendi dosyasına yazar)")
+        anahtar = (d["arac_kimligi"], d["n"], d["sim_damga_ns"], d["olay"])
+        if anahtar in gorulen:
+            hatalar.append(f"satır {no}: yinelenen kayıt (araç {anahtar[0]}, n {anahtar[1]}, olay {anahtar[3]}); ilk görüldüğü satır: {gorulen[anahtar]}")
+        else:
+            gorulen[anahtar] = no
+    if dolu == 0 and not hatalar:
+        hatalar.append("dosya boş: en az bir kayıt olmalı")
+    return hatalar
+
+
+# ---------------------------------------------------------------------------------------------------------------------------------
+TURLER = {"sahne": dogrula_sahne, "bolge_rota": dogrula_bolge_rota, "kamera_kalibrasyon": dogrula_kalibrasyon, "hedef_listesi": dogrula_hedef_listesi,
+          "kosu_ustveri": dogrula_kosu_ustveri}
 
 
 def json_oku(yol):
@@ -512,6 +711,19 @@ def ana(argv):
         if not dosya:
             print(__doc__, file=sys.stderr)
             return 2
+        if dosya.endswith(".jsonl"):
+            with open(dosya, encoding="utf-8") as f:
+                satirlar = f.read().split("\n")
+            if satirlar and satirlar[-1] == "":
+                satirlar.pop()   # son satır sonu
+            hatalar = dogrula_kare_olay_dosyasi(c, satirlar)
+            for ln in hatalar:
+                print(f"HATA {dosya}: {ln}")
+            if hatalar:
+                print(f"SONUÇ: GEÇERSİZ ({len(hatalar)} hata)")
+                return 1
+            print(f"SONUÇ: GEÇERLİ (kare_olay, {len(satirlar)} satır, {dosya})")
+            return 0
         d = json_oku(dosya)
     except (OSError, json.JSONDecodeError) as e:
         print(f"Dosya okunamadı/JSON geçersiz ({uret or dosya}): {e}", file=sys.stderr)

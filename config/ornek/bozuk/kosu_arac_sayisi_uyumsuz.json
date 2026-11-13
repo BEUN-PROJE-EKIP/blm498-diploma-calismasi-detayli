@@ -1,0 +1,53 @@
+{
+  "surum": 1,
+  "tur": "kosu_ustveri",
+  "kosu_kimligi": "kosu_20261113_120000",
+  "baslangic": {
+    "duvar_iso": "2026-11-13T12:00:00+00:00",
+    "monotonik_ns": 1000000000000
+  },
+  "bitis": {
+    "duvar_iso": "2026-11-13T12:00:45+00:00",
+    "monotonik_ns": 1045000000000
+  },
+  "depo": {
+    "commit": "0123456789abcdef0123456789abcdef01234567",
+    "calisma_agaci_temiz": true
+  },
+  "yapilandirma_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "ortam_kilidi_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+  "arac_sayisi": 2,
+  "arac_kimlikleri": [
+    1,
+    2,
+    3
+  ],
+  "mimari_modu": "yok",
+  "sahne_kimligi": null,
+  "dunya": "default",
+  "model": "gz_x500",
+  "gz_partition": "kosu_20261113_120000",
+  "surecler": [
+    {
+      "ad": "gz_sunucu",
+      "pid": 4101,
+      "grup": 4101
+    },
+    {
+      "ad": "px4_0",
+      "pid": 4120,
+      "grup": 4120
+    },
+    {
+      "ad": "px4_1",
+      "pid": 4140,
+      "grup": 4140
+    },
+    {
+      "ad": "px4_2",
+      "pid": 4160,
+      "grup": 4160
+    }
+  ],
+  "bitis_durumu": "tamamlandi"
+}

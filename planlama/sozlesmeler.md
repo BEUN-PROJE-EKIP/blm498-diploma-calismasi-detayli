@@ -121,6 +121,9 @@ Mevcut anahtarlar (ağ, kimlik/port, kamera, çıkarım, eğitim) değişmedi. E
 | `MODEL_SINIFLAR` | `insan enkaz` | belge |
 | `KOSU_TEST_SAHNE_SAYISI`, `KOSU_MIMARILER`, `KOSU_ESZAMANLI` | 30, `ucta merkezi`, 0 | belge |
 | `KOSU_SIRA_TOHUMU` | 20260101 | varsayım (ana deney öncesi kaydedilir ve kilitlenir) |
+| `KOSU_ARAC_SAYISI` | 1 | varsayım (koşu betiğinin varsayılan araç sayısı) |
+| `KOSU_GZ_HAZIR_SN`, `KOSU_PX4_HAZIR_SN` | 60, 90 | varsayım (hazır olma bekleme üst sınırları, saniye) |
+| `KOSU_KAPANIS_SN` | 30 | varsayım (süreç grubu başına SIGTERM sonrası bekleme üst sınırı, saniye) |
 
 Betikler ve doğrulayıcı bu anahtarları yalnızca bu dosyadan okur; mevcut test ve ölçüm betikleri `source` ile okumaya devam eder (yeni anahtarlar eski betikleri etkilemez).
 
@@ -135,3 +138,60 @@ SONUÇ: GEÇERSİZ (1 hata)
 ```
 
 Çıkış kodu 0 = geçerli, 1 = geçersiz, 2 = kullanım/okuma hatası. Sürüm değişirse (`surum`) doğrulayıcı ve bu belge birlikte güncellenir; sahne, rota ve kalibrasyon dosyaları deney paketinde saklanır [belge].
+
+## 8. Koşu kaydı (taslak sürüm)
+
+Bir koşunun başlatılması, durdurulması ve kayıt düzeni. Bu bölüm **taslak sürümdür**: kuyruk ve aktarım alanları B13'te dolacak; bunun için dosyalarda `surum` alanı vardır. Belgede yazılı olan kural **[belge]**, burada seçilen değer **[varsayım]** olarak işaretlidir.
+
+### 8.1 Koşu klasörü düzeni
+
+```
+.generated/kosular/<kosu_kimligi>/
+  kosu.json                       koşu üst verisi (başlatma yazar; durdurma/temizleme tamamlar)
+  gz_sunucu.log, px4_<i>.log      süreç günlükleri
+  calisma/px4_<i>/                PX4 örneği çalışma klasörü
+  kayit/<kaynak>[_<arac>].jsonl   kare olay kayıtları (8.3); her bileşen KENDİ dosyasına yazar
+.generated/kosular/aktif          yaşayan koşunun kimliği (varsa); durdurma/temizleme siler
+```
+
+[belge] Bileşenler birbirinin dosyasına yazmaz; birleştirme değerlendirmede **araç kimliği + kare numarası** üzerinden yapılır. Kaynak bileşenler: `gazebo_damga`, `kamera_alicisi`, `arac_sureci`, `cikarim_iscisi`, `yer_istasyonu`. Dosya adı `kayit/<kaynak>.jsonl` ya da araç başına yazan bileşenlerde `kayit/<kaynak>_<arac_kimligi>.jsonl`. Koşu klasörü silinmez; yollar depo köküne göredir.
+
+### 8.2 Koşu üst verisi (`tur: "kosu_ustveri"`, `kosu.json`)
+
+| Alan | Açıklama |
+|---|---|
+| `surum`, `tur` | `1`, `"kosu_ustveri"` |
+| `kosu_kimligi` | Kimlik kuralı; `kosu_<YYYYAAGG>_<SSDDSS>`. |
+| `baslangic`, `bitis` | `{duvar_iso, monotonik_ns}`: saat dilimli ISO 8601 duvar saati ve `CLOCK_MONOTONIC` ns (pozitif tam sayı). Koşu sürerken `bitis` `null`. |
+| `depo` | `commit` (40 onaltılık), `calisma_agaci_temiz` (bool). |
+| `yapilandirma_sha256`, `ortam_kilidi_sha256` | `config/deney.env` ve `setup/locks/sha256sums.txt` özetleri. |
+| `arac_sayisi`, `arac_kimlikleri` | 1…`UAV_SYS_IDS` uzunluğu; kimlikler `UAV_SYS_IDS` değerleri (MAV_SYS_ID). |
+| `mimari_modu` | Şimdilik `"yok"`; sonraki kartlarda `KOSU_MIMARILER` değerleri. |
+| `sahne_kimligi` | Şimdilik `null`; sonra sahne dosyasının kimliği. |
+| `dunya`, `model`, `gz_partition` | `SIM_WORLD`, `SIM_MODEL` ve koşuya özgü izole Gazebo bölümü. |
+| `surecler` | `{ad, pid, grup}` listesi (`gz_sunucu`, `px4_<i>`). |
+| `bitis_durumu` | `null` (sürüyor) \| `tamamlandi` \| `zorla_kapatildi` \| `yarida_kaldi`. `bitis` ile birlikte dolu ya da birlikte `null`. |
+| `zorla_kapatilan` | Yalnız `zorla_kapatildi` iken, SIGKILL ile kapatılan süreç adları (sessiz değil, açıkça yazılır). |
+
+Kullanıcı adı, makine adı ve mutlak yol **yazılmaz**; doğrulayıcı `/` ile başlayan (mutlak yol) her metni reddeder. Örnek: `config/ornek/kosu_ustveri_ornek.json`.
+
+### 8.3 Kare olay kaydı (`tur: "kare_olay"`, JSON Lines)
+
+Satır başına bir kayıt; bir kare için her aşama ayrı kayıttır.
+
+| Alan | Açıklama |
+|---|---|
+| `surum`, `tur` | `1`, `"kare_olay"` |
+| `kaynak` | Kaydı yazan bileşen (8.1). Bir dosyadaki bütün kayıtların kaynağı aynıdır. |
+| `arac_kimligi` | `UAV_SYS_IDS` değeri. |
+| `n` | Kare numarası: damga ızgaraya tam oturuyorsa `n = CAM_RATE_HZ · t_sim` (2·t_sim) tam sayısı; oturmuyorsa `"izgara_disi"`. **Yuvarlama yoktur** (risk U16); doğrulayıcı iki yönde de denetler. |
+| `sim_damga_ns` | Simülasyon damgası (`header.stamp`), ns, tam sayı. |
+| `olay` | `uretim`, `kuyruga_giris`, `aktarim_tamam`, `cikarim_basi`, `cikarim_sonu`, `kullanilabilir` [belge: üretim, uygulama kuyruğuna giriş, ilgili aktarımın tamamlanması, çıkarım başlangıcı, çıkarım bitişi, kullanılabilirlik]. |
+| `mono_ns` | `CLOCK_MONOTONIC` ns, **pozitif tam sayı**; ya da `"uygulanmaz"`. [belge] Uygulanmayan aktarım aşaması "uygulanmaz" gösterilir, sıfır süreli gerçek aktarım gibi yorumlanmaz: `0`, boş (`null`) ve ondalık değer reddedilir. [varsayım] `"uygulanmaz"` yalnız `kuyruga_giris` ve `aktarim_tamam` için yazılabilir. |
+| `sonuc_durumu` | Yalnız `kullanilabilir` olayında zorunlu: `sonuc` \| `tespit_yok` \| `kare_alinamadi` \| `gec_geldi`. Dört durum ayrıdır ve karışmaz. |
+
+Zamanlar ondalık saniye değildir; ölçekleme ve yuvarlama yapılmaz [belge]. Bir dosyada aynı (araç, `n`, damga, olay) ikinci kez yazılamaz. Örnekler: `config/ornek/kare_olay_gazebo_damga_ornek.jsonl`, `config/ornek/kare_olay_yer_istasyonu_ornek.jsonl`.
+
+### 8.4 Koşu betiği
+
+`araclar/kosu.sh baslat [--arac N] | durdur | durum | temizle` (hepsi `--dry-run` destekler). `baslat` önce başka `gz sim`/`ruby`/`px4`/`mavsdk_server` süreci ya da bitmemiş koşu olmadığını denetler; Gazebo sunucusunu, sonra N PX4 SITL örneğini ayrı süreç gruplarında başlatır. `durdur` SIGTERM ile ters sırada (PX4'ler, **Gazebo en son**: sunucuda çalışan kayıt bileşeninin son boşaltmayı yapması için) kapatır; `KOSU_KAPANIS_SN` dolarsa SIGKILL uygular ve `kosu.json`'a `zorla_kapatildi` yazar. `temizle` yalnız bu betiğin başlattığı süreç gruplarını kapatır, koşu klasörünü silmez, `yarida_kaldi` yazar.

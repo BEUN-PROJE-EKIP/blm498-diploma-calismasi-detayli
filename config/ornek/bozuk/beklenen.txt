@@ -10,3 +10,27 @@ rota_ortusme_yetersiz.json | komşu izlerinin örtüşmesi
 rota_irtifa_25.json | sabit irtifa 30 m olmalı
 kalibrasyon_fx_tutarsiz.json | HFOV ve çözünürlükten türetilen
 hedef_listesi_uyumsuz.json | birebir aynı değil | --sahne config/ornek/sahne_ornek_test.json
+kosu_bitis_durumu_gecersiz.json | değerlerinden biri olmalı (bulunan: 'bitti')
+kosu_bitis_yok_durum_var.json | bitis ile birlikte dolu ya da birlikte null olmalı
+kosu_arac_sayisi_uyumsuz.json | arac_sayisi (2) ile aynı uzunlukta olmalı
+kosu_mutlak_yol.json | mutlak yol yazılamaz
+kosu_sha_gecersiz.json | 64 karakterlik küçük harf onaltılık SHA-256
+kosu_zorla_listesiz.json | zorla kapatılan süreç adlarının boş olmayan listesi
+kosu_mimari_gecersiz.json | 'yok' ya da ['ucta', 'merkezi']
+kosu_surec_pid_gecersiz.json | surecler[1].pid: pozitif tam sayı
+kosu_bilinmeyen_alan.json | kullanici: bilinmeyen alan
+olay_n_damga_uyumsuz.jsonl | n = 2·t_sim olmalı
+olay_izgara_disi_ama_izgarada.jsonl | 'izgara_disi' yazılamaz
+olay_izgara_n_yuvarlanmis.jsonl | numara türetilmez (yuvarlama yok)
+olay_mono_ondalik.jsonl | 0, boş ve ondalık değer yazılamaz
+olay_mono_sifir.jsonl | 0, boş ve ondalık değer yazılamaz
+olay_mono_bos.jsonl | 0, boş ve ondalık değer yazılamaz
+olay_uretimde_uygulanmaz.jsonl | 'uygulanmaz' yalnız aktarım aşamalarında
+olay_turu_gecersiz.jsonl | olay: ['uretim'
+olay_sonuc_durumu_eksik.jsonl | zorunlu (bulunan: None)
+olay_sonuc_durumu_yanlis_olayda.jsonl | yalnız 'kullanilabilir' olayında bulunabilir
+olay_sonuc_durumu_gecersiz.jsonl | zorunlu (bulunan: 'belki')
+olay_kaynak_karisik.jsonl | her bileşen kendi dosyasına yazar
+olay_yinelenen.jsonl | yinelenen kayıt
+olay_bos_satir.jsonl | boş satır olamaz
+olay_damga_ondalik_saniye.jsonl | ondalık saniye yazılmaz

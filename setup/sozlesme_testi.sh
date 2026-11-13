@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# sozlesme_testi.sh — sözleşme dosyası doğrulayıcısının testi (sahne, bölge/rota, kamera kalibrasyonu, hedef listesi).
+# sozlesme_testi.sh — sözleşme dosyası doğrulayıcısının testi (sahne, bölge/rota, kamera kalibrasyonu, hedef listesi, koşu üst verisi, kare olay kaydı).
 # Kullanım: ./sozlesme_testi.sh [--dry-run | --verify | -h]
 #   (argümansız)  geçerli örnekler doğrulayıcıdan geçmeli; config/ornek/bozuk/ altındaki her dosya beklenen nedenle reddedilmeli
 #                 (beklenenler config/ornek/bozuk/beklenen.txt); hedef listesi örneği sahneden türetilenle aynı olmalı;
@@ -20,7 +20,8 @@ ORNEK="$ROOT_DIR/config/ornek"
 BOZUK="$ORNEK/bozuk"
 BEKLENEN="$BOZUK/beklenen.txt"
 LOCK="$SETUP_DIR/locks/sha256sums.txt"
-GECERLI=(sahne_ornek_test.json bolge_rota_ornek.json kamera_kalibrasyon_ornek.json hedef_listesi_ornek.json)
+GECERLI=(sahne_ornek_test.json bolge_rota_ornek.json kamera_kalibrasyon_ornek.json hedef_listesi_ornek.json kosu_ustveri_ornek.json
+         kare_olay_gazebo_damga_ornek.jsonl kare_olay_yer_istasyonu_ornek.jsonl)
 
 dogrula() { python3 -I "$DOGRULA" "$@"; }
 
@@ -90,7 +91,7 @@ while IFS='|' read -r dosya neden ek; do
 done < "$BEKLENEN"
 if [[ "$n_bozuk" -ge 5 ]]; then log_ok "Bozuk örnek sayısı: $n_bozuk (≥ 5)"; else log_fail "Bozuk örnek sayısı yetersiz: $n_bozuk (< 5)"; fi
 # beklenen.txt'de olmayan bozuk örnek kalmasın
-for f in "$BOZUK"/*.json; do
+for f in "$BOZUK"/*.json "$BOZUK"/*.jsonl; do
     if ! grep -qE "^[[:space:]]*$(basename "$f")[[:space:]]*\|" "$BEKLENEN"; then log_fail "beklenen.txt'de karşılığı olmayan bozuk örnek: $(basename "$f")"; fi
 done
 
@@ -105,7 +106,7 @@ fi
 # 4) örneklerin SHA-256'sı kilit özetinde
 eksik=""
 for f in "${GECERLI[@]}"; do grep -qF "config/ornek/$f" "$LOCK" || eksik+="$f "; done
-for f in "$BOZUK"/*.json "$BEKLENEN"; do grep -qF "config/ornek/bozuk/$(basename "$f")" "$LOCK" || eksik+="bozuk/$(basename "$f") "; done
+for f in "$BOZUK"/*.json "$BOZUK"/*.jsonl "$BEKLENEN"; do grep -qF "config/ornek/bozuk/$(basename "$f")" "$LOCK" || eksik+="bozuk/$(basename "$f") "; done
 if [[ -z "$eksik" ]]; then log_ok "Örneklerin SHA-256'sı $(basename "$LOCK") içinde"; else log_fail "Kilit özetinde olmayan örnekler: $eksik(./setup/lock_ozet.sh)"; fi
 
 component_finish "$COMPONENT_NAME" "tamamlandı (geçerli örnekler geçti, bozuk örnekler beklenen nedenle reddedildi)"
