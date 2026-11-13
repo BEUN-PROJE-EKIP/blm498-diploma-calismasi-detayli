@@ -70,6 +70,8 @@ Doğrulayıcı: `araclar/sozlesme_dogrula.py` (yalnız standart kitaplık). Eşi
 
 **Şerit planı kuralı (doğrulanan):** rota, `y` boyunca giden (x sabit) tarama doğrularından oluşur. Doğruların merkezleri arası uzaklık `a` için komşu iz örtüşmesi `w − a ≥ 2 m`; ilk iz bölgenin sol kenarını (`merkez − w/2 ≤ x_min`), son iz sağ kenarını kapsar; iz boyunca ucu `y_min`/`y_max`'ı iz boyu yarı ayak iziyle (`w/2 · 480/640 = 14,33 m`) kapsar. Görüntünün yatay ekseni uçuş yönüne diktir [belge], bu yüzden iz genişliği `x` yönündedir. Örnekte her bölge 3 yılan (serpantin) izidir: merkezler `x_min + w/2`, ortası, `x_max − w/2` (komşu iz örtüşmesi 7,35 m).
 
+**Üretim:** `config/bolge_rota.json`, `python3 araclar/rota_uret.py` ile `config/deney.env`'den üretilir (belirlenimci; `--check` dosyanın güncel olup olmadığını denetler); alan boyutu kilitli değildir (U23), bu yüzden dosya 1.7'de yeniden üretilebilir.
+
 ## 4. Kamera kalibrasyon dosyası (`tur: "kamera_kalibrasyon"`)
 
 [belge] Kamera 640 × 480, gövdeye sabit, aşağı bakan; optik eksen gövdenin aşağı eksenine paralel, görüntünün yatay ekseni uçuş yönüne dik; kalibrasyon dosyasında **tek sabit kamera–araç dönüşümü** vardır ve iki modda aynıdır. [varsayım] Gerçek kalibrasyon yoktur: ideal iğne deliği modeli.
@@ -124,6 +126,8 @@ Mevcut anahtarlar (ağ, kimlik/port, kamera, çıkarım, eğitim) değişmedi. E
 | `KOSU_ARAC_SAYISI` | 1 | varsayım (koşu betiğinin varsayılan araç sayısı) |
 | `KOSU_GZ_HAZIR_SN`, `KOSU_PX4_HAZIR_SN` | 60, 90 | varsayım (hazır olma bekleme üst sınırları, saniye) |
 | `KOSU_KAPANIS_SN` | 30 | varsayım (süreç grubu başına SIGTERM sonrası bekleme üst sınırı, saniye) |
+| `PX4A_BAGLAN_SN`, `PX4A_KOMUT_SN`, `PX4A_HAZIR_SN`, `PX4A_KAPAT_SN` | 60, 20, 90, 5 | varsayım (px4_adapter zaman aşımları, gerçek saniye: bağlanma, tek komut/okuma, ev konumu ve arm edilebilirlik, mavsdk_server'a SIGTERM sonrası bekleme) |
+| `PX4A_KABUL_YARICAPI_M` | 2 | varsayım (her görev öğesinin kabul yarıçapı, m; PX4'ün öntanımlı kabul yarıçapı 10 m "son noktaya ulaşıldı" anını son noktadan uzağa kaydırır; PX4 parametresi değiştirilmez, değer öğe başına yazılır) |
 
 Betikler ve doğrulayıcı bu anahtarları yalnızca bu dosyadan okur; mevcut test ve ölçüm betikleri `source` ile okumaya devam eder (yeni anahtarlar eski betikleri etkilemez).
 
@@ -149,6 +153,7 @@ Bir koşunun başlatılması, durdurulması ve kayıt düzeni. Bu bölüm **tasl
 .generated/kosular/<kosu_kimligi>/
   kosu.json                       koşu üst verisi (başlatma yazar; durdurma/temizleme tamamlar)
   gz_sunucu.log, px4_<i>.log      süreç günlükleri
+  px4_adapter_<arac_kimligi>.log  px4_adapter olay günlüğü (satır başına: ISO saat, monotonik ns, olay, anahtar=değer; yeni şema değil)
   calisma/px4_<i>/                PX4 örneği çalışma klasörü
   kayit/<kaynak>[_<arac>].jsonl   kare olay kayıtları (8.3); her bileşen KENDİ dosyasına yazar
 .generated/kosular/aktif          yaşayan koşunun kimliği (varsa); durdurma/temizleme siler
@@ -194,4 +199,4 @@ Zamanlar ondalık saniye değildir; ölçekleme ve yuvarlama yapılmaz [belge]. 
 
 ### 8.4 Koşu betiği
 
-`araclar/kosu.sh baslat [--arac N] | durdur | durum | temizle` (hepsi `--dry-run` destekler). `baslat` önce başka `gz sim`/`ruby`/`px4`/`mavsdk_server` süreci ya da bitmemiş koşu olmadığını denetler; Gazebo sunucusunu, sonra N PX4 SITL örneğini ayrı süreç gruplarında başlatır. `durdur` SIGTERM ile ters sırada (PX4'ler, **Gazebo en son**: sunucuda çalışan kayıt bileşeninin son boşaltmayı yapması için) kapatır; `KOSU_KAPANIS_SN` dolarsa SIGKILL uygular ve `kosu.json`'a `zorla_kapatildi` yazar. `temizle` yalnız bu betiğin başlattığı süreç gruplarını kapatır, koşu klasörünü silmez, `yarida_kaldi` yazar.
+`araclar/kosu.sh baslat [--arac N] | durdur | durum | temizle` (hepsi `--dry-run` destekler). `baslat` önce başka `gz sim`/`ruby`/`px4`/`mavsdk_server` süreci ya da bitmemiş koşu olmadığını denetler; Gazebo sunucusunu, sonra N PX4 SITL örneğini ayrı süreç gruplarında başlatır. `durdur` SIGTERM ile ters sırada (PX4'ler, **Gazebo en son**: sunucuda çalışan kayıt bileşeninin son boşaltmayı yapması için) kapatır; `KOSU_KAPANIS_SN` dolarsa SIGKILL uygular ve `kosu.json`'a `zorla_kapatildi` yazar. `temizle` bu betiğin başlattığı süreç gruplarını kapatır, koşu klasörünü silmez, `yarida_kaldi` yazar. `durdur` ve `temizle`, `MAVSDK_GRPC_PORTS` üzerinde dinleyen yetim `mavsdk_server` süreçlerini de (bağdaştırıcı kapatmadıysa) önce SIGTERM ile kapatır ve kosu.json süreç listesine `mavsdk_server_<gRPC portu>` adıyla yazar.

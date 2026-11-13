@@ -4,17 +4,19 @@
 #   baslat    yeni koşu klasörü (.generated/kosular/<koşu kimliği>/) açar; Gazebo sunucusunu, sonra N PX4 örneğini ayrı süreç gruplarında
 #             (setsid) başlatır; hazır olmazsa başlattığını geri alır. Koşu başarıyla başlayınca arka planda yaşar.
 #             Başka gz sim/ruby/px4/mavsdk_server süreci ya da bitmemiş koşu varsa REDDEDER.
-#   durdur    süreçleri SIGTERM ile ters sırada (PX4'ler, Gazebo en son) bekleyerek kapatır; KOSU_KAPANIS_SN dolarsa SIGKILL ve kosu.json'a
-#             "zorla_kapatildi" yazılır.
+#   durdur    önce MAVSDK_GRPC_PORTS üzerinde dinleyen yetim mavsdk_server süreçlerini (bağdaştırıcı kapatmadıysa), sonra süreçleri SIGTERM ile
+#             ters sırada (PX4'ler, Gazebo en son) bekleyerek kapatır; KOSU_KAPANIS_SN dolarsa SIGKILL ve kosu.json'a "zorla_kapatildi" yazılır.
+#             Yetim sunucular kosu.json süreç listesine "mavsdk_server_<gRPC portu>" adıyla yazılır (adı kaynağını gösterir).
 #   durum     yaşayan koşuyu, süreçleri ve dinleyen portları gösterir; ölü süreç varsa (-) ve çıkış 1.
-#   temizle   yarım/çökmüş koşunun yalnız bu betiğin başlattığı süreç gruplarını kapatır; koşu klasörünü silmez; kosu.json "yarida_kaldi".
+#   temizle   yarım/çökmüş koşunun yalnız bu betiğin başlattığı süreç gruplarını ve yetim mavsdk_server'ları kapatır; koşu klasörünü silmez;
+#             kosu.json "yarida_kaldi".
 # Kimlik, port, başlangıç pozu, dünya ve model YALNIZ config/deney.env'den okunur. Bekleme süreleri KOSU_* anahtarlarıdır; aynı adlı ortam
 # değişkeni (örn. KOSU_KAPANIS_SN=0) yapılandırmayı yalnız o çağrı için geçersiz kılar (test amaçlı). sudo gerekmez.
 set -Eeuo pipefail
 # shellcheck source=../setup/lib/common.sh
 source "$(dirname "${BASH_SOURCE[0]}")/../setup/lib/common.sh"
 
-usage() { sed -n '2,13p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'; }
+usage() { sed -n '2,14p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'; }
 
 ALT=""
 ARAC_ARG=""
@@ -62,11 +64,12 @@ for v in KOSU_ARAC_SAYISI KOSU_GZ_HAZIR_SN KOSU_PX4_HAZIR_SN KOSU_KAPANIS_SN; do
     if [[ -n "${!o+x}" ]]; then declare "$v=${!o}"; fi
     [[ -n "${!v:-}" && "${!v}" =~ ^[0-9]+$ ]] || fail_stop "$DENEY_ENV içinde $v tanımsız ya da sayı değil"
 done
-for v in UAV_SYS_IDS UAV_START_POSES SIM_WORLD SIM_MODEL; do
+for v in UAV_SYS_IDS UAV_START_POSES MAVSDK_GRPC_PORTS SIM_WORLD SIM_MODEL; do
     [[ -n "${!v:-}" ]] || fail_stop "$DENEY_ENV içinde $v tanımsız"
 done
 read -r -a SYS_IDS <<< "$UAV_SYS_IDS"
 read -r -a POSES <<< "$UAV_START_POSES"
+read -r -a GRPC_PORTS <<< "$MAVSDK_GRPC_PORTS"
 N_MAKS="${#SYS_IDS[@]}"
 [[ "${#POSES[@]}" -eq "$N_MAKS" ]] || fail_stop "UAV_START_POSES ile UAV_SYS_IDS aynı uzunlukta olmalı"
 N_ARAC="${ARAC_ARG:-$KOSU_ARAC_SAYISI}"
@@ -301,9 +304,43 @@ surecleri_kapat() {
     done
 }
 
+# yetim_mavsdk_kapat <bekleme_sn> : MAVSDK_GRPC_PORTS üzerinde dinleyen mavsdk_server süreçlerini (yalnız süreç adı mavsdk_server ise) kosu.json'a
+# "mavsdk_server_<port>" adıyla yazar ve önce SIGTERM ile kapatır; süre dolarsa SIGKILL. SIGKILL gerekenler YETIM_ZORLA dizisine girer.
+YETIM_ZORLA=()
+YETIM_SAYI=0
+yetim_mavsdk_kapat() {
+    local sn="$1" port out pid ad pgid i
+    YETIM_ZORLA=(); YETIM_SAYI=0
+    for port in "${GRPC_PORTS[@]}"; do
+        out="$(ss -H -l -n -t -p "sport = :$port" 2>/dev/null || true)"
+        pid="$(sed -n 's/.*pid=\([0-9]*\),.*/\1/p' <<< "$out" | head -n 1 || true)"
+        [[ -n "$pid" ]] || continue
+        if [[ "$(cat "/proc/$pid/comm" 2>/dev/null || true)" != mavsdk_server ]]; then
+            log_warn "gRPC portu $port mavsdk_server olmayan bir süreç tarafından dinleniyor (pid $pid); dokunulmadı"
+            continue
+        fi
+        ad="mavsdk_server_$port"
+        pgid="$(ps -o pgid= -p "$pid" 2>/dev/null | tr -d ' ' || true)"
+        python3 -I "$HELPER" surec-ekle "$KOSU_DIR/kosu.json" "$ad" "$pid" "${pgid:-$pid}"
+        YETIM_SAYI=$((YETIM_SAYI + 1))
+        log_warn "$ad: yetim süreç (pid $pid, gRPC portu $port); bağdaştırıcı kapatmamış, SIGTERM gönderiliyor"
+        kill -TERM "$pid" 2>/dev/null || true
+        for ((i = 0; i < sn * 10; i++)); do kill -0 "$pid" 2>/dev/null || break; sleep 0.1; done
+        if kill -0 "$pid" 2>/dev/null; then
+            kill -KILL "$pid" 2>/dev/null || true
+            YETIM_ZORLA+=("$ad")
+            log_warn "$ad: ${sn} sn içinde kapanmadı, SIGKILL uygulandı"
+        else
+            log_ok "$ad: kapandı"
+        fi
+    done
+    [[ "$YETIM_SAYI" -gt 0 ]] || log_info "Yetim mavsdk_server yok (gRPC portları: ${GRPC_PORTS[*]})"
+}
+
 komut_durdur() {
     local rc=0 durum
     if [[ "$DRY_RUN" -eq 1 ]]; then
+        log_info "[dry-run] önce gRPC portlarında (${GRPC_PORTS[*]}) dinleyen yetim mavsdk_server süreçleri SIGTERM ile kapatılır ve kosu.json'a yazılır"
         log_info "[dry-run] SIGTERM ile ters sırada (PX4'ler, gz sunucusu en son), grup başına en çok ${KOSU_KAPANIS_SN} sn beklenir; dolarsa SIGKILL + kosu.json 'zorla_kapatildi'"
         log_info "[dry-run] Hiçbir süreç durdurulmadı"; component_finish "$COMPONENT_NAME"
     fi
@@ -311,7 +348,9 @@ komut_durdur() {
     if [[ "$rc" -eq 1 ]]; then log_info "Yaşayan koşu yok; yapılacak bir şey yok"; component_finish "$COMPONENT_NAME" "yaşayan koşu yok"; fi
     [[ "$rc" -eq 0 ]] || fail_stop "Koşu bilgisi okunamadı"
     log_info "Koşu $KOSU_ID durduruluyor (bekleme üst sınırı ${KOSU_KAPANIS_SN} sn)"
+    yetim_mavsdk_kapat "$KOSU_KAPANIS_SN"
     surecleri_kapat "$KOSU_KAPANIS_SN"
+    ZORLA=("${YETIM_ZORLA[@]+"${YETIM_ZORLA[@]}"}" "${ZORLA[@]+"${ZORLA[@]}"}")
     if [[ "${#ZORLA[@]}" -gt 0 ]]; then durum=zorla_kapatildi
     elif [[ "${#OLU_BULUNAN[@]}" -gt 0 ]]; then durum=yarida_kaldi; log_warn "Kapatma öncesi ölü süreç vardı (${OLU_BULUNAN[*]}); koşu 'yarida_kaldi' yazıldı"
     else durum=tamamlandi; fi
@@ -325,13 +364,14 @@ komut_durdur() {
 komut_temizle() {
     local rc=0
     if [[ "$DRY_RUN" -eq 1 ]]; then
-        log_info "[dry-run] yalnız bu betiğin başlattığı (kosu.json'daki) süreç gruplarını kapatır; koşu klasörünü silmez; 'yarida_kaldi' yazar"
+        log_info "[dry-run] gRPC portlarında (${GRPC_PORTS[*]}) dinleyen yetim mavsdk_server'ları ve bu betiğin başlattığı (kosu.json'daki) süreç gruplarını kapatır; koşu klasörünü silmez; 'yarida_kaldi' yazar"
         log_info "[dry-run] Hiçbir süreç durdurulmadı"; component_finish "$COMPONENT_NAME"
     fi
     kosu_yukle || rc=$?
     if [[ "$rc" -eq 1 ]]; then log_info "Temizlenecek koşu yok"; component_finish "$COMPONENT_NAME" "temizlenecek koşu yok"; fi
     [[ "$rc" -eq 0 ]] || fail_stop "Koşu bilgisi okunamadı"
-    log_info "Koşu $KOSU_ID temizleniyor (yalnız kosu.json'daki süreç grupları)"
+    log_info "Koşu $KOSU_ID temizleniyor (kosu.json'daki süreç grupları ve yetim mavsdk_server'lar)"
+    yetim_mavsdk_kapat "$KOSU_KAPANIS_SN"
     surecleri_kapat "$KOSU_KAPANIS_SN"
     python3 -I "$HELPER" bitir "$KOSU_DIR/kosu.json" yarida_kaldi
     rm -f "$AKTIF"

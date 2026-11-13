@@ -1,0 +1,15 @@
+<?xml version="1.0"?>
+<?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
+<package format="3">
+  <name>swarm_vehicle</name>
+  <version>0.1.0</version>
+  <description>Sürü yazılımının araç süreci paketi. Bu sürümde yalnız px4_adapter (PX4'e komut yazan tek modül) ve bölge/rota üretimi vardır; ROS 2 düğümü yoktur.</description>
+  <maintainer email="takim@example.com">Proje ekibi</maintainer>
+  <license>Apache-2.0</license>
+
+  <buildtool_depend>ament_python</buildtool_depend>
+
+  <export>
+    <build_type>ament_python</build_type>
+  </export>
+</package>
