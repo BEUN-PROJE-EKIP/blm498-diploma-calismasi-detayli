@@ -1,5 +1,6 @@
 # Biçim: dosya | doğrulayıcı çıktısında bulunması gereken metin | (isteğe bağlı) ek argümanlar
 # Her bozuk örnek reddedilmeli (çıkış kodu 1) ve çıktı belirtilen nedeni içermeli.
+kare_olay_gonderim_yanlis_kaynak.jsonl | yalnız araç süreci yazar
 sahne_test_14_insan.json | test bölümünde 15 insan olmalı
 sahne_yakin_hedefler.json | merkezleri arası
 sahne_alan_disi.json | alan dışında

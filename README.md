@@ -172,6 +172,7 @@ Yukarıdaki doğrulama listesinden ayrıdır: yazılım bileşenlerini (araç s�
 | `./setup/arac_sureci_testi.sh` | Araç süreci ve görev durum makinesi (tek ve üç araç + deneme koordinatörü), durum geçişleri | yaklaşık 10 dk | `colcon build`; `.venv` |
 | `./setup/kamera_alici_testi.sh` | Kamera, damga bileşeni ve kamera alıcısı: kayıpsız akış, kayıp ve geç kare senaryoları (`kayip`) | `birim kayip` alt kümesi yaklaşık 5 dk; tam koşu daha uzun | `cmake` (damga bileşeni derlemesi); `colcon build` |
 | `./setup/cikarim_isci_testi.sh` | Çıkarım işçisi ve kare sonucu: GPU/CPU arka uçları, hata ve işçi ölümü senaryoları, üç araç | yaklaşık 15 dk | model ağırlık dosyaları (`yolo26l.pt`, `yolo26s.pt`, `yolo26s.onnx`; `.generated/models/`); GPU sürücüsü |
+| `./setup/uc_mod_testi.sh` | Uçta mod: araçlar kare sonuçlarını reliable DDS ile yer istasyonuna gönderir; her numara için tam bir sonuç, dört durum, COMPLETE'in son sonuçtan sonra gelmesi, gecikmiş/eksik sonuç senaryoları (alt kümeler: `birim`, `tek`, `hata`, `uc`, `gecikme`) | yaklaşık 25 dk (tamamı) | `colcon build` (üç paket: `swarm_msgs`, `swarm_vehicle`, `swarm_gcs`); model ağırlıkları |
 | `./setup/alan_pilot_testi.sh` | Alan ve rota mini pilotu: üç araç tam rotayı uçar; süre, yönelim, kapsama, bölge taşması ölçülür; aday alan tablosu yazdırılır | yaklaşık 5 dk | `colcon build`; model ağırlıkları; `numpy` (venv) |
 
 Notlar: süreler bu geliştirme makinesindendir (RTX 5070, 7950X); ölçüm testleri (`alan_pilot_testi`, `yuk_olcum_testi`) görsel istemci açıkken çalıştırılmamalıdır.

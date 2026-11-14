@@ -166,3 +166,28 @@ def yaw_ned_derece(q_wxyz):
 def aci_farki_derece(a, b):
     """a − b açısı, [-180, 180) aralığına sarılmış (derece)."""
     return (a - b + 180.0) % 360.0 - 180.0
+
+
+_QOS_DEGERLER = {"GUVENILIRLIK": ("reliable", "best_effort"), "GECMIS": ("keep_last", "keep_all"), "DAYANIKLILIK": ("volatile", "transient_local")}
+
+
+def kare_sonuc_qos_ayar(ham):
+    """`QOS_KARE_SONUC_*` anahtarlarından kare sonucu konusunun QoS ayarı (rclpy'siz): {guvenilirlik, gecmis, derinlik, dayaniklilik}. Geçersiz değer ValueError.
+    Belge reliable ister; best_effort kabul edilmez. Araç (yayımcı) ve yer istasyonu (abone) aynı sözlükten QoSProfile kurar."""
+    d = {}
+    for ad, izinli in _QOS_DEGERLER.items():
+        v = ham.get("QOS_KARE_SONUC_" + ad, "")
+        if v not in izinli:
+            raise ValueError(f"QOS_KARE_SONUC_{ad}={v!r}: {' | '.join(izinli)} olmalı")
+        d[ad.lower()] = v
+    if d["guvenilirlik"] != "reliable":
+        raise ValueError("QOS_KARE_SONUC_GUVENILIRLIK reliable olmalı [belge]")
+    try:
+        derinlik = int(ham["QOS_KARE_SONUC_DERINLIK"])
+    except (KeyError, ValueError):
+        raise ValueError("QOS_KARE_SONUC_DERINLIK tam sayı olmalı") from None
+    if derinlik < 1:
+        raise ValueError("QOS_KARE_SONUC_DERINLIK >= 1 olmalı")
+    d["derinlik"] = derinlik
+    d["gecmis"] = d.pop("gecmis")
+    return d

@@ -8,7 +8,7 @@ tarama başlatma mesajı (t_s = o anki simülasyon saati) → görevi başlat �
 akış iş parçacığı (engelleyen bağdaştırıcı çağrıları); gz-transport saat geri çağrısı. Durum makinesine erişim tek kilitle serileşir.
 Çıkış kodları: 0 TAMAMLANDI; 1 beklenmeyen hata; 2 yapılandırma/kullanım; 3 kimlik doğrulanamadı (HAZIR'a geçilmez); 143 SIGTERM.
 Çıkarım işçisi bu sürecin ALT SÜRECİDİR (cikarim_istemci.py; IP kullanmayan AF_UNIX kanal); kabul edilen her görev karesi işçiye gider, her görev numarası için tam bir kare sonucu
-(`swarm_msgs/FrameResult`) üretilir, yerel kayda (`kayit/kare_sonuc_<araç>.jsonl`) yazılır ve `kare_sonucu_kancasi`na verilir (ağa gönderim B11'dir; bu sürümde kanca yalnız sayar).
+(`swarm_msgs/FrameResult`) üretilir, yerel kayda (`kayit/kare_sonuc_<araç>.jsonl`) yazılır, `kare_sonucu_kancasi`na verilir ve uçta modda ortak konudan (`KONU_KARE_SONUC`, reliable) yer istasyonuna yayımlanır (`sonuc_yayin.py`; yayım kare işleme iş parçacığını bloke etmez; kapanışta bütün iletilerin onayı beklenir).
 Simülasyon zamanı gz-transport'tan doğrudan okunur (ros_gz_bridge yok); gz-transport `GZ_IP=127.0.0.1` ile kilitlenir (başka değer verilmişse süreç açık hata ile çıkar). 2 Hz durum yayımı duvar saati zamanlayıcısıyla yapılır [varsayım: RTF ≈ 1]; her durum geçişinde ayrıca bir ek ileti yayımlanır (2 Hz'lik akış yarım saniyeden kısa süren durumu — ör. en son bitiren aracın WAIT'i — kaçırmasın).
 """
 import json
@@ -23,6 +23,7 @@ from .cikarim_istemci import IsciIstemcisi
 from .kamera_alici import n_ilk_hesapla
 from .kamera_alici_gz import KameraAliciGz
 from .kare_isleyici import KareIsleyici
+from .sonuc_yayin import SonucYayinci
 from .durum_makinesi import (AD, STATE_BARIYER_BEKLE, STATE_HAZIR, STATE_TAMAMLANDI, STATE_TARAMA, STATE_WAIT, DurumMakinesi)
 
 CIKIS_KIMLIK = 3
@@ -68,9 +69,12 @@ class Arac:
         self.kamera = None
         self.kamera_yol = os.path.join(self.klasor, "kayit", f"kamera_alici_{self.arac_kimligi}.jsonl") if self.klasor else None
         self.sonuc_yol = os.path.join(self.klasor, "kayit", f"kare_sonuc_{self.arac_kimligi}.jsonl") if self.klasor else None
+        self.yayinci_yol = os.path.join(self.klasor, "kayit", f"arac_sureci_{self.arac_kimligi}.jsonl") if self.klasor else None
+        self.yayinci = None
+        self.pub_sonuc = None
         self.isci = None
         self.isleyici = None
-        self.kare_sonucu_kancasi = None          # B11 bağlanacak: callable(FrameResult); bu sürümde yalnız sayılır
+        self.kare_sonucu_kancasi = None          # isteğe bağlı yerel kanca: callable(FrameResult); DDS yayımı ayrıdır (self.yayinci)
         self.kare_sonucu_mesaj_sayisi = 0
         self._FrameResult = self._Detection = None
 
@@ -132,12 +136,14 @@ class Arac:
             self.pub_durum.publish(m)
 
     def _kare_sonucu_uret(self, kayit):
-        """Kare sonucu kaydından `FrameResult` iletisini oluşturur ve yerel kancaya verir (ağa gönderilmez)."""
+        """Kare sonucu kaydından `FrameResult` iletisini oluşturur, yerel kancaya verir ve DDS yayım kuyruğuna koyar."""
         from . import kare_sonuc as ks
         m = ks.mesaj_olustur(kayit, self._FrameResult, self._Detection, self._zaman)
         self.kare_sonucu_mesaj_sayisi += 1
         if self.kare_sonucu_kancasi is not None:
             self.kare_sonucu_kancasi(m)
+        if self.yayinci is not None:
+            self.yayinci.ver(m, kayit["n"])               # kuyruğa koyar, bloke etmez; DDS yayımı ayrı iş parçacığında
 
     def _durum_geldi(self, m):
         if m.vehicle_id == self.arac_kimligi:
@@ -152,6 +158,8 @@ class Arac:
             ok = self.sm.tarama_baslat(m.mission_id, t_s)
         if ok:
             self.isci.n_ilk = n_ilk_hesapla(t_s, self.kamera.hz)   # işçi enjeksiyonu belirteçleri (+k) için; kareler kuyruğa girmeden önce
+            if self.yayinci is not None:
+                self.yayinci.n_ilk = self.isci.n_ilk            # yayım enjeksiyonu belirteçleri (+k) için
             self.kamera.tarama_basladi(t_s)           # görev karesi kabulü t_s'den başlar
             self.log("tarama_baslat_alindi", mission_id=m.mission_id, t_s_ns=t_s)
             self._yayinla()                           # geçiş anında ek yayım (TARAMA)
@@ -224,6 +232,7 @@ class Arac:
             self._bekle(self.complete_olayi, "COMPLETE")
             self.log("durum", durum=AD[STATE_TAMAMLANDI])
             self._sonuclari_tamamla(aralik)                                # her görev numarası için tam bir kare sonucu
+            self.yayinci.kapat(float(self.ham["KARE_SONUC_ACK_SN"]))       # yayım kuyruğu boşalır; bütün FrameResult iletileri abonelerce onaylanana dek (üst sınır) beklenir
             self.dur_olayi.wait(float(self.ham["ARAC_KAPANIS_BEKLE_SN"]))   # dinleyiciler son durumu alsın
         except InterruptedError as e:
             self.log("durduruldu", ayrinti=str(e))
@@ -280,6 +289,14 @@ class Arac:
         h = self.ham
         self.pub_durum = node.create_publisher(VehicleState, h["KONU_DURUM"], qos_durum)
         self.pub_bitis = node.create_publisher(ScanFinished, h["KONU_TARAMA_BITIS"], kontrol(10))
+        qa = _rota.kare_sonuc_qos_ayar(h)
+        qos_sonuc = QoSProfile(history=HistoryPolicy.KEEP_LAST if qa["gecmis"] == "keep_last" else HistoryPolicy.KEEP_ALL, depth=qa["derinlik"], reliability=ReliabilityPolicy.RELIABLE,
+                               durability=DurabilityPolicy.TRANSIENT_LOCAL if qa["dayaniklilik"] == "transient_local" else DurabilityPolicy.VOLATILE)
+        self.pub_sonuc = node.create_publisher(FrameResult, h["KONU_KARE_SONUC"], qos_sonuc)
+        from rclpy.duration import Duration
+        self.yayinci = SonucYayinci(self.arac_kimligi, self.kamera.hz, self.pub_sonuc.publish, self.yayinci_yol, self.log,
+                                    onay_bekle=lambda sn: self.pub_sonuc.wait_for_all_acked(Duration(seconds=sn)))
+        self.yayinci.baslat()
         node.create_subscription(VehicleState, h["KONU_DURUM"], self._durum_geldi, qos_durum)
         node.create_subscription(ScanStart, h["KONU_TARAMA_BASLAT"], self._tarama_baslat_geldi, kontrol(1))
         node.create_subscription(Complete, h["KONU_COMPLETE"], self._complete_geldi, kontrol(1))

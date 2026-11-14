@@ -471,12 +471,12 @@ def dogrula_kalibrasyon(c, d):
 # Koşu kaydı: koşu üst verisi (kosu.json) ve kare olay kaydı (JSON Lines)
 # ---------------------------------------------------------------------------------------------------------------------------------
 BITIS_DURUMLARI = ("tamamlandi", "zorla_kapatildi", "yarida_kaldi")
-OLAY_TURLERI = ("uretim", "kuyruga_giris", "aktarim_tamam", "cikarim_basi", "cikarim_sonu", "kullanilabilir", "kayip_tespit", "gec_geldi", "yok_sayildi")
+OLAY_TURLERI = ("uretim", "kuyruga_giris", "aktarim_tamam", "cikarim_basi", "cikarim_sonu", "kullanilabilir", "gonderim", "kayip_tespit", "gec_geldi", "yok_sayildi")
 YEREL_OLAYLAR = ("kayip_tespit", "gec_geldi", "yok_sayildi")   # kamera alıcısının YEREL kayıtları (zaman aşaması değil): kayıp tespiti (yer istasyonundaki "kullanılabilir" kaydı değildir), geç gelen kare, görev girdisi olmayan kare
 YOK_SAYILMA_NEDENLERI = ("gorev_oncesi", "kapanis_sonrasi", "izgara_disi", "tekrar")
 UYGULANMAZ_OLABILEN = ("kuyruga_giris", "aktarim_tamam")   # [belge] yalnız aktarım aşamaları "uygulanmaz" olabilir
 KAYNAKLAR = ("gazebo_damga", "kamera_alicisi", "arac_sureci", "cikarim_iscisi", "yer_istasyonu")
-SONUC_DURUMLARI = ("sonuc", "tespit_yok", "kare_alinamadi")     # "geç geldi" burada YOKTUR: ağa gönderilmez, yalnız alıcının yerel kaydıdır (olay: gec_geldi)
+SONUC_DURUMLARI = ("sonuc", "tespit_yok", "kare_alinamadi", "islem_hatasi")     # "geç geldi" burada YOKTUR: ağa gönderilmez, yalnız alıcının yerel kaydıdır (olay: gec_geldi)
 SHA_RE = re.compile(r"^[0-9a-f]{64}$")
 COMMIT_RE = re.compile(r"^[0-9a-f]{40}$")
 ISO_RE = re.compile(r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d+)?(Z|[+-]\d{2}:\d{2})$")
@@ -636,6 +636,8 @@ def dogrula_kare_olay(c, d):
             h.ekle("neden", "'izgara_disi' nedeni ile n = 'izgara_disi' birlikte olmalı")
     elif "neden" in d:
         h.ekle("neden", "yalnız 'yok_sayildi' olayında bulunabilir")
+    if olay == "gonderim" and d.get("kaynak") != "arac_sureci":
+        h.ekle("kaynak", f"'gonderim' kaydını yalnız araç süreci yazar (kaynak: 'arac_sureci'; bulunan: {d.get('kaynak')!r})")
     if olay in YEREL_OLAYLAR and d.get("kaynak") != "kamera_alicisi":
         h.ekle("kaynak", f"'{olay}' yerel kaydını yalnız kamera alıcısı yazar (kaynak: 'kamera_alicisi'; bulunan: {d.get('kaynak')!r})")
     return h.liste
