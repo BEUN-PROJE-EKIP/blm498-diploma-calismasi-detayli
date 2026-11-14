@@ -96,7 +96,6 @@ Bekler: yok, başlayabilir
 - ☐ A4a - Görüntü ve etiket üretim kodu
 - ☐ A4b - Eğitim ve doğrulama görüntüleri üretimi
 - ☐ A5 - Etiket görsel kontrolü
-- ☐ A12 - Çıkarım ayarları kilidi
 
 </details>
 
@@ -157,6 +156,7 @@ Bekler: M6a, M6b
 - ☐ C14 - Koşu otomasyonu
 - ☐ C11 - Nihai yapılandırma pilotları
 - ☐ C12 - H hesabı
+- ☐ A12 - Çıkarım ayarları kilidi
 - ☐ C13 - Protokol ve ortam kilidi
 
 </details>

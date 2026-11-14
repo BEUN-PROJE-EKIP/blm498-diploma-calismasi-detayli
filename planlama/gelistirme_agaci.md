@@ -108,11 +108,10 @@ Madde, kimliğinin harfiyle (K, A, B, C, D, E) bir iş paketine aittir; paket a�
 - [ ] **A4a** · w1 · M4 · geliştirme · Görüntü ve etiket üretim kodu · 7.200 eğitim + 1.200 doğrulama görüntüsünü ve etiketlerini üreten kod (yerden 30 m, test koşularıyla aynı kamera ayarları) · GŞÖA 6.2 · Bitti: kod bir deneme kümesini üretir; aynı tohumla görüntü ve etiketler yeniden üretilir
 - [ ] **A4b** · w1 · M4 · çalıştırma · Eğitim ve doğrulama görüntüleri üretimi · 7.200 eğitim + 1.200 doğrulama görüntüsü ve etiketlerinin üretimi, yerden 30 m, test koşularıyla aynı kamera ayarları · GŞÖA 6.2 · Bitti: sayılar tamam, listeler kayıtlı
 - [ ] **A5** · w1 · M4 · çalıştırma · Etiket görsel kontrolü · Etiketlerin %10'u sahne ve sınıf bazında tabakalı görsel kontrol; sistematik hata ilgili bölümün tümünde düzeltilir · GŞÖA 6.1 · Bitti: kontrol kaydı
-- [ ] **A12** · w1 · M4 · geliştirme · Çıkarım ayarları kilidi · Çıkarım ayarlarının sabitlenmesi: güven 0,25; nms=False; max_det 300; FP32; batch=1 · FR-15 · Bitti: protokol kilidinde
 
 ## M5 · Model
 
-- [ ] **A7** · w1 · M5 · çalıştırma · Eğitim süresi pilotu · Eğitim süresinin pilotta ölçülmesi, 14 haftalık takvime uygunluk değerlendirmesi · GŞÖA 6.2 · Bitti: ölçüm kaydı
+- [ ] **A7** · w1 · M5 · çalıştırma · Eğitim süresi pilotu · Eğitim süresinin pilotta ölçülmesi, 14 haftalık takvime uygunluk değerlendirmesi (not: ön tahmin A4a'nın deneme kümesiyle M4 sürerken yapılabilir; kesin ölçüm A4b'den sonra tam veriyle) · GŞÖA 6.2 · Bitti: ölçüm kaydı
 - [ ] **A9** · w2 · M5 · çalıştırma · B planı modeli eğitimi · B veri planı modeli (yalnız Gazebo) aynı ayarlarla eğitimi; eğitim çağrısında `nms=False` açıkça verilir (K13 bulgusu: verilmezse eğitim içi doğrulama NMS'li) · FR-15, FR-16 · Bitti: her epoch ağırlığı saklı
 - [ ] **A10** · w1 · M5 · çalıştırma · Epoch seçimi · Epoch seçimi: Gazebo doğrulama sahnelerinde iki sınıf ortalama AP50'yi en çoklayan epoch (eşitlikte erken) · GŞÖA 6 · Bitti: B modeli için (A planı yapılırsa onun için de) seçilen epoch kayıtlı
 - [ ] **A13** · w1 · M5 · çalıştırma · Model ve veri özetleri · Model ve veri dosyalarının nihai SHA-256 özetleri (6. hafta sonu) · FR-31 · Bitti: özet listesi kilitli
@@ -131,7 +130,7 @@ Madde, kimliğinin harfiyle (K, A, B, C, D, E) bir iş paketine aittir; paket a�
 
 ## M6b · Bütünleşik koşu ve kabul testleri
 
-- [ ] **B19** · w3 · M6b · geliştirme · Bütünleşik işlev testi · Bütünleşik işlev testi, iki modda: bölge paylaşımı, ortak başlangıç, ilerleme bildirimi, ortak tamamlanma; her görev karesi için sonuç veya "kare alınamadı" · FR-1, FR-2, FR-3, FR-4, FR-5 · Bitti: iki modda tam koşu tamamlanır
+- [ ] **B19** · w3 · M6b · geliştirme · Bütünleşik işlev testi · Bütünleşik işlev testi, iki modda: bölge paylaşımı, ortak başlangıç, ilerleme bildirimi, ortak tamamlanma; her görev karesi için sonuç veya "kare alınamadı" (not: koşular sahne dünya dosyasıyla yapılır; sahne yükleme yeteneği bu maddede, B21 yalnız ayarları tek dosyada toplar) · FR-1, FR-2, FR-3, FR-4, FR-5 · Bitti: iki modda tam koşu tamamlanır
 - [ ] **C1** · w1 · M6b · geliştirme · Kabul testi 1: ağ adresleri · Ağ sınırı kabul testi 1: ölçülen DDS ve görüntü kanalı soketleri yalnız 10.10.0.x adreslerini kullanır · FR-25 · Bitti: süreç ve soket kaydı
 - [ ] **C2** · w2 · M6b · geliştirme · Kabul testi 2: yerel trafik · Kabul testi 2: yerel trafik üretilirken D sayacı artmaz; yer istasyonu bileşenleri ve çıkarım alt süreçlerinde DDS yok · FR-25 · Bitti: sayaç ve ROS 2 çizge kaydı
 - [ ] **C3** · w1 · M6b · geliştirme · Kabul testi 3: sınırlayıcı sayacı · Kabul testi 3: bilinen boyutlu gönderim sınırlayıcıdan geçer, bir kez sayılır, burst ≥ en büyük paket · FR-25 · Bitti: sayaç = gönderilen
@@ -149,6 +148,7 @@ Madde, kimliğinin harfiyle (K, A, B, C, D, E) bir iş paketine aittir; paket a�
 - [ ] **C14** · w2 · M7 · geliştirme · Koşu otomasyonu · Koşu otomasyonu: 30 sahne × 2 mod, çift içi sıra kaydedilen rastgele tohumla, eşzamanlı çalıştırma yok, eğitim de ana koşularla eşzamanlı yapılmaz, başlatma dosyaları tek yapılandırmadan · FR-26 · Bitti: tam bir çift otomatik koşar
 - [ ] **C11** · w3 · M7 · çalıştırma · Nihai yapılandırma pilotları · Nihai yapılandırmayla pilotlar: 3 doğrulama sahnesi × 2 mod = 6 koşu; rota uzunluğu, hız, tarama süresi, RTF; her hedef ≥ 1 karenin görüş alanında · FR-27 · Bitti: 6 pilot tamam
 - [ ] **C12** · w1 · M7 · çalıştırma · H hesabı · Tp, Sp, Dp ve H = 60·⌈2·max(Tp, Sp + 8Dp/C)/60⌉ hesabı · FR-27 · Bitti: H kilitli
+- [ ] **A12** · w1 · M7 · geliştirme · Çıkarım ayarları kilidi · Çıkarım ayarlarının sabitlenmesi: güven 0,25; nms=False; max_det 300; FP32; batch=1 · FR-15 · Bitti: protokol kilidinde
 - [ ] **C13** · w2 · M7 · çalıştırma · Protokol ve ortam kilidi · Kalan protokol değerleri (telemetri aralık sınırı vb.); ortam kilidi ve protokol kilidi (etiketli commit + SHA-256 listesi) · FR-31 · Bitti: etiket atılmış, kilit tamam
 
 ## M8a · Ana deneyler
