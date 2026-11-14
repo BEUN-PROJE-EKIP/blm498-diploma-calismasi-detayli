@@ -20,6 +20,8 @@
 set -Eeuo pipefail
 # shellcheck source=lib/common.sh
 source "$(dirname "${BASH_SOURCE[0]}")/lib/common.sh"
+# shellcheck source=lib/derleme.sh
+source "$SETUP_DIR/lib/derleme.sh"
 
 TESTS=()
 ARGS=()
@@ -47,7 +49,7 @@ ANALIZ="$ROOT_DIR/araclar/uc_mod_analiz.py"
 VENV_PY="$ROOT_DIR/.venv/bin/python"
 ENV_SH="$SETUP_DIR/env.sh"
 DENEY_ENV="${DENEY_ENV:-$ROOT_DIR/config/deney.env}"
-ROS_SETUP="/opt/ros/${ROS_DISTRO:-jazzy}/setup.bash"
+ROS_SETUP="/opt/ros/$ROS_DISTRO/setup.bash"
 PROFIL="$ROOT_DIR/config/fastdds_profil.xml"
 KOK="$GENERATED_DIR/kosular"
 TMP_DIR=""
@@ -326,13 +328,10 @@ test_birim() {
         if [[ "$rc" -eq 0 ]]; then log_ok "birim: ${t##*/} geçti ($(grep -E '^Ran ' <<< "$out"))"; else log_fail "birim: ${t##*/} BAŞARISIZ"; tail -n 15 <<< "$out"; fi
     done
     out="$GENERATED_DIR/uc_mod_derleme.txt"
-    mkdir -p "$GENERATED_DIR"
-    rc=0
-    (cd "$ROOT_DIR" && ros_run colcon build --base-paths src --packages-select swarm_msgs swarm_vehicle swarm_gcs) > "$out" 2>&1 || rc=$?
-    if [[ "$rc" -eq 0 && "$(tail -n 3 "$out")" == *"3 packages finished"* ]]; then
-        log_ok "birim: colcon build swarm_msgs + swarm_vehicle + swarm_gcs hatasız"
+    if proje_derle "$out"; then
+        log_ok "birim: proje derlendi (swarm_msgs + swarm_vehicle + swarm_gcs; ortak yol: setup/lib/derleme.sh)"
     else
-        log_fail "birim: colcon build BAŞARISIZ (çıkış $rc); günlük: ${out#"$ROOT_DIR"/}"
+        log_fail "birim: proje derlemesi BAŞARISIZ; günlük: ${out#"$ROOT_DIR"/}"
         tail -n 12 "$out" | while IFS= read -r l; do log_info "  | $l"; done
     fi
     for mod in swarm_gcs.sonuc_defteri swarm_vehicle.sonuc_yayin swarm_vehicle.rota; do

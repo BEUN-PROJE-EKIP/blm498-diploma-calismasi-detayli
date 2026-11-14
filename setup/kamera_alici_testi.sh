@@ -14,6 +14,8 @@
 set -Eeuo pipefail
 # shellcheck source=lib/common.sh
 source "$(dirname "${BASH_SOURCE[0]}")/lib/common.sh"
+# shellcheck source=lib/derleme.sh
+source "$SETUP_DIR/lib/derleme.sh"
 
 TESTS=()
 ARGS=()
@@ -47,7 +49,7 @@ PKG_DIR="$ROOT_DIR/src/swarm_vehicle"
 VENV_PY="$ROOT_DIR/.venv/bin/python"
 ENV_SH="$SETUP_DIR/env.sh"
 DENEY_ENV="${DENEY_ENV:-$ROOT_DIR/config/deney.env}"
-ROS_SETUP="/opt/ros/${ROS_DISTRO:-jazzy}/setup.bash"
+ROS_SETUP="/opt/ros/$ROS_DISTRO/setup.bash"
 KOK="$GENERATED_DIR/kosular"
 TMP_DIR=""
 PGIDS=()
@@ -261,9 +263,12 @@ test_birim() {
         log_fail "birim: kalibrasyon örnekten farklı"
     fi
     out="$GENERATED_DIR/kamera_derleme.txt"
-    mkdir -p "$GENERATED_DIR"
-    (cd "$ROOT_DIR" && ros_run colcon build --base-paths src --packages-select swarm_msgs swarm_vehicle) > "$out" 2>&1 || rc=$?
-    if [[ "$rc" -eq 0 && "$(tail -n 3 "$out")" == *"2 packages finished"* ]]; then log_ok "birim: colcon build swarm_msgs + swarm_vehicle hatasız"; else log_fail "birim: colcon build BAŞARISIZ (çıkış $rc)"; tail -n 12 "$out" | while IFS= read -r l; do log_info "  | $l"; done; fi
+    if proje_derle "$out"; then
+        log_ok "birim: proje derlendi (swarm_msgs + swarm_vehicle + swarm_gcs; ortak yol: setup/lib/derleme.sh)"
+    else
+        log_fail "birim: proje derlemesi BAŞARISIZ; günlük: ${out#"$ROOT_DIR"/}"
+        tail -n 12 "$out" | while IFS= read -r l; do log_info "  | $l"; done
+    fi
     rc=0
     ( cmake -S "$ROOT_DIR/src/yayim_damga" -B "$GENERATED_DIR/yayim_damga/build" > "$TMP_DIR/cmake.log" 2>&1 && cmake --build "$GENERATED_DIR/yayim_damga/build" -j "$(nproc)" > "$TMP_DIR/derle.log" 2>&1 ) || rc=$?
     if [[ "$rc" -eq 0 && -f "$GENERATED_DIR/yayim_damga/build/libYayimDamga.so" ]]; then log_ok "birim: damga bileşeni derlendi (.generated/yayim_damga/build/libYayimDamga.so)"; else log_fail "birim: damga bileşeni derlenemedi"; tail -n 12 "$TMP_DIR/derle.log" 2>/dev/null; fi

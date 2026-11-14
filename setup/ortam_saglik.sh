@@ -62,7 +62,7 @@ kontrol_cekirdek() {
 
 # --- (b) apt kilidi ----------------------------------------------------------------------
 kontrol_apt_kilit() {
-    local out="$WORK/apt_kilit.txt" rc=0 satir
+    local out="$WORK/apt_kilit.txt" rc=0 satir metin
     "$SETUP_DIR/apt_kilit.sh" --verify > "$out" 2>&1 || rc=$?
     satir="$(strip_colors < "$out" | grep -E 'Kilit kümesi' | sed -n 1p | sed 's/^([^)]*) //; s/ (kurulu paketlerden, çalışma anında)//' || true)"
     if [[ "$rc" -eq 0 ]]; then
@@ -70,20 +70,22 @@ kontrol_apt_kilit() {
     else
         log_fail "(b) apt kilidi eksik: $satir (ayrıntı ve kilitleme: ./setup/apt_kilit.sh --verify / --kilitle)"
     fi
-    if strip_colors < "$out" | grep -qE '^\(!\).*(AÇIK|Unattended-Upgrade "1")'; then
+    metin="$(strip_colors < "$out")"   # önce değişkene: grep -q + pipefail → SIGPIPE tuzağı olmasın
+    if grep -qE '^\(!\).*(AÇIK|Unattended-Upgrade "1")' <<< "$metin"; then
         log_warn "(b) otomatik güncelleme ayarı/zamanlayıcısı açık görünüyor (ayrıntı: ./setup/apt_kilit.sh --verify)"
     fi
 }
 
 # --- (c) apt kaydı farkı ------------------------------------------------------------------
 kontrol_ortam_kaydi() {
-    local out="$WORK/ortam_kaydi.txt" satir
+    local out="$WORK/ortam_kaydi.txt" satir metin
     "$SETUP_DIR/ortam_kaydi.sh" > "$out" 2>&1 || true
-    satir="$(strip_colors < "$out" | grep -E 'apt kaydından FARKLI|apt kaydı' | sed -n 1p || true)"
-    if strip_colors < "$out" | grep -q 'apt kaydından FARKLI'; then
+    metin="$(strip_colors < "$out")"   # önce değişkene: grep -q + pipefail → SIGPIPE tuzağı olmasın
+    satir="$(grep -E 'apt kaydından FARKLI|apt kaydı' <<< "$metin" | sed -n 1p || true)"
+    if grep -q 'apt kaydından FARKLI' <<< "$metin"; then
         log_warn "(c) apt kaydı farkı: ${satir#*) }"
-    elif [[ -z "$satir" ]] && strip_colors < "$out" | grep -qE '^\(-\)'; then
-        log_fail "(c) ortam_kaydi.sh hata verdi: $(strip_colors < "$out" | grep -E '^\(-\)' | sed -n 1p | cut -c1-160)"
+    elif [[ -z "$satir" ]] && grep -qE '^\(-\)' <<< "$metin"; then
+        log_fail "(c) ortam_kaydi.sh hata verdi: $(grep -E '^\(-\)' <<< "$metin" | sed -n 1p | cut -c1-160)"
     else
         log_ok "(c) apt kaydı güncel"
     fi

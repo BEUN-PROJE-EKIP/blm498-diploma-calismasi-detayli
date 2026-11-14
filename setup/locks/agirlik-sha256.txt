@@ -1,0 +1,6 @@
+# Model ağırlıkları SHA-256 listesi (kaynak: Ultralytics indirme; takım kuralı: ağırlıklar depoya girmez, özetle izlenir). Biçim: sha256sum (özet, iki boşluk, proje köküne göre yol).
+# Yalnız bilinçli güncellenir: ./setup/40_python_ortami.sh --update-lock
+9fe3c544f2b19bebad7ea41e76d7ad3d88b7c2f10d11d24430c5311f6b32db26  .generated/models/yolo26l.pt
+646f8bc3fe0a656803d95c294f7852321748cb29d13466a1af8862e2db384a1b  .generated/models/yolo26s.pt
+# ONNX (türetilmiş, özet listede YOK): .generated/models/yolo26s.onnx — kaynak .generated/models/yolo26s.pt (SHA-256 yukarıda); ayarlar: Ultralytics export(format='onnx', imgsz=INF_IMGSZ, nms=False, batch=1, device='cpu'), FP32, simplify/opset/dynamic varsayılan;
+# aynı .pt'den iki aktarım FARKLI SHA-256 verir (aktarım bayt bayt belirlenimci değil), bu yüzden özet listesine girmez; --verify varlığını ve geçerli şemasını ([1, 300, 6]) denetler.

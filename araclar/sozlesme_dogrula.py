@@ -506,7 +506,7 @@ def zaman_nesnesi_denetle(h, yol, z):
 
 def dogrula_kosu_ustveri(c, d):
     h = Hatalar()
-    zorunlu = ["surum", "tur", "kosu_kimligi", "baslangic", "bitis", "depo", "yapilandirma_sha256", "ortam_kilidi_sha256", "rota_sha256", "arac_sayisi",
+    zorunlu = ["surum", "tur", "kosu_kimligi", "baslangic", "bitis", "depo", "yapilandirma_sha256", "ortam_kilidi_sha256", "rota_sha256", "kaynak_sha256", "arac_sayisi",
                "arac_kimlikleri", "mimari_modu", "sahne_kimligi", "dunya", "model", "gz_partition", "surecler", "bitis_durumu"]
     if not alan_denetle(h, "", d, zorunlu, ["zorla_kapatilan"]):
         return h.liste
@@ -527,7 +527,7 @@ def dogrula_kosu_ustveri(c, d):
             h.ekle("depo.commit", "40 karakterlik küçük harf onaltılık commit özeti olmalı")
         if not isinstance(dep.get("calisma_agaci_temiz"), bool):
             h.ekle("depo.calisma_agaci_temiz", "true/false olmalı")
-    for k in ("yapilandirma_sha256", "ortam_kilidi_sha256", "rota_sha256"):
+    for k in ("yapilandirma_sha256", "ortam_kilidi_sha256", "rota_sha256", "kaynak_sha256"):
         if not (isinstance(d.get(k), str) and SHA_RE.match(d[k])):
             h.ekle(k, "64 karakterlik küçük harf onaltılık SHA-256 olmalı")
     n = d.get("arac_sayisi")

@@ -28,6 +28,18 @@ def sha256(yol):
     return h.hexdigest()
 
 
+def kaynak_ozeti():
+    """`src/` altındaki dosyaların içerik özeti (SHA-256): git'in izlediği (`--cached`) ve henüz izlenmeyen ama yok sayılmayan (`--others --exclude-standard`) dosyaların YOL + içerik SHA-256 satırları sıralanıp özetlenir.
+    Git commit'inden bağımsızdır: kirli çalışma ağacında (commit edilmemiş değişiklik, yeni dosya) doğru kalır; çalışma ağacında silinmiş dosya atlanır. Derlenen kaynağın kanıtıdır (kosu.sh derlemeyi hemen önce yapar)."""
+    cikti = subprocess.run(["git", "-C", KOK, "ls-files", "-z", "--cached", "--others", "--exclude-standard", "--", "src"], capture_output=True, check=True).stdout
+    h = hashlib.sha256()
+    for yol in sorted({p for p in cikti.split(b"\0") if p}):
+        tam = os.path.join(KOK, yol.decode("utf-8"))
+        if os.path.isfile(tam):
+            h.update(yol + b"\0" + sha256(tam).encode() + b"\n")
+    return h.hexdigest()
+
+
 def zaman():
     return {"duvar_iso": datetime.datetime.now(datetime.timezone.utc).isoformat(timespec="seconds"), "monotonik_ns": time.monotonic_ns()}
 
@@ -58,7 +70,7 @@ def main(a):
             "surum": 1, "tur": "kosu_ustveri", "kosu_kimligi": kimlik, "baslangic": zaman(), "bitis": None,
             "depo": {"commit": git("rev-parse", "HEAD").strip(), "calisma_agaci_temiz": temiz},
             "yapilandirma_sha256": sha256(yap), "ortam_kilidi_sha256": sha256(os.path.join(KOK, "setup", "locks", "sha256sums.txt")),
-            "rota_sha256": sha256(os.path.join(KOK, "config", "bolge_rota.json")),
+            "rota_sha256": sha256(os.path.join(KOK, "config", "bolge_rota.json")), "kaynak_sha256": kaynak_ozeti(),
             "arac_sayisi": int(n), "arac_kimlikleri": [int(x) for x in kimlikler.split()], "mimari_modu": "yok", "sahne_kimligi": None,
             "dunya": dunya, "model": model, "gz_partition": part, "surecler": [], "bitis_durumu": None})
         return 0

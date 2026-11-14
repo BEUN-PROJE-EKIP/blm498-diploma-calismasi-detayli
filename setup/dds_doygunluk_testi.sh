@@ -17,6 +17,8 @@
 set -Eeuo pipefail
 # shellcheck source=lib/common.sh
 source "$(dirname "${BASH_SOURCE[0]}")/lib/common.sh"
+# shellcheck source=lib/derleme.sh
+source "$SETUP_DIR/lib/derleme.sh"
 
 TESTS=()
 ARGS=()
@@ -43,7 +45,7 @@ ANALIZ="$ROOT_DIR/araclar/dds_doygunluk_analiz.py"
 BOYUT="$ROOT_DIR/araclar/ileti_boyutlari.py"
 VENV_PY="$ROOT_DIR/.venv/bin/python"
 ENV_SH="$SETUP_DIR/env.sh"
-ROS_SETUP="/opt/ros/${ROS_DISTRO:-jazzy}/setup.bash"
+ROS_SETUP="/opt/ros/$ROS_DISTRO/setup.bash"
 DENEY_ENV="${DENEY_ENV:-$ROOT_DIR/config/deney.env}"
 KOK="$GENERATED_DIR/kosular"
 DURUM_DOSYASI="$GENERATED_DIR/dds_doygunluk_son.json"
@@ -84,7 +86,8 @@ check_prereqs() {
     for f in "$KOSU" "$YUK" "$TCIZLE" "$ANALIZ" "$BOYUT" "${BIRIM_TESTLER[@]}"; do check "Dosya: ${f#"$ROOT_DIR"/}" test -f "$f"; done
     # shellcheck disable=SC2016  # tek tırnak bilerek: alt kabukta açılır
     check "Yapılandırılmış sürü ağı (lo üzerinde htb)" bash -c '[[ "$(tc qdisc show dev lo)" == *htb* ]]'
-    check "tc sayaçları sudo'suz okunuyor" bash -c 'tc -s class show dev lo | grep -q "class htb 1:10"'
+    # shellcheck disable=SC2016  # tek tırnak bilerek: alt kabukta açılır
+    check "tc sayaçları sudo'suz okunuyor" bash -c 'o="$(tc -s class show dev lo)"; [[ "$o" == *"class htb 1:10"* ]]'
     check "kosu.sh --dry-run baslat çıkış 0" "$KOSU" --dry-run baslat --arac 3 --yer-istasyonu var
 }
 
@@ -263,14 +266,17 @@ test_birim() {
         if [[ "$rc" -eq 0 ]]; then log_ok "birim: ${t##*/} geçti ($(grep -E '^Ran ' <<< "$out"))"; else log_fail "birim: ${t##*/} BAŞARISIZ"; tail -n 15 <<< "$out"; fi
     done
     out="$GENERATED_DIR/dds_doygunluk_derleme.txt"
-    mkdir -p "$GENERATED_DIR"
-    rc=0
-    (cd "$ROOT_DIR" && ros_run colcon build --base-paths src --packages-select swarm_msgs swarm_vehicle swarm_gcs) > "$out" 2>&1 || rc=$?
-    if [[ "$rc" -eq 0 && "$(tail -n 3 "$out")" == *"3 packages finished"* ]]; then log_ok "birim: colcon build swarm_msgs + swarm_vehicle + swarm_gcs hatasız (koşular install/ içindeki güncel kodu kullanır)"; else log_fail "birim: colcon build BAŞARISIZ (çıkış $rc); günlük: ${out#"$ROOT_DIR"/}"; tail -n 8 "$out"; fi
+    if proje_derle "$out"; then
+        log_ok "birim: proje derlendi (swarm_msgs + swarm_vehicle + swarm_gcs; ortak yol: setup/lib/derleme.sh)"
+    else
+        log_fail "birim: proje derlemesi BAŞARISIZ; günlük: ${out#"$ROOT_DIR"/}"
+        tail -n 12 "$out" | while IFS= read -r l; do log_info "  | $l"; done
+    fi
     rc=0
     "$VENV_PY" -m py_compile "$YUK" "$TCIZLE" "$ANALIZ" "$BOYUT" > "$TMP_DIR/pyc.log" 2>&1 || rc=$?
     if [[ "$rc" -eq 0 ]]; then log_ok "birim: py_compile temiz"; else log_fail "birim: py_compile hata"; tail -n 5 "$TMP_DIR/pyc.log"; fi
-    if head -n 3 "$YUK" | grep -q 'merkezi modun AĞ YÜKÜNÜ taklit eder, B12 değildir'; then log_ok "birim: araclar/sentetik_yuk.py başlığında 'merkezi modun ağ yükünü taklit eder, B12 değildir' yazıyor"; else log_fail "birim: yük aracı başlığı eksik"; fi
+    out="$(head -n 3 "$YUK")"
+    if [[ "$out" == *'merkezi modun AĞ YÜKÜNÜ taklit eder, B12 değildir'* ]]; then log_ok "birim: araclar/sentetik_yuk.py başlığında 'merkezi modun ağ yükünü taklit eder, B12 değildir' yazıyor"; else log_fail "birim: yük aracı başlığı eksik"; fi
     out="$(grep -nE '10\.10\.0\.[0-9]+' "$YUK" || true)"
     if [[ -z "$out" ]]; then log_ok "birim: yük aracı adresleri koda gömmez (UAVn_ADDR/GCS_ADDR yapılandırmadan okunur)"; else log_fail "birim: yük aracında sabit adres: $out"; fi
     out="$(cd "$ROOT_DIR" && git grep --untracked -nE '^\s*(from|import) mavsdk' -- src araclar/sentetik_yuk.py araclar/tc_izle.py || true)"

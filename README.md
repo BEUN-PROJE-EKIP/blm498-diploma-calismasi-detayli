@@ -126,6 +126,8 @@ cd blm498-diploma-calismasi
 
 ## Kurulum sonrası yapılması gerekenler
 
+Proje paketlerinin derlenmesi (`colcon build`) kurulumun parçasıdır (`./setup/50_proje_derleme.sh`; `install_all.sh` sırasında 50. adım). `araclar/kosu.sh baslat` her koşudan önce projeyi yeniden derler, koşu güncel kodla çalışır.
+
 **1. Her yeni terminalde.** ROS 2 ve projenin Python ortamı kendiliğinden açılmaz. Her yeni Konsole'da, proje klasöründeyken şunu çalıştır:
 
 ```bash
@@ -168,8 +170,8 @@ Yukarıdaki doğrulama listesinden ayrıdır: yazılım bileşenlerini (araç s�
 |---|---|---|---|
 | `./setup/sozlesme_testi.sh` | Sözleşme dosyası doğrulayıcısı: geçerli örnekler geçer, bozuk örnekler beklenen nedenle reddedilir (simülasyon yok) | < 1 dk | yok |
 | `./setup/kosu_testi.sh` | `araclar/kosu.sh`: koşu başlat/durdur/temizle, koşu üst verisi, çöküş ve zorla kapatma | yaklaşık 3-4 dk | PX4 derlenmiş; damga bileşeni için `cmake` |
-| `./setup/px4_adapter_testi.sh` | `px4_adapter` (kimlik koruması, görev yükleme, hazırlık, görev), bölge/rota üretimi ve tek komut yolu | yaklaşık 8 dk | `colcon build` yapabilen ROS 2 ortamı |
-| `./setup/arac_sureci_testi.sh` | Araç süreci ve görev durum makinesi (tek ve üç araç + deneme koordinatörü), durum geçişleri | yaklaşık 10 dk | `colcon build`; `.venv` |
+| `./setup/px4_adapter_testi.sh` | `px4_adapter` (kimlik koruması, görev yükleme, hazırlık, görev), bölge/rota üretimi ve tek komut yolu | yaklaşık 8 dk | proje derlemesi (`./setup/50_proje_derleme.sh`; kurulumun parçasıdır) |
+| `./setup/arac_sureci_testi.sh` | Araç süreci ve görev durum makinesi (tek ve üç araç + deneme koordinatörü), durum geçişleri | yaklaşık 10 dk | proje derlemesi (`./setup/50_proje_derleme.sh`); `.venv` |
 | `./setup/kamera_alici_testi.sh` | Kamera, damga bileşeni ve kamera alıcısı: kayıpsız akış, kayıp ve geç kare senaryoları (`kayip`) | `birim kayip` alt kümesi yaklaşık 5 dk; tam koşu daha uzun | `cmake` (damga bileşeni derlemesi); `colcon build` |
 | `./setup/cikarim_isci_testi.sh` | Çıkarım işçisi ve kare sonucu: GPU/CPU arka uçları, hata ve işçi ölümü senaryoları, üç araç | yaklaşık 15 dk | model ağırlık dosyaları (`yolo26l.pt`, `yolo26s.pt`, `yolo26s.onnx`; `.generated/models/`); GPU sürücüsü |
 | `./setup/uc_mod_testi.sh` | Uçta mod: araçlar kare sonuçlarını reliable DDS ile yer istasyonuna gönderir; her numara için tam bir sonuç, dört durum, COMPLETE'in son sonuçtan sonra gelmesi, gecikmiş/eksik sonuç senaryoları (alt kümeler: `birim`, `tek`, `hata`, `uc`, `gecikme`) | yaklaşık 25 dk (tamamı) | `colcon build` (üç paket: `swarm_msgs`, `swarm_vehicle`, `swarm_gcs`); model ağırlıkları |
@@ -179,7 +181,7 @@ Yukarıdaki doğrulama listesinden ayrıdır: yazılım bileşenlerini (araç s�
 
 Notlar: süreler bu geliştirme makinesindendir (RTX 5070, 7950X); ölçüm testleri (`alan_pilot_testi`, `yuk_olcum_testi`) görsel istemci açıkken çalıştırılmamalıdır.
 
-**Tek komutla uçta modda üç araçlı koşu.** Kurulum ve `colcon build` sonrası (sürü ağı uygulanmış, `ros2 daemon` kapalı):
+**Tek komutla uçta modda üç araçlı koşu.** Kurulum (proje derlemesi dahil; gerekirse `./setup/50_proje_derleme.sh`) sonrası (sürü ağı uygulanmış, `ros2 daemon` kapalı):
 
 ```bash
 ./araclar/kosu.sh baslat --arac 3 --yer-istasyonu var   # Gazebo + 3 PX4 + yer istasyonu görev koordinatörü + 3 araç süreci

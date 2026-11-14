@@ -19,6 +19,8 @@
 set -Eeuo pipefail
 # shellcheck source=../setup/lib/common.sh
 source "$(dirname "${BASH_SOURCE[0]}")/../setup/lib/common.sh"
+# shellcheck source=../setup/lib/derleme.sh
+source "$SETUP_DIR/lib/derleme.sh"
 
 usage() { sed -n '2,23p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'; }
 
@@ -166,21 +168,6 @@ dinleyen_portlar() { # dinleyen_portlar <pid> : o sürecin dinleyen UDP/TCP soke
 
 aktif_kosu() { if [[ -f "$AKTIF" ]]; then cat "$AKTIF"; fi; }
 
-# damga_derle : damga bileşeni (src/yayim_damga) güncel değilse .generated/yayim_damga/build altında derler (yalnız bu dizin; çıktı depoya girmez)
-damga_derle() {
-    local jobs gen=() lib="$YAYIM_BUILD/libYayimDamga.so" yeni
-    yeni="$(find "$YAYIM_SRC" -type f \( -name '*.cc' -o -name '*.hh' -o -name CMakeLists.txt \) -newer "$lib" 2>/dev/null | head -n 1 || true)"
-    if [[ -f "$lib" && -z "$yeni" ]]; then log_ok "Damga bileşeni güncel: ${lib#"$ROOT_DIR"/}"; return 0; fi
-    jobs="$(nproc)"
-    if command -v ninja >/dev/null; then gen=(-G Ninja); fi
-    log_info "Damga bileşeni derleniyor: cmake -S ${YAYIM_SRC#"$ROOT_DIR"/} -B ${YAYIM_BUILD#"$ROOT_DIR"/} (-j $jobs)"
-    mkdir -p "$YAYIM_BUILD"
-    cmake -S "$YAYIM_SRC" -B "$YAYIM_BUILD" "${gen[@]}" > "$YAYIM_BUILD/../cmake.log" 2>&1 || { log_fail "cmake yapılandırması başarısız (${YAYIM_BUILD#"$ROOT_DIR"/}/../cmake.log)"; return 1; }
-    cmake --build "$YAYIM_BUILD" -j "$jobs" > "$YAYIM_BUILD/../build.log" 2>&1 || { log_fail "Damga bileşeni derlenemedi (${YAYIM_BUILD#"$ROOT_DIR"/}/../build.log)"; return 1; }
-    [[ -f "$lib" ]] || { log_fail "Derleme çıktısı eksik: $lib"; return 1; }
-    log_ok "Damga bileşeni derlendi: ${lib#"$ROOT_DIR"/}"
-}
-
 # uretim_hazirla <koşu_klasörü> : bu koşu için araç modeli (PX4 modellerine dokunmadan) ve Gazebo sunucu yapılandırması (PX4'ün yapılandırması + damga bileşeni) üretir
 uretim_hazirla() {
     local kd="$1" px4_cfg onek ud="$1/uretim" kimlikler
@@ -216,6 +203,7 @@ komut_baslat() {
     if [[ "$DRY_RUN" -eq 1 ]]; then
         log_info "[dry-run] koşu klasörü: ${KOSU_KOK#"$ROOT_DIR"/}/<koşu kimliği>/ ; GZ_PARTITION koşu kimliğinden; dünya $SIM_WORLD, model $SIM_MODEL (başsız)"
         log_info "[dry-run] önce reddedilir: başka gz sim/ruby/px4/mavsdk_server süreci ya da bitmemiş koşu varsa"
+        log_info "[dry-run] süreçler başlamadan önce proje derlenir (colcon: ${PROJE_PAKETLERI[*]}; değişiklik yoksa hızlı); derleme başarısızsa koşu başlamaz; derlenen kaynağın SHA-256 özeti kosu.json'a kaynak_sha256 olarak yazılır (dry-run'da derlenmez/yazılmaz)"
         log_info "[dry-run] damga bileşeni güncel değilse derlenir (${YAYIM_BUILD#"$ROOT_DIR"/}); koşu için araç modeli ($SIM_MODEL, config/deney.env'den) ve sunucu yapılandırması (PX4'ün yapılandırması + damga bileşeni) ${KOSU_KOK#"$ROOT_DIR"/}/<koşu kimliği>/uretim/ altına üretilir"
         log_info "[dry-run] gz sunucusu (setsid, gz_sunucu.log); hazır ölçütü: simülasyon saati ilerliyor (en çok ${KOSU_GZ_HAZIR_SN} sn); damga kaydı kayit/gazebo_damga.jsonl"
         for ((i = 0; i < N_ARAC; i++)); do
@@ -238,9 +226,10 @@ komut_baslat() {
     check "Dünya dosyası: $SIM_WORLD" test -f "$ROOT_DIR/third_party/PX4-Autopilot/Tools/simulation/gz/worlds/$SIM_WORLD.sdf"
     check "Araç kamerası üretim aracı" test -f "$KAMERA_URET"
     check "Araç: cmake" command -v cmake
+    check "colcon mevcut (proje her koşuda derlenir)" command -v colcon
+    check "ROS 2 setup.bash ($ROS_DISTRO)" test -f "/opt/ros/$ROS_DISTRO/setup.bash"
     if [[ -n "$YER_IST" ]]; then
         check "setup/env.sh" test -f "$ENV_SH"
-        check "Kurulu paketler (install/setup.bash; colcon build)" test -f "$ROOT_DIR/install/setup.bash"
         check "venv Python (.venv)" test -x "$ROOT_DIR/.venv/bin/python"
     fi
     [[ "$COUNT_FAIL" -eq 0 ]] || fail_stop "Önkoşullar eksik"
@@ -271,17 +260,28 @@ komut_baslat() {
         fi
     fi
 
+    # Koşular HER ZAMAN güncel kodla çalışır: süreçler başlamadan önce proje derlenir (kopyalama kipi; değişiklik yoksa hızlıdır). Başarısızsa koşu başlamaz.
+    log_info "Proje derleniyor (${PROJE_PAKETLERI[*]}; değişiklik yoksa hızlıdır)"
+    t_derle="$(date +%s%N)"
+    if proje_derle "$GENERATED_DIR/proje_derleme.log"; then
+        log_ok "Proje derlendi ($(awk -v a="$t_derle" -v b="$(date +%s%N)" 'BEGIN {printf "%.1f", (b - a) / 1e9}') sn; günlük: .generated/proje_derleme.log)"
+    else
+        log_fail "Proje derlemesi BAŞARISIZ: koşu başlatılmaz; günlük: .generated/proje_derleme.log"
+        tail -n 15 "$GENERATED_DIR/proje_derleme.log" | while IFS= read -r i; do log_info "  | $i"; done
+        component_failed "$COMPONENT_NAME"; exit 1
+    fi
     id="kosu_$(date +%Y%m%d_%H%M%S)"
     while [[ -e "$KOSU_KOK/$id" ]]; do sleep 1; id="kosu_$(date +%Y%m%d_%H%M%S)"; done
     part="$id"
     KOSU_DIR="$KOSU_KOK/$id"
     mkdir -p "$KOSU_DIR/calisma" "$KOSU_DIR/kayit"
+    cp "$GENERATED_DIR/proje_derleme.log" "$KOSU_DIR/derleme.log"
     BASLAT_BASLADI=1
     python3 -I "$HELPER" baslangic "$KOSU_DIR/kosu.json" "$id" "$N_ARAC" "${SYS_IDS[*]:0:$N_ARAC}" "$part" "$SIM_WORLD" "$SIM_MODEL" "$DENEY_ENV" \
         || fail_stop "kosu.json yazılamadı"
     printf '%s\n' "$id" > "$AKTIF"
     log_info "Koşu $id (GZ_PARTITION=$part), $N_ARAC araç; klasör ${KOSU_DIR#"$ROOT_DIR"/}"
-    damga_derle || exit 1
+    damga_derle "$YAYIM_SRC" "$YAYIM_BUILD" "$GENERATED_DIR/yayim_damga" || exit 1
     uretim_hazirla "$KOSU_DIR" || fail_stop "Koşu üretimi hazırlanamadı"
 
     # Gazebo sunucusu (başsız). PX4 örnekleri çalışan dünyaya bağlanır; sunucu ayrı grupta olduğundan en son kapatılabilir.

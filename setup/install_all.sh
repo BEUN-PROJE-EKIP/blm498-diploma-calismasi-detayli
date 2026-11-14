@@ -4,7 +4,7 @@
 #   --dry-run      hiçbir şey kurmaz; her adımı --dry-run ile çalıştırır (sudo çağrılmaz)
 #   --only         yalnız verilen numaralı adımlar
 #   --from         verilen numaradan (dahil) itibaren
-#   --check-order  yalnız statik denetim: adım sırası 00,05,10,20,30,40,60 mı ve her adımın bağımlılığı ondan önce mi (hiçbir şey çalıştırmaz)
+#   --check-order  yalnız statik denetim: adım sırası 00,05,10,20,30,40,50,60 mı ve her adımın bağımlılığı ondan önce mi (hiçbir şey çalıştırmaz)
 # Gerçek çalıştırmada önce 00_sistem_onkontrol.sh çalışır; geçmezse şifre SORULMAZ ve kurulum başlamaz.
 # Geçerse başta bir kez `sudo -v` ister ve yetkiyi canlı tutar; çıkışta (Ctrl-C dahil) canlı tutma süreci sonlandırılır.
 # Sonda .generated/kurulum_raporu.md yazılır (dry-run'da yazılmaz).
@@ -27,7 +27,7 @@ trap 'exit 143' TERM
 usage() { echo "Kullanım: ${0##*/} [--dry-run] [--only NN[,NN...]] [--from NN] [--check-order] [-h]" >&2; }
 
 # Beklenen adım sırası ve bağımlılıklar (statik; yeni adım eklenirse burası güncellenmelidir).
-EXPECTED_ORDER=(00 05 10 20 30 40 60)
+EXPECTED_ORDER=(00 05 10 20 30 40 50 60)
 declare -A STEP_DEPS=(
     [00]=""        # ön kontrol: bağımlılık yok
     [05]="00"      # temel paketler (python3-venv, iproute2, curl…)
@@ -35,6 +35,7 @@ declare -A STEP_DEPS=(
     [20]="05"      # Gazebo: curl, gnupg, lsb-release
     [30]="05 20"   # PX4: python3-venv (.venv-px4 için) ve Gazebo geliştirme paketleri (derleme)
     [40]="05"      # Python ortamı: python3-venv, pip
+    [50]="10 20 40"  # proje derlemesi: ROS 2 (colcon, rclpy), Gazebo geliştirme paketleri (damga bileşeni), Python ortamı (kosu/test araçları)
     [60]="05"      # tc ağ emülasyonu: iproute2
 )
 

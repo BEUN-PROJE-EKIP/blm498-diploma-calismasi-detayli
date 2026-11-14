@@ -15,6 +15,8 @@
 set -Eeuo pipefail
 # shellcheck source=lib/common.sh
 source "$(dirname "${BASH_SOURCE[0]}")/lib/common.sh"
+# shellcheck source=lib/derleme.sh
+source "$SETUP_DIR/lib/derleme.sh"
 
 TESTS=()
 ARGS=()
@@ -44,7 +46,7 @@ ORNEK_ROTA="$ROOT_DIR/config/ornek/bolge_rota_ornek.json"
 PKG_DIR="$ROOT_DIR/src/swarm_vehicle"
 VENV_PY="$ROOT_DIR/.venv/bin/python"
 DENEY_ENV="${DENEY_ENV:-$ROOT_DIR/config/deney.env}"
-ROS_SETUP="/opt/ros/${ROS_DISTRO:-jazzy}/setup.bash"
+ROS_SETUP="/opt/ros/$ROS_DISTRO/setup.bash"
 KOK="$GENERATED_DIR/kosular"
 TMP_DIR=""
 
@@ -193,12 +195,10 @@ test_statik() {
     local out rc=0 l mod kural
     log_info "== statik: derleme, içe aktarma, tek komut yolu taraması =="
     out="$GENERATED_DIR/swarm_vehicle_derleme.txt"
-    mkdir -p "$GENERATED_DIR"
-    (cd "$ROOT_DIR" && ros_run colcon build --base-paths src --packages-select swarm_vehicle) > "$out" 2>&1 || rc=$?
-    if [[ "$rc" -eq 0 && "$(tail -n 3 "$out")" == *"1 package finished"* ]]; then
-        log_ok "statik: colcon build swarm_vehicle hatasız ($(grep -E 'Finished <<<' "$out" | sed 's/.*<<< //'))"
+    if proje_derle "$out"; then
+        log_ok "statik: proje derlendi (swarm_msgs + swarm_vehicle + swarm_gcs; ortak yol: setup/lib/derleme.sh)"
     else
-        log_fail "statik: colcon build BAŞARISIZ (çıkış $rc); günlük: ${out#"$ROOT_DIR"/}"
+        log_fail "statik: proje derlemesi BAŞARISIZ; günlük: ${out#"$ROOT_DIR"/}"
         tail -n 12 "$out" | while IFS= read -r l; do log_info "  | $l"; done
     fi
     for mod in rota px4_adapter; do

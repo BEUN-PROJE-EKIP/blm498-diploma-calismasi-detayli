@@ -17,7 +17,7 @@ ENV_SH="$SETUP_DIR/env.sh"
 KEY_FILE="$GENERATED_DIR/downloads/gazebo.gpg"
 KEYRING="/usr/share/keyrings/pkgs-osrf-archive-keyring.gpg"
 SOURCES_LIST="/etc/apt/sources.list.d/gazebo-stable.list"
-PACKAGES=(gz-harmonic libgz-sim8-dev python3-gz-transport13 python3-gz-msgs10 cppzmq-dev libunwind-dev)
+PACKAGES=("gz-${GZ_RELEASE}" "libgz-sim${GZ_SIM_MAJOR}-dev" "python3-gz-transport${GZ_TRANSPORT_MAJOR}" "python3-gz-msgs${GZ_MSGS_MAJOR}" cppzmq-dev libunwind-dev)
 
 
 fail_stop() { log_fail "$1"; component_failed "$COMPONENT_NAME"; exit 1; }

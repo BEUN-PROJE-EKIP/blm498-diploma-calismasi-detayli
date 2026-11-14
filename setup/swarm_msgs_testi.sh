@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # swarm_msgs_testi.sh — swarm_msgs ROS 2 mesaj paketinin derleme ve arayüz denetimi (DDS trafiği üretmez; Gazebo/PX4 çalıştırmaz).
 # Kullanım: ./swarm_msgs_testi.sh [--dry-run | --verify | -h]
-#   (argümansız)  colcon build (yalnız swarm_msgs), `ros2 interface list/show` ile 8 mesajın ve alanlarının denetimi, Python birim testi
+#   (argümansız)  proje derlemesi (ortak yol; üç paket), `ros2 interface list/show` ile 8 mesajın ve alanlarının denetimi, Python birim testi
 #                 (src/swarm_msgs/test/test_kare_sonucu.py: "tespit var / açık tespit yok / işlem hatası / kare alınamadı" ayrımı ve
 #                 rclpy.serialization gidiş-dönüşü); sonda ros2 daemon kalmadığı doğrulanır. Çıktılar build/, install/, log/ (depoya girmez).
 #   --dry-run     hiçbir şey derlemez/çalıştırmaz; ne yapacağını yazar
@@ -11,6 +11,8 @@
 set -Eeuo pipefail
 # shellcheck source=lib/common.sh
 source "$(dirname "${BASH_SOURCE[0]}")/lib/common.sh"
+# shellcheck source=lib/derleme.sh
+source "$SETUP_DIR/lib/derleme.sh"
 parse_common_args "$@"
 COMPONENT_NAME="swarm_msgs mesaj paketi"
 require_not_root
@@ -53,7 +55,7 @@ if [[ "$MODE" == "verify" ]]; then
     component_finish "$COMPONENT_NAME"
 fi
 if [[ "$DRY_RUN" -eq 1 ]]; then
-    log_info "[dry-run] cd $ROOT_DIR && colcon build --base-paths src --packages-select swarm_msgs (venv dışı, source $ROS_SETUP)"
+    log_info "[dry-run] cd $ROOT_DIR && colcon build --base-paths src --packages-select swarm_msgs swarm_vehicle swarm_gcs (setup/lib/derleme.sh; venv dışı, source $ROS_SETUP)"
     log_info "[dry-run] ros2 interface list | swarm_msgs/msg/{${!ALANLAR[*]}}; ros2 interface show <her mesaj>: alan denetimi"
     log_info "[dry-run] python3 ${TEST_PY#"$ROOT_DIR"/} (rclpy.serialization; kare sonucu dört durum ayrımı)"
     log_info "[dry-run] sonda: pgrep -f ros2-daemon boş olmalı (ros2 daemon başlatılmaz)"
@@ -65,15 +67,13 @@ check_prereqs
 [[ "$COUNT_FAIL" -eq 0 ]] || { component_failed "$COMPONENT_NAME"; exit 1; }
 DAEMON_ONCE=0; if pgrep -f '[r]os2-daemon' >/dev/null; then DAEMON_ONCE=1; fi
 
-# 1) derleme
+# 1) derleme (ortak yol: setup/lib/derleme.sh; üç paketin hepsi derlenir, install/ güncel kalır)
 out="$GENERATED_DIR/swarm_msgs_derleme.txt"
 mkdir -p "$GENERATED_DIR"
-rc=0
-(cd "$ROOT_DIR" && ros_run colcon build --base-paths src --packages-select swarm_msgs) > "$out" 2>&1 || rc=$?
-if [[ "$rc" -eq 0 && "$(tail -n 3 "$out")" == *"1 package finished"* ]]; then
-    log_ok "colcon build: swarm_msgs derlendi ($(grep -E 'Finished <<<' "$out" | sed 's/.*<<< //'))"
+if proje_derle "$out"; then
+    log_ok "proje derlendi (swarm_msgs, swarm_vehicle, swarm_gcs; ortak yol: setup/lib/derleme.sh)"
 else
-    log_fail "colcon build BAŞARISIZ (çıkış $rc); günlük: ${out#"$ROOT_DIR"/}"
+    log_fail "proje derlemesi BAŞARISIZ; günlük: ${out#"$ROOT_DIR"/}"
     while IFS= read -r l; do log_info "  | $l"; done < <(tail -n 15 "$out")
     component_failed "$COMPONENT_NAME"; exit 1
 fi

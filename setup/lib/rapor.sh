@@ -150,9 +150,11 @@ write_install_report() {
     local mode="$1" total="$2" tmp
     mkdir -p "$GENERATED_DIR"
     tmp="$(mktemp "$REPORT_FILE.XXXXXX")"
+    # shellcheck disable=SC2034  # lib/common.sh (_on_exit) okur: Ctrl-C/hata çıkışında geçici rapor dosyasını siler
     REPORT_TMP="$tmp"
     _report_body "$mode" "$total" | _report_sanitize > "$tmp"
     mv "$tmp" "$REPORT_FILE"
+    # shellcheck disable=SC2034  # lib/common.sh (_on_exit) okur
     REPORT_TMP=""
     log_info "Kurulum raporu yazıldı: ${REPORT_FILE/#$HOME/\~}"
 }

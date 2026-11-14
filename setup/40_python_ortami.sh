@@ -8,7 +8,11 @@
 #   --dry-run     hiçbir şey kurmaz/değiştirmez; yapacağı komutları yazar
 #   --verify      yalnız denetim (ağsız/sudosuz): sürümler, CUDA, sm_120, YOLO çıkarımı, mavsdk_server, onnxruntime, scipy
 #                 (Ultralytics çağıran doğrulama süreci YOLO_OFFLINE=1 ile çalışır; anonim olay gönderilmez. Kurulumdaki ağırlık indirme hariçtir)
-# Sürümler yalnız setup/versions.env içindedir. Kilit dosyası: setup/locks/python-requirements.lock.txt
+#   Ağırlıklar (kurulum ağ gerektirir; doğrulama gerektirmez): config/deney.env'deki INF_GPU_MODEL (GPU yolu), INF_CPU_MODEL (B planı, CPU arka ucu) ve CPU arka ucunun ONNX dosyası ISCI_CPU_ONNX temin edilir
+#   (yoksa indirilir/aktarılır; YOLO_OFFLINE=1 ile: anonim olay gönderilmez). `.pt` dosyalarının SHA-256'sı setup/locks/agirlik-sha256.txt ile doğrulanır; uyuşmazlık açık (-). ONNX aktarımı bayt bayt
+#   belirlenimci DEĞİLDİR (aynı .pt'den iki aktarım farklı özet verir): özet listesine girmez, türetilmiş dosya olarak kaynak .pt özeti ve aktarım ayarları listede KAYITLIDIR; --verify varlığını ve geçerli şemasını denetler.
+#   --update-lock Python kilidiyle birlikte ağırlık özet listesini de MEVCUT dosyalardan yeniden yazar (bilinçli güncelleme).
+# Sürümler yalnız setup/versions.env içindedir. Kilit dosyaları: setup/locks/python-requirements.lock.txt, setup/locks/agirlik-sha256.txt
 set -Eeuo pipefail
 # shellcheck source=lib/common.sh
 source "$(dirname "${BASH_SOURCE[0]}")/lib/common.sh"
@@ -28,8 +32,17 @@ VENV="$ROOT_DIR/.venv"
 PY="$VENV/bin/python"
 LOCK_FILE="$SETUP_DIR/locks/python-requirements.lock.txt"
 FREEZE_FILE="$GENERATED_DIR/python-freeze.txt"
-MODELS_DIR="$GENERATED_DIR/models"
-MODEL_NAME="yolo26l.pt"
+# Ağırlıkların adı ve yeri YALNIZ config/deney.env'den okunur (INF_GPU_MODEL, INF_CPU_MODEL, ISCI_CPU_ONNX)
+# (test amaçlı: DENEY_ENV ve AGIRLIK_LISTESI ortam değişkenleri yapılandırmayı/listeyi yalnız o çağrı için değiştirir; asıl dosyalara dokunmadan bozuk-kopya denemesi içindir)
+DENEY_DOSYASI="${DENEY_ENV:-$ROOT_DIR/config/deney.env}"
+# shellcheck source=/dev/null
+source "$DENEY_DOSYASI"
+GPU_PT="$ROOT_DIR/$INF_GPU_MODEL"
+CPU_PT="$ROOT_DIR/$INF_CPU_MODEL"
+CPU_ONNX="$ROOT_DIR/$ISCI_CPU_ONNX"
+MODELS_DIR="$(dirname "$GPU_PT")"
+MODEL_NAME="$(basename "$GPU_PT")"
+WEIGHT_LOCK="${AGIRLIK_LISTESI:-$SETUP_DIR/locks/agirlik-sha256.txt}"
 TORCH_FULL="${TORCH_VERSION}+${TORCH_CUDA_TAG}"
 TV_FULL="${TORCHVISION_VERSION}+${TORCH_CUDA_TAG}"
 TORCH_INDEX="https://download.pytorch.org/whl/${TORCH_CUDA_TAG}"
@@ -47,6 +60,93 @@ want_installed() { # want_installed <paket> <sürüm>
 # Kısıtlayıcı: kilit varsa ve --update-lock verilmediyse tüm pip install komutlarına -c eklenir (geçişli bağımlılıklar kilitten gelir).
 CONSTRAINT=()
 if [[ -f "$LOCK_FILE" && "$UPDATE_LOCK" -eq 0 ]]; then CONSTRAINT=(-c "$LOCK_FILE"); fi
+
+# --- Ağırlıklar ---------------------------------------------------------------
+rel_yol() { printf '%s' "${1#"$ROOT_DIR"/}"; }
+
+lock_sha() { # lock_sha <göreli_yol> : listedeki özet (yoksa boş); '#' ile başlayan satırlar açıklamadır
+    [[ -f "$WEIGHT_LOCK" ]] || return 0
+    awk -v p="$1" '$0 !~ /^#/ && $2 == p {print $1; exit}' "$WEIGHT_LOCK"
+}
+
+weight_check() { # weight_check <pt_yolu> : varlık + SHA-256 (listeyle); (+)/(-) yazar
+    local f="$1" rel got want
+    rel="$(rel_yol "$f")"
+    if [[ ! -f "$f" ]]; then log_fail "Ağırlık yok: $rel (kurulum: ./setup/40_python_ortami.sh)"; return 0; fi
+    got="$(sha256sum "$f" | cut -d' ' -f1)"
+    want="$(lock_sha "$rel")"
+    if [[ -z "$want" ]]; then
+        log_fail "Ağırlık özet listesinde yok: $rel (${WEIGHT_LOCK#"$ROOT_DIR"/}; özet $got)"
+    elif [[ "$got" == "$want" ]]; then
+        log_ok "Ağırlık SHA-256 listeyle uyuşuyor: $rel (${got:0:16}…)"
+    else
+        log_fail "Ağırlık SHA-256 UYUŞMUYOR: $rel (bulunan ${got:0:16}…, listede ${want:0:16}…): dosya bozuk ya da kaynak değişmiş"
+    fi
+}
+
+onnx_check() { # onnx_check <onnx_yolu> : varlık + geçerli ONNX şeması (NMS'siz uçtan uca baş: [1, 300, 6])
+    local f="$1" rel out rc=0
+    rel="$(rel_yol "$f")"
+    if [[ ! -f "$f" ]]; then log_fail "ONNX yok: $rel (kurulum: ./setup/40_python_ortami.sh)"; return 0; fi
+    out="$("$PY" -I -W ignore -c 'import sys, onnx; m = onnx.load(sys.argv[1]); onnx.checker.check_model(m); o = m.graph.output[0]; print([d.dim_value for d in o.type.tensor_type.shape.dim])' "$f" 2>&1)" || rc=$?
+    if [[ "$rc" -eq 0 && "$out" == "[1, 300, 6]" ]]; then
+        log_ok "ONNX geçerli ve NMS'siz uçtan uca çıktı biçimi $out: $rel (özet listede değil: aktarım belirlenimci değil)"
+    else
+        log_fail "ONNX geçersiz ya da beklenen çıktı biçimi değil ([1, 300, 6]; bulunan: $(tail -n 1 <<< "$out")): $rel"
+    fi
+}
+
+weight_fetch() { # weight_fetch <pt_yolu> : yoksa indirir (YOLO_OFFLINE=1: anonim olay yok); sonra özeti listeyle karşılaştırır
+    local f="$1" rel
+    rel="$(rel_yol "$f")"
+    if [[ -f "$f" ]]; then
+        log_ok "Ağırlık zaten var: $rel"
+    elif [[ "$DRY_RUN" -eq 1 ]]; then
+        log_info "[dry-run] (cd $(rel_yol "$(dirname "$f")") && YOLO_OFFLINE=1 $PY -c \"from ultralytics import YOLO; YOLO('$(basename "$f")')\")"
+        return 0
+    else
+        mkdir -p "$(dirname "$f")"
+        run "Ağırlık indiriliyor ($(basename "$f"))" bash -c 'cd "$1" && YOLO_OFFLINE=1 "$2" -c "from ultralytics import YOLO; YOLO(\"$3\")"' _ "$(dirname "$f")" "$PY" "$(basename "$f")"
+    fi
+    if [[ "$DRY_RUN" -eq 0 ]]; then weight_check "$f"; fi
+}
+
+onnx_fetch() { # onnx_fetch : CPU arka ucunun ONNX dosyası yoksa CPU .pt'den NMS'siz aktarır (araclar/yuk_olcum.py onnx-aktar; YOLO_OFFLINE=1)
+    local rel
+    rel="$(rel_yol "$CPU_ONNX")"
+    if [[ -f "$CPU_ONNX" ]]; then
+        log_ok "ONNX zaten var: $rel"
+    elif [[ "$DRY_RUN" -eq 1 ]]; then
+        log_info "[dry-run] YOLO_OFFLINE=1 $PY araclar/yuk_olcum.py onnx-aktar $(rel_yol "$CPU_PT")  (export(format='onnx', nms=False); çıktı $rel)"
+        return 0
+    else
+        [[ -f "$CPU_PT" ]] || { log_fail "ONNX aktarımı için kaynak ağırlık yok: $(rel_yol "$CPU_PT")"; return 0; }
+        # shellcheck disable=SC2016  # tek tırnak bilerek: $1.. alt kabukta açılır
+        run "ONNX aktarılıyor ($(basename "$CPU_PT") → $(basename "$CPU_ONNX"), nms=False)" bash -c 'set -a; source "$1"; set +a; cd "$2" && YOLO_OFFLINE=1 YOLO_AUTOINSTALL=False "$3" -W ignore araclar/yuk_olcum.py onnx-aktar "$4"' _ "$DENEY_DOSYASI" "$ROOT_DIR" "$PY" "$CPU_PT"
+    fi
+    if [[ "$DRY_RUN" -eq 0 ]]; then onnx_check "$CPU_ONNX"; fi
+}
+
+weights_install() {
+    weight_fetch "$GPU_PT"
+    weight_fetch "$CPU_PT"
+    onnx_fetch
+    if [[ "$DRY_RUN" -eq 0 && ( ! -f "$WEIGHT_LOCK" || "$UPDATE_LOCK" -eq 1 ) ]]; then weights_write_lock; fi
+}
+
+weights_write_lock() { # özet listesini MEVCUT dosyalardan yazar (yalnız liste yoksa ya da --update-lock ile)
+    local f tmp="$WEIGHT_LOCK.tmp"
+    [[ -f "$GPU_PT" && -f "$CPU_PT" ]] || { log_warn "Ağırlıklardan biri yok: özet listesi yazılmadı"; return 0; }
+    {
+        echo "# Model ağırlıkları SHA-256 listesi (kaynak: Ultralytics indirme; takım kuralı: ağırlıklar depoya girmez, özetle izlenir). Biçim: sha256sum (özet, iki boşluk, proje köküne göre yol)."
+        echo "# Yalnız bilinçli güncellenir: ./setup/40_python_ortami.sh --update-lock"
+        (cd "$ROOT_DIR" && sha256sum -- "$(rel_yol "$GPU_PT")" "$(rel_yol "$CPU_PT")")
+        echo "# ONNX (türetilmiş, özet listede YOK): $(rel_yol "$CPU_ONNX") — kaynak $(rel_yol "$CPU_PT") (SHA-256 yukarıda); ayarlar: Ultralytics export(format='onnx', imgsz=INF_IMGSZ, nms=False, batch=1, device='cpu'), FP32, simplify/opset/dynamic varsayılan;"
+        echo "# aynı .pt'den iki aktarım FARKLI SHA-256 verir (aktarım bayt bayt belirlenimci değil), bu yüzden özet listesine girmez; --verify varlığını ve geçerli şemasını ([1, 300, 6]) denetler."
+    } > "$tmp"
+    mv "$tmp" "$WEIGHT_LOCK"
+    log_ok "Ağırlık özet listesi yazıldı: ${WEIGHT_LOCK#"$ROOT_DIR"/}"
+}
 
 # --- Kurulum -----------------------------------------------------------------
 install_component() {
@@ -106,15 +206,8 @@ install_component() {
         fi
     fi
 
-    # 5) Ön eğitimli ağırlık (bir kez)
-    if [[ -f "$MODELS_DIR/$MODEL_NAME" ]]; then
-        log_ok "Ağırlık zaten var: ${MODELS_DIR#"$ROOT_DIR"/}/$MODEL_NAME"
-    elif [[ "$DRY_RUN" -eq 1 ]]; then
-        log_info "[dry-run] (cd $MODELS_DIR && $PY -c \"from ultralytics import YOLO; YOLO('$MODEL_NAME')\")"
-    else
-        mkdir -p "$MODELS_DIR"
-        run "Ağırlık indiriliyor ($MODEL_NAME)" bash -c 'cd "$1" && "$2" -c "from ultralytics import YOLO; YOLO(\"$3\")"' _ "$MODELS_DIR" "$PY" "$MODEL_NAME"
-    fi
+    # 5) Ön eğitimli ağırlıklar (bir kez): GPU yolu (.pt), CPU arka ucu (.pt) ve CPU arka ucunun NMS'siz ONNX dosyası; .pt özetleri listeyle doğrulanır
+    weights_install
 }
 
 # --- Doğrulama ---------------------------------------------------------------
@@ -344,6 +437,10 @@ verify_component() {
     pyver="$("$PY" -c 'import sys; print("%d.%d" % sys.version_info[:2])')"
     if [[ "$pyver" == "$PYTHON_REQUIRED" ]]; then log_ok "venv Python sürümü: $pyver"; else log_fail "venv Python sürümü $PYTHON_REQUIRED olmalı; bulunan: $pyver"; fi
     check "pip check temiz" "$PY" -m pip check
+    if [[ ! -f "$WEIGHT_LOCK" ]]; then log_fail "Ağırlık özet listesi yok: ${WEIGHT_LOCK#"$ROOT_DIR"/}"; fi
+    weight_check "$GPU_PT"
+    weight_check "$CPU_PT"
+    onnx_check "$CPU_ONNX"
     freeze_pkgs "$PY" "$FREEZE_FILE"
     lock_report "venv" "$LOCK_FILE" "$FREEZE_FILE"
 

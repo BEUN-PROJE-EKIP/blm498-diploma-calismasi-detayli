@@ -2879,6 +2879,8 @@ systemd-sysv 255.4-1ubuntu8.18 amd64
 systemd-timesyncd 255.4-1ubuntu8.18 amd64
 systemsettings 4:5.27.11-0ubuntu2 amd64
 sysvinit-utils 3.08-6ubuntu3 amd64
+tailscale 1.104.7 amd64
+tailscale-archive-keyring 1.35.181 all
 tar 1.35+dfsg-3ubuntu0.4 amd64
 tcl 8.6.14build1 amd64
 tcl8.6 8.6.14+dfsg-1build1 amd64

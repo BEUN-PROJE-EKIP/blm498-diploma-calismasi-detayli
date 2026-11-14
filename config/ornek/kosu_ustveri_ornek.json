@@ -17,6 +17,7 @@
   "yapilandirma_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
   "ortam_kilidi_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
   "rota_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+  "kaynak_sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
   "arac_sayisi": 3,
   "arac_kimlikleri": [
     1,
