@@ -64,7 +64,10 @@ cleanup_all() {
     if [[ -n "$TMP_DIR" && -d "$TMP_DIR" ]]; then rm -rf "$TMP_DIR"; fi
     TMP_DIR=""
 }
-exit_hook() { cleanup_all; }
+exit_hook() {
+    [[ "${DRY_RUN:-0}" -eq 0 && "${MODE:-install}" != verify ]] || return 0   # --dry-run/--verify hiçbir süreç başlatmaz; yaşayan (başkasına ait) koşuya DOKUNMAZ
+    cleanup_all
+}
 
 start_group() { # start_group <günlük> <komut...> : LAST_PG = grup lideri
     local log="$1"; shift

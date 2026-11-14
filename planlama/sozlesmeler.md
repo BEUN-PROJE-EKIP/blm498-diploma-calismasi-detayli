@@ -184,6 +184,8 @@ Bir koşunun başlatılması, durdurulması ve kayıt düzeni. Bu bölüm **tasl
   arac_<k>.out, arac_<k>.cikis    araç sürecinin standart çıktısı ve çıkış kodu (kosu.sh --yer-istasyonu ile başlatıldıysa)
   kayit/yer_istasyonu_gorev.jsonl yer istasyonu görev olay kaydı: Mission ataması, hazır bildirimleri, eşleşme, t0, tarama bitişleri, son sonuç, t1, TAMAMLANDI, zaman aşımı (8.9; `tur: gorev_olay`)
   kayit/yer_istasyonu_durum.jsonl yer istasyonu izleme kaydı (serbest biçim, şema değildir): araç durum/ilerleme değişimleri, `IZLEME_OZET_SN` özetleri, bayat durum uyarıları
+  kayit/yer_istasyonu_durum_ham.jsonl yer istasyonu izleme ham kaydı (serbest biçim): her `VehicleState` iletisinin alım anı (mono), yer istasyonu sim saati ve iletideki sim damgası (DDS canlılık ölçümü)
+  tc_ornek.jsonl, sentetik_yuk.jsonl  yalnız doygun hat denemesinde (setup/dds_doygunluk_testi.sh): tc 1:10/bfifo sayaç örnekleri (araclar/tc_izle.py) ve sentetik yük kaydı (araclar/sentetik_yuk.py); serbest biçim
   kayit/yer_istasyonu_komut.jsonl komut yolu iskeleti kaydı (serbest biçim): komut gönderimi ve onay (yalnız test/elle kullanımda yazılır)
   kayit/yer_istasyonu_kare.jsonl  yer istasyonu alıcısının kare sonucu kullanılabilirlik kaydı: her kabul edilen sonuç için `kare_olay` `kullanilabilir` (8.3; kaynak yer_istasyonu; üç araç aynı dosyada, araç kimliği alanıyla ayrılır)
   cikarim_isci_<arac>.log         çıkarım işçisinin standart hata günlüğü (serbest biçim; hazır bilgisi, kare hataları, kapanış özeti)

@@ -375,6 +375,16 @@ class Arac:
         node.create_subscription(ScanStart, h["KONU_TARAMA_BASLAT"], self._tarama_baslat_geldi, kontrol(1))
         node.create_subscription(Complete, h["KONU_COMPLETE"], self._complete_geldi, kontrol(1))
         node.create_timer(1.0 / float(h["DURUM_YAYIN_HZ"]), self._yayinla)
+        self._es_son = {}
+
+        def eslesme_izle():
+            """Yayımcıların eşleşmiş abone sayısı: her değişim günlüğe yazılır (eşleşme kaybı/yeniden eşleşme gözlemi)."""
+            for ad, pub in (("durum", self.pub_durum), ("kare_sonuc", self.pub_sonuc), ("tarama_bitis", self.pub_bitis)):
+                n = pub.get_subscription_count()
+                if self._es_son.get(ad) != n:
+                    self._es_son[ad] = n
+                    self.log("eslesme_degisti", kaynak=ad, sayi=n)
+        node.create_timer(0.5, eslesme_izle)
 
         def durdur(signum, _):
             self.log("sinyal", numara=signum)

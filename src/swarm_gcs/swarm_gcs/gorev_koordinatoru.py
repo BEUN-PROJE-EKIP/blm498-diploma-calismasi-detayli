@@ -7,7 +7,7 @@ karşılaştırıp rotayı yükler, hazır olunca BARIYER_BEKLE bildirir → N a
 Hedef birleştirme (FR-5, B15) M3'tedir: "birleştirme yok" kaydı yazılır. Yedek yol numaralandırması (M3/B13) açık hata ile reddedilir. Zaman aşımı yalnız üst sınırdır (GCS_UST_SN / --zaman-asimi-sn; H değil):
 aşılırsa COMPLETE yayımlanmaz, açık hata, çıkış 1. Komut gönderilmez (komut arayüzü yalnız test/elle kullanım içindir).
 Kayıtlar (koşu klasörü): `kayit/yer_istasyonu_gorev.jsonl` (`gorev_olay`, §8.9), `kayit/yer_istasyonu_kare.jsonl` (`kullanilabilir`), `kayit/yer_istasyonu_durum.jsonl` (izleme; serbest biçim: durum değişimleri +
-`IZLEME_OZET_SN` özetleri + bayat uyarıları), `kayit/yer_istasyonu_komut.jsonl` (komut/onay; serbest biçim), `yer_istasyonu.log` (metin günlüğü).
+`IZLEME_OZET_SN` özetleri + bayat uyarıları), `kayit/yer_istasyonu_komut.jsonl` (komut/onay; serbest biçim), `kayit/yer_istasyonu_durum_ham.jsonl` (her durum iletisinin alım anı; serbest biçim), `yer_istasyonu.log` (metin günlüğü).
 Test anahtarı (yalnız test, varsayılan kapalı): ortam değişkeni GOREV_ENJEKSIYON=`sapma=<araç>`: o aracın Mission'ının ilk noktası 1 m kaydırılır (araç yerel dosyayla uyuşmazlık görür, yüklemez).
 Çıkış kodları: 0 tamam; 1 zaman aşımı/hata (COMPLETE yayımlanmadı); 2 kullanım/yapılandırma.
 """
@@ -77,6 +77,7 @@ def ana(argv):
     log = Gunluk(yol("yer_istasyonu.log"))
     gorev = GorevKaydi(yol(os.path.join("kayit", "yer_istasyonu_gorev.jsonl")))
     durum_yol = yol(os.path.join("kayit", "yer_istasyonu_durum.jsonl"))
+    ham_yol = yol(os.path.join("kayit", "yer_istasyonu_durum_ham.jsonl"))     # her VehicleState iletisi: alım anı (mono), yer istasyonu sim saati, iletideki sim damgası (DDS canlılık ölçümü)
 
     sim = {"ns": None}
     try:
@@ -122,6 +123,10 @@ def ana(argv):
 
     def durum_geldi(m):
         mono = time.monotonic_ns()
+        if ham_yol:
+            with open(ham_yol, "a", encoding="utf-8") as f:
+                f.write(json.dumps({"mono_ns": mono, "sim_ns": sim["ns"], "arac": int(m.vehicle_id), "durum": int(m.state), "yayim_sim_ns": m.sim_stamp.sec * 10 ** 9 + m.sim_stamp.nanosec,
+                                    "ilerleme": [int(m.mission_item_current), int(m.mission_item_total)], "son_kare": int(m.last_frame_number)}) + "\n")
         yaz_olaylar(kor.durum_geldi(m.vehicle_id, m.state, mono))
         durum_yaz(izle.durum_geldi(m.vehicle_id, m.state, (m.mission_item_current, m.mission_item_total), m.last_frame_number, mono))
 
@@ -132,7 +137,8 @@ def ana(argv):
             if o["olay"] == "tarama_bitisi":
                 o["t_s_ns"] = o["t_b_ns"] = None       # ızgara yolunda ScanFinished t_s/t_b taşımaz (belge: kullanılmayan alanlar 0); araç günlüğünde (tarama_bitis_yayimlandi)
         yaz_olaylar(olaylar)
-    dugum.create_subscription(VehicleState, ham["KONU_DURUM"], durum_geldi, qos_durum)
+    durum_abone = dugum.create_subscription(VehicleState, ham["KONU_DURUM"], durum_geldi, qos_durum)
+    durum_yayimci = {"sayi": None}
     dugum.create_subscription(ScanFinished, ham["KONU_TARAMA_BITIS"], bitis_geldi, kontrol(10))
 
     # --- görev ataması ---------------------------------------------------------------------------------------------------------------------
@@ -168,6 +174,10 @@ def ana(argv):
         while rclpy.ok() and not dur.is_set():
             rclpy.spin_once(dugum, timeout_sec=0.05)
             yaz_olaylar(kor.eslesme_guncelle(alici.eslesen_yayinci()))
+            n_dy = durum_abone.get_publisher_count()
+            if n_dy != durum_yayimci["sayi"]:
+                durum_yayimci["sayi"] = n_dy
+                log("durum_eslesme_degisti", yayimci=n_dy)
             kor.sonuclar_guncelle(alici.defter.hepsi_tamam())
             durum_yaz(izle.kontrol(time.monotonic_ns()))
             eylem = kor.sonraki()

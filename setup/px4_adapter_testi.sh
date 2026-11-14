@@ -51,6 +51,7 @@ TMP_DIR=""
 fail_stop() { log_fail "$1"; component_failed "$COMPONENT_NAME"; exit 1; }
 
 exit_hook() {
+    [[ "${DRY_RUN:-0}" -eq 0 && "${MODE:-install}" != verify ]] || return 0   # --dry-run/--verify hiçbir süreç başlatmaz; yaşayan (başkasına ait) koşuya DOKUNMAZ
     if [[ -f "$KOK/aktif" ]]; then "$KOSU" temizle >/dev/null 2>&1 || true; fi
     if [[ -n "${YETIM_PY_PID:-}" ]]; then kill -KILL "$YETIM_PY_PID" 2>/dev/null || true; fi
     if [[ -n "$TMP_DIR" && -d "$TMP_DIR" ]]; then rm -rf "$TMP_DIR"; fi

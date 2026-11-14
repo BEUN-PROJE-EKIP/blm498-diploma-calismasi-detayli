@@ -65,6 +65,7 @@ grup_oldur() { # grup_oldur <pgid> : önce TERM, 5 sn sonra KILL
 }
 
 exit_hook() {
+    [[ "${DRY_RUN:-0}" -eq 0 && "${MODE:-install}" != verify ]] || return 0   # --dry-run/--verify hiçbir süreç başlatmaz; yaşayan (başkasına ait) koşuya DOKUNMAZ
     local i
     for ((i = ${#PGIDS[@]} - 1; i >= 0; i--)); do grup_oldur "${PGIDS[$i]}"; done
     PGIDS=()
