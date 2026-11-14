@@ -7,14 +7,18 @@ Bu depo, **"Afet Bölgelerinde Haberleşme Altyapısından Bağımsız Olarak Ç
 1. `README.md` — durum panosu: kurulum, doğrulama komutları ve ilerleme (kilometre taşı ağacı).
 2. `planlama/gelistirme_agaci.md` — **kilometre taşı tablosu** (her M'nin tek sahibi ve `Bekler` sütunu), bütün hedefler, her maddenin **bitti ölçütü** ve ağırlığı; maddeler kilometre taşına göre iş sırasıyla dizilidir.
 3. `planlama/mimari.md` — şemalar, portlar, ölçülen ağın kuralları.
-4. `docs/` — kaynak belgeler (GŞÖA ve proje el kitabı). **Değiştirilemez.** Metin olarak okumak için: `pdftotext -layout docs/<dosya>.pdf /dev/stdout` (çıktıyı depoya yazma).
+4. `planlama/sozlesmeler.md` — dosya biçimleri (sahne, rota, kalibrasyon, hedef listesi, koşu kayıtları) ve yapılandırma anahtarları; yeni üretilen her dosya bu biçimlere uyar ve `araclar/sozlesme_dogrula.py` ile doğrulanır.
+5. `planlama/kararlar.md` — alınmış kararlar (ör. görüş açısı, alan, veri planı, işlem hatası kuralı); bir karar değiştirilmek istenirse önce depo sahibine sorulur.
+6. `planlama/yol_haritasi.md` — kilometre taşlarının sırası ve gerekçesi.
+7. `planlama/riskler.md` — açık riskler; işin bir riske dokunuyorsa ilgili satırı oku.
+8. `docs/` — kaynak belgeler (GŞÖA ve proje el kitabı). **Değiştirilemez.** Metin olarak okumak için: `pdftotext -layout docs/<dosya>.pdf /dev/stdout` (çıktıyı depoya yazma).
 
 ## Göreve başlarken
 
 1. Kullanıcıya adını sor (söylediyse onu kullan).
 2. `planlama/gelistirme_agaci.md` içindeki **Kilometre taşları** tablosunda o kişinin sorumlu olduğu M'leri bul.
 3. Her M için `Bekler` sütunundaki M'lerin bitip bitmediğine bak (README'deki "Bekler" satırı aynı bilgiyi verir).
-4. Başlayabilir M'lerde **bitmemiş en üstteki maddeyi** ve onun **"Bitti:" ölçütünü** kullanıcıya göster.
+4. Başlayabilir M'lerde **bitmemiş en üstteki maddeyi** ve onun **"Bitti:" ölçütünü** kullanıcıya göster; maddeye başlamadan önce ilgili sözleşme bölümünü (`planlama/sozlesmeler.md`) ve kararları (`planlama/kararlar.md`) oku.
 5. Dal adı öner: `ad/madde-kimligi-kisa-konu` (örn. `mikail/A1-sahne-ureticisi`).
 6. Başka kişinin M'sindeki maddeye başlama; gerekirse önce sahibine sor.
 7. Ortak dosyalara (`.github/CODEOWNERS` içindeki yollar) dokunacaksan önce depo sahibine sor.

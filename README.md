@@ -334,6 +334,14 @@ Yazılım bileşenlerini sınar; çoğu başsız Gazebo + PX4 açar ve kendi art
 4. **PR'dan önce:** `./setup/verify_all.sh` hepsi `(+)`; `setup/` ya da `config/` değiştiyse `./setup/lock_ozet.sh` ile özetleri yenile.
 5. **Kilitli değerler** (25 Mbit/s ağ profili, çıkarım ayarları, karar kuralları, kilit dosyaları) sonuçlara bakılarak değiştirilmez. Yapay zekâ asistanıyla çalışıyorsan ona önce `CLAUDE.md`'yi okut; tüm kurallar orada.
 
+**Yapay zekâ asistanıyla başlarken.** Proje klasöründe Claude Code'u aç ve ilk mesaj olarak şunu yaz:
+
+```text
+Ben <Ad SOYAD>. CLAUDE.md'deki "Göreve başlarken" adımlarını uygula.
+```
+
+Asistan `sudo`, `apt upgrade` ve `git push` çalıştırmaz; kurulumu ve push'u sen kendi Konsole'unda yaparsın.
+
 ---
 
 ## Klasörler
