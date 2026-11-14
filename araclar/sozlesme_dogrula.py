@@ -4,7 +4,7 @@
 Kullanım:
   sozlesme_dogrula.py [--yapilandirma config/deney.env] <dosya.json> [--sahne sahne.json]
   sozlesme_dogrula.py [--yapilandirma ...] --hedef-listesi-uret <sahne.json>
-Dosya türü dosyadaki "tur" alanından anlaşılır (sahne | bolge_rota | kamera_kalibrasyon | hedef_listesi | kosu_ustveri).
+Dosya türü dosyadaki "tur" alanından anlaşılır (sahne | bolge_rota | kamera_kalibrasyon | hedef_listesi | kosu_ustveri | nihai_rapor | kosu_olcum | sayac_kaydi).
 Uzantısı .jsonl olan dosya JSON Lines'tır (satır başına bir JSON nesnesi): tur: kare_olay (öntanımlı), arac_durum_kaydi, kare_sonuc, isci_kaynak ya da gorev_olay (ilk dolu satırdan anlaşılır).
 --sahne yalnız hedef_listesi için: listenin verilen sahnedeki hedeflerle birebir aynı olduğu da denetlenir.
 Çıkış: 0 geçerli, 1 geçersiz (Türkçe, alan yoluyla "nokta nokta" hata listesi), 2 kullanım/okuma hatası.
@@ -971,8 +971,280 @@ def dogrula_gorev_olay_dosyasi(c, satirlar):
 
 
 # ---------------------------------------------------------------------------------------------------------------------------------
+# Değerlendirme arayüzleri (taslak sürüm): nihai hedef raporu, koşu ölçüm özeti, sınırlayıcı bayt kaydı (planlama/sozlesmeler.md §11)
+# ---------------------------------------------------------------------------------------------------------------------------------
+BIRLESTIRME_ARALIK_M = 2.5            # [belge] aynı sınıf ve adayın sabit ilk konumuna en fazla 2,5 m uzaklıktaki tespit o adaya eklenir
+OLCUM_TAMAMLANAMA_NEDENLERI = ("zaman_asimi", "kuyruk_tasmasi", "surec_olumu", "diger")     # [varsayım] adlar; M6b'de kesinleşir
+SAYAC_SINIFI = "1:10"                 # [varsayım] ölçülen ağın sınırlayıcı sınıfı (setup/60_ag_emulasyon_tc.sh)
+OLCUM_TOL = 1e-6
+
+
+def _poz_tam(v):
+    return tam_sayi_mi(v) and v > 0
+
+
+def _neg_olmayan_tam(v):
+    return tam_sayi_mi(v) and v >= 0
+
+
+def _neg_olmayan_sayi(v):
+    return sayi_mi(v) and v >= 0
+
+
+def konum_denetle(h, yol, k):
+    """Yerel ENU yatay konum {x_m, y_m} (m) ya da null (konumsuz rapor). Dolu ise True döner."""
+    if k is None:
+        return False
+    if not alan_denetle(h, yol, k, ["x_m", "y_m"]):
+        return False
+    ok = True
+    for a in ("x_m", "y_m"):
+        if not sayi_mi(k.get(a)):
+            h.ekle(f"{yol}.{a}", "sayı (m) olmalı")
+            ok = False
+    return ok
+
+
+def tespit_kaynagi_denetle(h, c, yol, t):
+    if not alan_denetle(h, yol, t, ["arac_kimligi", "n", "uretim_mono_ns"]):
+        return None
+    if not tam_sayi_mi(t.get("arac_kimligi")) or t.get("arac_kimligi") not in c.arac_kimlikleri:
+        h.ekle(f"{yol}.arac_kimligi", f"UAV_SYS_IDS değerlerinden biri olmalı ({c.arac_kimlikleri}; bulunan: {t.get('arac_kimligi')!r})")
+    if not _neg_olmayan_tam(t.get("n")):
+        h.ekle(f"{yol}.n", "negatif olmayan tam sayı (kare numarası) olmalı")
+    if not _poz_tam(t.get("uretim_mono_ns")):
+        h.ekle(f"{yol}.uretim_mono_ns", "pozitif tam sayı (CLOCK_MONOTONIC, ns; karenin üretim anı) olmalı")
+        return None
+    return t["uretim_mono_ns"]
+
+
+def kosu_ust_alanlari_denetle(h, c, d):
+    for k in ("kosu_kimligi", "sahne_kimligi"):
+        if k in d and not (isinstance(d.get(k), str) and KIMLIK_RE.match(d[k])):
+            h.ekle(k, "1-64 karakter, yalnız harf/rakam/_/- olmalı")
+    if "mod" in d and d.get("mod") not in c.mimariler:
+        h.ekle("mod", f"KOSU_MIMARILER değerlerinden biri olmalı ({c.mimariler}; bulunan: {d.get('mod')!r})")
+
+
+def dogrula_nihai_rapor(c, d):
+    """11.1 Nihai hedef raporu: B15 (hedef birleştirme) üretir, B18 (değerlendirme) okur. Gerçek hedef kimliği içermez (birleştirmede kullanılmaz [belge])."""
+    h = Hatalar()
+    if not alan_denetle(h, "", d, ["surum", "tur", "kosu_kimligi", "sahne_kimligi", "mod", "raporlar"]):
+        return h.liste
+    ust_alanlar(h, d, "nihai_rapor")
+    kosu_ust_alanlari_denetle(h, c, d)
+    r = d.get("raporlar")
+    if not isinstance(r, list):
+        h.ekle("raporlar", "liste olmalı (hiç rapor üretilmeyen koşuda boş liste)")
+        return h.liste
+    gorulen = set()
+    for i, x in enumerate(r):
+        yol = f"raporlar[{i}]"
+        if not alan_denetle(h, yol, x, ["rapor_kimligi", "sinif", "konum", "ilk_konum", "guven", "tespit_sayisi", "ilk_tespit", "en_yuksek_guven_tespiti"]):
+            continue
+        rk = x.get("rapor_kimligi")
+        if not (isinstance(rk, str) and KIMLIK_RE.match(rk)):
+            h.ekle(f"{yol}.rapor_kimligi", "1-64 karakter, yalnız harf/rakam/_/- olmalı")
+        elif rk in gorulen:
+            h.ekle(f"{yol}.rapor_kimligi", f"yinelenen rapor kimliği: {rk}")
+        else:
+            gorulen.add(rk)
+        if x.get("sinif") not in c.model_siniflari:
+            h.ekle(f"{yol}.sinif", f"MODEL_SINIFLAR değerlerinden biri olmalı ({c.model_siniflari}; bulunan: {x.get('sinif')!r})")
+        k_dolu = konum_denetle(h, f"{yol}.konum", x.get("konum"))
+        ik_dolu = konum_denetle(h, f"{yol}.ilk_konum", x.get("ilk_konum"))
+        if (x.get("konum") is None) != (x.get("ilk_konum") is None):
+            h.ekle(f"{yol}.ilk_konum", "konum ile birlikte dolu ya da birlikte null olmalı (konumsuz rapor)")
+        elif k_dolu and ik_dolu:
+            uz = math.hypot(x["konum"]["x_m"] - x["ilk_konum"]["x_m"], x["konum"]["y_m"] - x["ilk_konum"]["y_m"])
+            if uz > BIRLESTIRME_ARALIK_M + 1e-9:
+                h.ekle(f"{yol}.konum", f"adayın sabit ilk konumuna en çok {BIRLESTIRME_ARALIK_M:g} m uzaklıkta olmalı (bulunan: {uz:.2f} m)")
+        g = x.get("guven")
+        if not (sayi_mi(g) and c.guven_esigi <= g <= 1):
+            h.ekle(f"{yol}.guven", f"[{c.guven_esigi:g}, 1] aralığında sayı olmalı (en yüksek güvenli tespitin güveni; bulunan: {g!r})")
+        ts = x.get("tespit_sayisi")
+        if not (tam_sayi_mi(ts) and ts >= 1):
+            h.ekle(f"{yol}.tespit_sayisi", "en az 1 olan tam sayı olmalı (adaydaki tespit sayısı)")
+        ilk = tespit_kaynagi_denetle(h, c, f"{yol}.ilk_tespit", x.get("ilk_tespit"))
+        yuk = tespit_kaynagi_denetle(h, c, f"{yol}.en_yuksek_guven_tespiti", x.get("en_yuksek_guven_tespiti"))
+        if ilk is not None and yuk is not None:
+            if ilk > yuk:
+                h.ekle(f"{yol}.ilk_tespit", "en yüksek güvenli tespitten sonra olamaz (tespitler üretim zamanına göre işlenir)")
+            if tam_sayi_mi(ts) and ts == 1 and x["ilk_tespit"] != x["en_yuksek_guven_tespiti"]:
+                h.ekle(f"{yol}.en_yuksek_guven_tespiti", "tek tespitli adayda ilk tespitle aynı olmalı")
+    return h.liste
+
+
+def kaynak_yolu_denetle(h, yol, v):
+    if not (isinstance(v, str) and v and not v.startswith("/") and ".." not in v.split("/")):
+        h.ekle(yol, "koşu klasörüne göreli, boş olmayan yol (metin) olmalı; mutlak yol ve '..' yazılamaz")
+
+
+def dogrula_kosu_olcum(c, d):
+    """11.2 Koşu ölçüm özeti: C8/C9 üretir, E2a-E5a okur. T, D, B, L ve oranlar el kitabı terimler tablosundaki tanımlarla."""
+    h = Hatalar()
+    zor = ["surum", "tur", "kosu_kimligi", "sahne_kimligi", "mod", "tamamlandi", "tamamlanamadi", "t0_mono_ns", "t1_mono_ns", "t_s", "d_mb", "complete_bayt", "b_mbit_s",
+           "l", "kare_sayilari", "sonuc_orani", "kare_alinamadi_orani", "kaynak_kayitlar"]
+    if not alan_denetle(h, "", d, zor):
+        return h.liste
+    ust_alanlar(h, d, "kosu_olcum")
+    mutlak_yol_tara(h, "", d)
+    kosu_ust_alanlari_denetle(h, c, d)
+    tam = d.get("tamamlandi")
+    if not isinstance(tam, bool):
+        h.ekle("tamamlandi", "true/false olmalı")
+        tam = None
+    t0, t1 = d.get("t0_mono_ns"), d.get("t1_mono_ns")
+    for k, v in (("t0_mono_ns", t0), ("t1_mono_ns", t1)):
+        if v is not None and not _poz_tam(v):
+            h.ekle(k, "pozitif tam sayı (CLOCK_MONOTONIC, ns) ya da null olmalı")
+    if tam_sayi_mi(t0) and tam_sayi_mi(t1) and t1 < t0:
+        h.ekle("t1_mono_ns", "t0'dan önce olamaz")
+    ts, dmb, b = d.get("t_s"), d.get("d_mb"), d.get("b_mbit_s")
+    if tam is True:
+        if d.get("tamamlanamadi") is not None:
+            h.ekle("tamamlanamadi", "tamamlanan koşuda null olmalı")
+        for k in ("t0_mono_ns", "t1_mono_ns", "t_s", "d_mb", "b_mbit_s", "complete_bayt"):
+            if d.get(k) is None:
+                h.ekle(k, "tamamlanan koşuda dolu olmalı")
+        if sayi_mi(ts) and ts <= 0:
+            h.ekle("t_s", "pozitif olmalı")
+        if not _neg_olmayan_sayi(dmb) and dmb is not None:
+            h.ekle("d_mb", "negatif olmayan sayı (MB = 10^6 bayt) olmalı")
+        if d.get("complete_bayt") is not None and not _neg_olmayan_tam(d.get("complete_bayt")):
+            h.ekle("complete_bayt", "negatif olmayan tam sayı olmalı (COMPLETE baytları D'ye girmez, ayrı kaydedilir)")
+        if sayi_mi(ts) and tam_sayi_mi(t0) and tam_sayi_mi(t1) and abs(ts - (t1 - t0) / 1e9) > 1e-3:
+            h.ekle("t_s", f"T = t1 - t0 olmalı ({(t1 - t0) / 1e9:.6f} s; bulunan: {ts})")
+        if sayi_mi(b) and sayi_mi(ts) and ts > 0 and _neg_olmayan_sayi(dmb) and abs(b - 8 * dmb / ts) > OLCUM_TOL * max(1.0, abs(b)):
+            h.ekle("b_mbit_s", f"B = 8·D/T olmalı ({8 * dmb / ts:.6f} Mbit/s; bulunan: {b})")
+        elif b is not None and not sayi_mi(b):
+            h.ekle("b_mbit_s", "sayı (Mbit/s) olmalı")
+    elif tam is False:
+        for k in ("t1_mono_ns", "t_s", "d_mb", "b_mbit_s", "complete_bayt"):
+            if d.get(k) is not None:
+                h.ekle(k, "tamamlanamayan koşuda null olmalı (T, D, B tanımsız; kısmi bilgi 'tamamlanamadi' içinde)")
+        tn = d.get("tamamlanamadi")
+        if alan_denetle(h, "tamamlanamadi", tn, ["neden", "gozlenen_sure_s", "kismi_trafik_mb"]):
+            if tn.get("neden") not in OLCUM_TAMAMLANAMA_NEDENLERI:
+                h.ekle("tamamlanamadi.neden", f"{list(OLCUM_TAMAMLANAMA_NEDENLERI)} değerlerinden biri olmalı (bulunan: {tn.get('neden')!r})")
+            if not (sayi_mi(tn.get("gozlenen_sure_s")) and tn["gozlenen_sure_s"] > 0):
+                h.ekle("tamamlanamadi.gozlenen_sure_s", "pozitif sayı (s; sağdan sansürlü gözlem süresi) olmalı")
+            if tn.get("kismi_trafik_mb") is not None and not _neg_olmayan_sayi(tn.get("kismi_trafik_mb")):
+                h.ekle("tamamlanamadi.kismi_trafik_mb", "negatif olmayan sayı (MB) ya da null olmalı")
+    l = d.get("l")
+    if alan_denetle(h, "l", l, ["ornek_sayisi", "ortanca_s", "p95_s"]):
+        n = l.get("ornek_sayisi")
+        if not _neg_olmayan_tam(n):
+            h.ekle("l.ornek_sayisi", "negatif olmayan tam sayı olmalı")
+        for k in ("ortanca_s", "p95_s"):
+            v = l.get(k)
+            if _neg_olmayan_tam(n) and n == 0:
+                if v is not None:
+                    h.ekle(f"l.{k}", "örnek yokken null olmalı (gecikme sıfır yazılmaz)")
+            elif not _neg_olmayan_sayi(v):
+                h.ekle(f"l.{k}", "negatif olmayan sayı (s) olmalı")
+        if _neg_olmayan_sayi(l.get("ortanca_s")) and _neg_olmayan_sayi(l.get("p95_s")) and l["ortanca_s"] > l["p95_s"]:
+            h.ekle("l.p95_s", "ortancadan küçük olamaz")
+    ks = d.get("kare_sayilari")
+    toplam_ok = False
+    if alan_denetle(h, "kare_sayilari", ks, ["beklenen", "pozitif", "negatif", "kare_alinamadi", "islem_hatasi", "gec_geldi"]):
+        toplam_ok = True
+        for k in ("beklenen", "pozitif", "negatif", "kare_alinamadi", "islem_hatasi", "gec_geldi"):
+            if not _neg_olmayan_tam(ks.get(k)):
+                h.ekle(f"kare_sayilari.{k}", "negatif olmayan tam sayı olmalı")
+                toplam_ok = False
+        if toplam_ok:
+            top = ks["pozitif"] + ks["negatif"] + ks["kare_alinamadi"] + ks["islem_hatasi"]
+            if top > ks["beklenen"]:
+                h.ekle("kare_sayilari", f"pozitif + negatif + kare_alinamadi + islem_hatasi ({top}) beklenen kare sayısını ({ks['beklenen']}) aşamaz")
+            elif tam is True and top != ks["beklenen"]:
+                h.ekle("kare_sayilari", f"tamamlanan koşuda her beklenen kare için sonuç ya da 'kare alınamadı' kaydı vardır: toplam ({top}) = beklenen ({ks['beklenen']}) olmalı")
+            if isinstance(l, dict) and _neg_olmayan_tam(l.get("ornek_sayisi")) and l["ornek_sayisi"] > ks["pozitif"] + ks["negatif"]:
+                h.ekle("l.ornek_sayisi", "başarılı kare sonucu sayısını (pozitif + negatif) aşamaz")
+            if ks["gec_geldi"] > ks["beklenen"]:
+                h.ekle("kare_sayilari.gec_geldi", "beklenen kare sayısını aşamaz")
+    for k, pay in (("sonuc_orani", lambda s: s["pozitif"] + s["negatif"]), ("kare_alinamadi_orani", lambda s: s["kare_alinamadi"])):
+        v = d.get(k)
+        if toplam_ok and ks["beklenen"] == 0:
+            if v is not None:
+                h.ekle(k, "beklenen kare yokken null olmalı")
+        elif v is None or not (sayi_mi(v) and 0 <= v <= 1):
+            h.ekle(k, "[0, 1] aralığında sayı olmalı (payda: beklenen görev karesi sayısı)")
+        elif toplam_ok and abs(v - pay(ks) / ks["beklenen"]) > OLCUM_TOL:
+            h.ekle(k, f"kare sayılarından türeyen değerle ({pay(ks) / ks['beklenen']:.6f}) aynı olmalı (bulunan: {v})")
+    kk = d.get("kaynak_kayitlar")
+    if alan_denetle(h, "kaynak_kayitlar", kk, ["gorev_olay", "kare_olay", "sayac_kaydi"]):
+        kaynak_yolu_denetle(h, "kaynak_kayitlar.gorev_olay", kk.get("gorev_olay"))
+        kaynak_yolu_denetle(h, "kaynak_kayitlar.sayac_kaydi", kk.get("sayac_kaydi"))
+        ko = kk.get("kare_olay")
+        if not (isinstance(ko, list) and ko):
+            h.ekle("kaynak_kayitlar.kare_olay", "en az bir dosya yolu içeren liste olmalı")
+        else:
+            for i, v in enumerate(ko):
+                kaynak_yolu_denetle(h, f"kaynak_kayitlar.kare_olay[{i}]", v)
+    return h.liste
+
+
+def sayac_okumasi_denetle(h, yol, o):
+    if not alan_denetle(h, yol, o, ["mono_ns", "gonderilen_bayt", "gonderilen_paket", "dusen_paket", "bekleyen_talep"]):
+        return None
+    if not _poz_tam(o.get("mono_ns")):
+        h.ekle(f"{yol}.mono_ns", "pozitif tam sayı (CLOCK_MONOTONIC, ns) olmalı")
+    ok = True
+    for k in ("gonderilen_bayt", "gonderilen_paket", "dusen_paket", "bekleyen_talep"):
+        if not _neg_olmayan_tam(o.get(k)):
+            h.ekle(f"{yol}.{k}", "negatif olmayan tam sayı olmalı")
+            ok = False
+    return o if ok and _poz_tam(o.get("mono_ns")) else None
+
+
+def dogrula_sayac_kaydi(c, d):
+    """11.3 Sınırlayıcı bayt kaydı: C8 üretir; 11.2'deki D bu kayıttan hesaplanır (D = t1 - t0 gönderilmiş bayt farkı; COMPLETE baytları D'ye girmez, ayrı kaydedilir [belge])."""
+    h = Hatalar()
+    zor = ["surum", "tur", "kosu_kimligi", "mod", "sinirlayici", "t0", "t1", "complete_sonrasi", "d_bayt", "complete_bayt"]
+    if not alan_denetle(h, "", d, zor):
+        return h.liste
+    ust_alanlar(h, d, "sayac_kaydi")
+    mutlak_yol_tara(h, "", d)
+    kosu_ust_alanlari_denetle(h, c, d)
+    sn = d.get("sinirlayici")
+    if alan_denetle(h, "sinirlayici", sn, ["cihaz", "sinif"]):
+        if not (isinstance(sn.get("cihaz"), str) and sn["cihaz"]):
+            h.ekle("sinirlayici.cihaz", "boş olmayan metin (ağ aygıtı adı) olmalı")
+        if sn.get("sinif") != SAYAC_SINIFI:
+            h.ekle("sinirlayici.sinif", f"'{SAYAC_SINIFI}' olmalı (bulunan: {sn.get('sinif')!r})")
+    o0 = sayac_okumasi_denetle(h, "t0", d.get("t0"))
+    o1 = sayac_okumasi_denetle(h, "t1", d.get("t1"))
+    oc = None
+    if d.get("complete_sonrasi") is not None:
+        oc = sayac_okumasi_denetle(h, "complete_sonrasi", d["complete_sonrasi"])
+    sira = [("t0", o0), ("t1", o1)] + ([("complete_sonrasi", oc)] if oc else [])
+    for (a_ad, a), (b_ad, b) in zip(sira, sira[1:]):
+        if a is None or b is None:
+            continue
+        if b["mono_ns"] < a["mono_ns"]:
+            h.ekle(f"{b_ad}.mono_ns", f"{a_ad} okumasından önce olamaz")
+        for k in ("gonderilen_bayt", "gonderilen_paket", "dusen_paket"):
+            if b[k] < a[k]:
+                h.ekle(f"{b_ad}.{k}", f"sayaç geriye gidemez ({a_ad}: {a[k]}, {b_ad}: {b[k]})")
+    if o0 and o1 and tam_sayi_mi(d.get("d_bayt")) and d["d_bayt"] != o1["gonderilen_bayt"] - o0["gonderilen_bayt"]:
+        h.ekle("d_bayt", f"t1 - t0 gönderilmiş bayt farkı olmalı ({o1['gonderilen_bayt'] - o0['gonderilen_bayt']}; bulunan: {d['d_bayt']})")
+    elif not _neg_olmayan_tam(d.get("d_bayt")):
+        h.ekle("d_bayt", "negatif olmayan tam sayı (bayt) olmalı")
+    cb = d.get("complete_bayt")
+    if d.get("complete_sonrasi") is None:
+        if cb is not None:
+            h.ekle("complete_bayt", "complete_sonrasi okunmadıysa null olmalı")
+    elif o1 and oc and tam_sayi_mi(cb) and cb != oc["gonderilen_bayt"] - o1["gonderilen_bayt"]:
+        h.ekle("complete_bayt", f"complete_sonrasi - t1 gönderilmiş bayt farkı olmalı ({oc['gonderilen_bayt'] - o1['gonderilen_bayt']}; bulunan: {cb})")
+    elif not _neg_olmayan_tam(cb):
+        h.ekle("complete_bayt", "negatif olmayan tam sayı (bayt) olmalı")
+    return h.liste
+
+
+# ---------------------------------------------------------------------------------------------------------------------------------
 TURLER = {"sahne": dogrula_sahne, "bolge_rota": dogrula_bolge_rota, "kamera_kalibrasyon": dogrula_kalibrasyon, "hedef_listesi": dogrula_hedef_listesi,
-          "kosu_ustveri": dogrula_kosu_ustveri}
+          "kosu_ustveri": dogrula_kosu_ustveri, "nihai_rapor": dogrula_nihai_rapor, "kosu_olcum": dogrula_kosu_olcum, "sayac_kaydi": dogrula_sayac_kaydi}
 
 
 JSONL_TURLERI = {"arac_durum_kaydi": dogrula_arac_durum_dosyasi, "kare_sonuc": dogrula_kare_sonuc_dosyasi, "isci_kaynak": dogrula_isci_kaynak_dosyasi, "gorev_olay": dogrula_gorev_olay_dosyasi}

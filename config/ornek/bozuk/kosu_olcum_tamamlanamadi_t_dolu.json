@@ -1,0 +1,44 @@
+{
+  "surum": 1,
+  "tur": "kosu_olcum",
+  "kosu_kimligi": "kosu_20261113_120000",
+  "sahne_kimligi": "sahne_ornek_test",
+  "mod": "ucta",
+  "tamamlandi": false,
+  "tamamlanamadi": {
+    "neden": "zaman_asimi",
+    "gozlenen_sure_s": 600.0,
+    "kismi_trafik_mb": 8.0
+  },
+  "t0_mono_ns": 1000000000000,
+  "t1_mono_ns": 1240000000000,
+  "t_s": 240.0,
+  "d_mb": 12.345678,
+  "complete_bayt": 312,
+  "b_mbit_s": 0.4115226,
+  "l": {
+    "ornek_sayisi": 1180,
+    "ortanca_s": 0.084,
+    "p95_s": 0.21
+  },
+  "kare_sayilari": {
+    "beklenen": 1200,
+    "pozitif": 420,
+    "negatif": 760,
+    "kare_alinamadi": 12,
+    "islem_hatasi": 8,
+    "gec_geldi": 3
+  },
+  "sonuc_orani": 0.9833333,
+  "kare_alinamadi_orani": 0.01,
+  "kaynak_kayitlar": {
+    "gorev_olay": "kayit/yer_istasyonu_gorev.jsonl",
+    "kare_olay": [
+      "kayit/gazebo_damga.jsonl",
+      "kayit/kamera_alici.jsonl",
+      "kayit/arac_sureci.jsonl",
+      "kayit/yer_istasyonu_kare.jsonl"
+    ],
+    "sayac_kaydi": "kayit/sayac_kaydi.json"
+  }
+}

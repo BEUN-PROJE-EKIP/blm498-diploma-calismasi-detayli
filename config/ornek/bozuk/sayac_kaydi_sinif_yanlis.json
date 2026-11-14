@@ -1,0 +1,33 @@
+{
+  "surum": 1,
+  "tur": "sayac_kaydi",
+  "kosu_kimligi": "kosu_20261113_120000",
+  "mod": "ucta",
+  "sinirlayici": {
+    "cihaz": "lo",
+    "sinif": "1:20"
+  },
+  "t0": {
+    "mono_ns": 1000000000000,
+    "gonderilen_bayt": 5000000,
+    "gonderilen_paket": 4100,
+    "dusen_paket": 0,
+    "bekleyen_talep": 0
+  },
+  "t1": {
+    "mono_ns": 1240000000000,
+    "gonderilen_bayt": 17345678,
+    "gonderilen_paket": 15200,
+    "dusen_paket": 2,
+    "bekleyen_talep": 0
+  },
+  "complete_sonrasi": {
+    "mono_ns": 1240500000000,
+    "gonderilen_bayt": 17345990,
+    "gonderilen_paket": 15203,
+    "dusen_paket": 2,
+    "bekleyen_talep": 0
+  },
+  "d_bayt": 12345678,
+  "complete_bayt": 312
+}

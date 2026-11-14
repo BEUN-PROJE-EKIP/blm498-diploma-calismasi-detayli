@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# sozlesme_testi.sh — sözleşme dosyası doğrulayıcısının testi (sahne, bölge/rota, kamera kalibrasyonu, hedef listesi, koşu üst verisi, kare olay kaydı, araç durum kaydı).
+# sozlesme_testi.sh — sözleşme dosyası doğrulayıcısının testi (sahne, bölge/rota, kamera kalibrasyonu, hedef listesi, koşu üst verisi, kare olay kaydı, araç durum kaydı, nihai rapor, koşu ölçüm özeti, sayaç kaydı).
 # Kullanım: ./sozlesme_testi.sh [--dry-run | --verify | -h]
 #   (argümansız)  geçerli örnekler doğrulayıcıdan geçmeli; config/ornek/bozuk/ altındaki her dosya beklenen nedenle reddedilmeli
 #                 (beklenenler config/ornek/bozuk/beklenen.txt); hedef listesi örneği sahneden türetilenle aynı olmalı;
@@ -22,7 +22,7 @@ BEKLENEN="$BOZUK/beklenen.txt"
 LOCK="$SETUP_DIR/locks/sha256sums.txt"
 GECERLI=(sahne_ornek_test.json bolge_rota_ornek.json kamera_kalibrasyon_ornek.json hedef_listesi_ornek.json kosu_ustveri_ornek.json
          kare_olay_gazebo_damga_ornek.jsonl kare_olay_arac_sureci_ornek.jsonl gorev_olay_ornek.jsonl kare_olay_yer_istasyonu_ornek.jsonl arac_durum_kaydi_ornek.jsonl kare_olay_kamera_alici_ornek.jsonl
-         kare_sonuc_ornek.jsonl isci_kaynak_ornek.jsonl)
+         kare_sonuc_ornek.jsonl isci_kaynak_ornek.jsonl nihai_rapor_ornek.json kosu_olcum_ornek.json sayac_kaydi_ornek.json)
 
 dogrula() { python3 -I "$DOGRULA" "$@"; }
 

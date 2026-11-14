@@ -74,3 +74,20 @@ kare_sonuc_bilinmeyen_alan.jsonl | bilinmeyen alan
 isci_kaynak_gpu_yuzde_gecersiz.jsonl | [0, 100] aralığında tam sayı
 isci_kaynak_mono_geriye.jsonl | geriye gidiyor
 isci_kaynak_rss_bos.jsonl | null olamaz
+nihai_rapor_ilk_konum_uzak.json | adayın sabit ilk konumuna en çok 2.5 m uzaklıkta olmalı
+nihai_rapor_gercek_hedef_kimligi.json | bilinmeyen alan
+nihai_rapor_guven_esik_alti.json | aralığında sayı olmalı
+nihai_rapor_yinelenen_kimlik.json | yinelenen rapor kimliği
+nihai_rapor_ilk_tespit_sonra.json | en yüksek güvenli tespitten sonra olamaz
+nihai_rapor_mod_gecersiz.json | KOSU_MIMARILER değerlerinden biri olmalı
+kosu_olcum_b_tutarsiz.json | B = 8·D/T olmalı
+kosu_olcum_tamam_t_yok.json | tamamlanan koşuda dolu olmalı
+kosu_olcum_oran_tutarsiz.json | kare sayılarından türeyen değerle
+kosu_olcum_p95_ortanca_ters.json | ortancadan küçük olamaz
+kosu_olcum_toplam_eksik.json | tamamlanan koşuda her beklenen kare için
+kosu_olcum_tamamlanamadi_t_dolu.json | tamamlanamayan koşuda null olmalı
+kosu_olcum_mutlak_yol.json | mutlak yol yazılamaz
+sayac_kaydi_d_tutarsiz.json | t1 - t0 gönderilmiş bayt farkı olmalı
+sayac_kaydi_sayac_geriye.json | sayaç geriye gidemez
+sayac_kaydi_complete_tutarsiz.json | complete_sonrasi - t1 gönderilmiş bayt farkı olmalı
+sayac_kaydi_sinif_yanlis.json | '1:10' olmalı

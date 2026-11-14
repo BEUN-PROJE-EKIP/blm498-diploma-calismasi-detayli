@@ -349,3 +349,62 @@ Hiçbir numara hem görev karesi hem `kare_alinamadi` olamaz. Yedek yol (alıcı
 **İşçi ölümü ve zaman aşımı [varsayım: belgede işçi ölümü kuralı yok].** İşçi bir kareyi işlerken ölürse ya da `ISCI_KARE_ZAMAN_ASIMI_SN` içinde yanıt vermezse (işçi öldürülür): o kare `islem_hatasi` olur (hata metni nedeni yazar); işçi yeniden başlatılır (en çok `ISCI_YENIDEN_BASLAT_MAKS` kez; yeni işçi de ısınır); yeni işçi hazır olana dek sıradaki kareler kuyrukta bekler ve sonra işlenir (en az kare kaybı). Sınır aşılırsa ya da model yüklenemezse kalan kareler `islem_hatasi` olur; hiçbir durumda "tespit yok" yazılmaz. Test enjeksiyonu (varsayılan kapalı; durumu araç günlüğüne `isci_enjeksiyon_durumu` olarak yazılır): ortam değişkeni `ISCI_ENJEKSIYON=hata=<belirteç,…>;olum=<belirteç,…>` (`+k` = `n_ilk + k`).
 
 **Kare sonucu tamlığı.** COMPLETE sonrası araç süreci kuyruğun boşalmasını bekler (`ISCI_KAPANIS_BEKLE_SN`); süre dolarsa kapanış karesi gelmemişse sondaki kayıpları yazdırır, hâlâ sonuçsuz kalan numaralar için `islem_hatasi` yazar (kayıtta hata metni "kapanışta işlenemedi"). Araç günlüğünün `kare_sonuclari_tamam` satırı dört durumun sayısını, `cift_sonuc` (ikinci sonuç denemesi, 0 beklenir) ve işçi başlatma/yeniden başlatma sayılarını verir.
+
+## 11. Değerlendirme arayüzleri (taslak sürüm)
+
+Değerlendirme ve analiz yazılımının (B18, E1a–E5a; M6a) girdileri, onları **üreten** kilometre taşlarından (B15: M3; C8, C9: M6b) önce burada sabitlenir ("önce arayüz"). Terimler yalnız proje el kitabının terimler tablosundaki tanımlardan alınır; **yeni tanım uydurulmaz**; belgede açık olmayan her alan **[varsayım]** etiketlidir ve gerekirse M3/M6b'de depo sahibince kesinleşir. Değişiklik depo sahibinin onayıyla ve iki tarafa (üreten, okuyan) bildirilerek yapılır. Üç dosya da tek JSON nesnesidir (§1 genel kurallar: `surum`, `tur`, bilinmeyen alan hata, mutlak yol yazılamaz); `mod` değeri `KOSU_MIMARILER` anahtarındaki ad olarak yazılır (`ucta` | `merkezi`; kosu.json `mimari_modu` ile aynı). Doğrulama: `araclar/sozlesme_dogrula.py`; örnekler `config/ornek/*_ornek.json`, bozuk örnekler `config/ornek/bozuk/`. Bu bölüm yalnız **biçimi** sabitler; dosyaların üretimi ve okunması ilgili kilometre taşlarının işidir.
+
+### 11.1 Nihai hedef raporu (`tur: "nihai_rapor"`)
+
+Üreten: B15 (hedef birleştirme; M3). Okuyan: B18 (değerlendirme; M6a). Koşu başına bir dosya; yer istasyonunda **nihai hedef birleştirmesi tamamlandıktan sonra** yazılır. Birleştirme kuralı [belge]: tespitler üretim zamanı, araç ve kare numarası sırasıyla işlenir; aynı sınıftaki bir tespit mevcut adayın **sabit ilk konumuna en fazla 2,5 m** uzaklıktaysa o adaya eklenir, değilse yeni aday açılır; nihai konum, adaydaki **en yüksek güvenli** tespitin konumudur; gerçek hedef kimliği birleştirmede kullanılmaz (bu yüzden raporda gerçek hedef kimliği alanı **yoktur**; eşleştirme değerlendirmede yapılır).
+
+| Alan | Tür / birim | Zorunluluk | Etiket | Açıklama |
+|---|---|---|---|---|
+| `surum`, `tur` | `1`, `"nihai_rapor"` | zorunlu | | |
+| `kosu_kimligi`, `sahne_kimligi` | kimlik (§1) | zorunlu | [varsayım] | Koşu ve sahne kimlikleri (kosu.json ile aynı). |
+| `mod` | `KOSU_MIMARILER` | zorunlu | [varsayım] | `ucta` \| `merkezi`. |
+| `raporlar` | liste | zorunlu | [belge] | Nihai raporlar; hiç rapor üretilmeyen koşuda **boş liste** (P "tanımsız"). |
+| `raporlar[].rapor_kimligi` | kimlik | zorunlu | [varsayım] | Koşu içinde tekil; gerçek hedef kimliği değildir. |
+| `raporlar[].sinif` | `MODEL_SINIFLAR` | zorunlu | [belge] | `insan` \| `enkaz`. |
+| `raporlar[].konum` | `{x_m, y_m}` ENU, m ya da `null` | zorunlu | [belge] | En yüksek güvenli tespitin konumu. `null` = **konumsuz rapor** (FP sayılır [belge]). |
+| `raporlar[].ilk_konum` | `{x_m, y_m}` ya da `null` | zorunlu | [belge] | Adayın sabit ilk konumu; `konum` ile birlikte dolu/`null`; dolu iken aralarındaki yatay uzaklık ≤ 2,5 m. |
+| `raporlar[].guven` | sayı, `[INF_CONF, 1]` | zorunlu | [belge] | En yüksek tespit güveni (güven eşiği altı tespit yoktur). |
+| `raporlar[].tespit_sayisi` | tam sayı ≥ 1 | zorunlu | [varsayım] | Adaya eklenen tespit sayısı. |
+| `raporlar[].ilk_tespit`, `raporlar[].en_yuksek_guven_tespiti` | `{arac_kimligi, n, uretim_mono_ns}` | zorunlu | [varsayım] | Üreten araç (`UAV_SYS_IDS`), kare numarası ve karenin üretim anı (monotonik ns, t_üretim [belge]). `ilk_tespit` en yüksek güvenli tespitten sonra olamaz; tek tespitli adayda ikisi aynıdır. |
+
+### 11.2 Koşu ölçüm özeti (`tur: "kosu_olcum"`)
+
+Üreten: C8, C9 (M6b). Okuyan: E2a–E5a (M6a analiz betikleri; gerçek verilerle E2b–E5b, M8b). Koşu başına bir dosya. Tanımlar [belge, el kitabı terimler tablosu]: **T = t1 − t0** (s; t0 başlangıç bariyerini açıp tarama başlatma mesajının yayımlandığı an, t1 ortak COMPLETE mesajının yayımlandığı an); **D** = t0–t1 penceresinde sınırlayıcının gönderilmiş bayt sayaçlarının farkı, **MB = 10⁶ bayt**, düşen paketler dahil değil, t1 sayacı COMPLETE gönderilmeden okunur, **COMPLETE baytları D'ye girmez ve ayrıca kaydedilir**; **B = 8D/T** (Mbit/s; ortalama ağ trafik hızıdır, bağlantı kapasitesi değildir); **L = t_kullanılabilir − t_üretim** (s), her sahne ve mod için pozitif ve negatif bütün **başarılı** kare sonuçları üzerinden **ortanca ve 95. yüzdelik**; "kare alınamadı" ve işlem hatası kareleri L'ye girmez. İki oran ayrıdır, paydaları beklenen görev karesi sayısıdır: **sonuç üreten kare oranı** (kullanılabilir kare sonucu bulunan kareler) ve **kare alınamadı oranı** (yalnız "kare alınamadı" kaydı üretilen kareler; işlem hatası olan kareler bu orana girmez). Geç gelen kare sayısı ayrıca raporlanır.
+
+| Alan | Tür / birim | Zorunluluk | Etiket | Açıklama |
+|---|---|---|---|---|
+| `surum`, `tur` | `1`, `"kosu_olcum"` | zorunlu | | |
+| `kosu_kimligi`, `sahne_kimligi`, `mod` | §11.1 ile aynı | zorunlu | [varsayım] | |
+| `tamamlandi` | bool | zorunlu | [belge] | Koşu t1'e ulaştı mı. |
+| `tamamlanamadi` | `null` ya da `{neden, gozlenen_sure_s, kismi_trafik_mb}` | zorunlu | [varsayım] | `tamamlandi = false` iken zorunlu nesne: `neden` ∈ `zaman_asimi`, `kuyruk_tasmasi`, `surec_olumu`, `diger`; `gozlenen_sure_s` > 0 (sağdan sansürlü süre, s); `kismi_trafik_mb` ≥ 0 ya da `null` (E5a: sansürlü gösterim, kısmi trafik). |
+| `t0_mono_ns`, `t1_mono_ns` | pozitif tam sayı (monotonik ns) ya da `null` | zorunlu | [belge] | `t1_mono_ns` tamamlanamayan koşuda `null`; `t0` hiç yayımlanmadıysa `null`. |
+| `t_s` | sayı, s | zorunlu | [belge] | T; tamamlanan koşuda dolu ve `(t1 − t0)/10⁹` ile uyumlu (1 ms), aksi `null`. |
+| `d_mb` | sayı ≥ 0, MB (10⁶ bayt) | zorunlu | [belge] | D; tamamlanan koşuda dolu, aksi `null`. §11.3'teki `d_bayt` / 10⁶ ile aynı olmalıdır (ayrı dosyalar arası uyum M6b'de denetlenir). |
+| `complete_bayt` | tam sayı ≥ 0 | zorunlu | [belge] | COMPLETE baytları (D dışında); tamamlanan koşuda dolu, aksi `null`. |
+| `b_mbit_s` | sayı, Mbit/s | zorunlu | [belge] | B = 8·`d_mb`/`t_s` (göreli 10⁻⁶); tamamlanmayan koşuda `null`. |
+| `l` | `{ornek_sayisi, ortanca_s, p95_s}` | zorunlu | [belge]/[varsayım] | Başarılı kare sonuçları üzerinden; `ortanca_s` ≤ `p95_s`; `ornek_sayisi` = 0 ise ikisi `null` (gecikme sıfır yazılmaz [belge]); `ornek_sayisi` ≤ pozitif + negatif. Alan adları [varsayım]. |
+| `kare_sayilari` | `{beklenen, pozitif, negatif, kare_alinamadi, islem_hatasi, gec_geldi}` | zorunlu | [belge]/[varsayım] | Tam sayılar ≥ 0. Dört durum (`pozitif` = tespitli sonuç, `negatif` = "tespit yok", `kare_alinamadi`, `islem_hatasi`) toplamı `beklenen`'i aşamaz; **tamamlanan koşuda eşittir** (t1 koşulu: her beklenen kare için sonuç ya da "kare alınamadı" kaydı). İşlem hatası, 2026-11-14 işlem hatası kararıyla tutarlı olarak ayrı sayılır ve t1'i engellemez. |
+| `sonuc_orani` | sayı `[0, 1]` ya da `null` | zorunlu | [belge]/[varsayım] | (`pozitif` + `negatif`)/`beklenen`; `beklenen` = 0 ise `null`. Birim [varsayım]: oran, yüzde değil. |
+| `kare_alinamadi_orani` | sayı `[0, 1]` ya da `null` | zorunlu | [belge]/[varsayım] | `kare_alinamadi`/`beklenen`. |
+| `kaynak_kayitlar` | `{gorev_olay, kare_olay[], sayac_kaydi}` | zorunlu | [varsayım] | Koşu klasörüne göreli dosya yolları: `gorev_olay` (§8.9), `kare_olay` (§8.3; her kaynak için bir dosya), `sayac_kaydi` (§11.3). Mutlak yol ve `..` yazılamaz. |
+
+### 11.3 Sınırlayıcı bayt kaydı (`tur: "sayac_kaydi"`)
+
+Üreten: C8 (M6b). Okuyan: C8/C9 (11.2'deki D bu kayıttan hesaplanır). Koşu başına bir dosya. [belge] Ölçülen ağın bütün trafiği tek ortak kapasite sınırlayıcıdan geçer; D, sınırlayıcının t0 ve t1 anlarında okunan **gönderilmiş bayt sayaçlarının farkıdır**; her gönderim sınırlayıcının çıkışında bir kez sayılır; kuyruktan çıkmadan düşen paketler D'ye eklenmez, **düşme sayısı ve bekleyen talep ayrı sayaçlardan raporlanır**; **t1 sayacı COMPLETE gönderilmeden okunur**, COMPLETE baytları D'ye girmez ve ayrıca kaydedilir.
+
+| Alan | Tür / birim | Zorunluluk | Etiket | Açıklama |
+|---|---|---|---|---|
+| `surum`, `tur` | `1`, `"sayac_kaydi"` | zorunlu | | |
+| `kosu_kimligi`, `mod` | §11.1 ile aynı | zorunlu | [varsayım] | |
+| `sinirlayici` | `{cihaz, sinif}` | zorunlu | [varsayım] | `cihaz`: ağ aygıtı adı (boş olmayan metin); `sinif`: ölçülen sürü ağının sınıfı, `"1:10"` (`setup/60_ag_emulasyon_tc.sh`). |
+| `t0`, `t1` | okuma | zorunlu | [belge] | Okuma = `{mono_ns, gonderilen_bayt, gonderilen_paket, dusen_paket, bekleyen_talep}`: monotonik ns (pozitif) ve **birikimli** sayaçlar (tam sayı ≥ 0). `t1` okuması COMPLETE gönderilmeden önce yapılır. |
+| `complete_sonrasi` | okuma ya da `null` | zorunlu | [varsayım] | COMPLETE'in araçlara ulaşmasından sonraki okuma; okunmadıysa `null`. |
+| `d_bayt` | tam sayı ≥ 0, bayt | zorunlu | [belge] | `t1.gonderilen_bayt − t0.gonderilen_bayt` (D, bayt cinsinden; MB için 10⁶'ya bölünür). |
+| `complete_bayt` | tam sayı ≥ 0 ya da `null` | zorunlu | [belge] | `complete_sonrasi.gonderilen_bayt − t1.gonderilen_bayt`; `complete_sonrasi` `null` ise `null`. |
+
+Doğrulayıcı kuralları: okumalar zamanda geriye gitmez; birikimli sayaçlar (bayt, paket, düşen paket) `t0` → `t1` → `complete_sonrasi` sırasında azalmaz; `d_bayt` ve `complete_bayt` okumalardan türeyen farklara eşittir. Bu kayıt D'nin tek kaynağıdır; "ağın atlanmadığının kanıtı" yerine geçmez (sayaç–kayıt tutarlılığı C4'ün işidir).

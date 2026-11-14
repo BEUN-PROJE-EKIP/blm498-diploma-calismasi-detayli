@@ -1,0 +1,75 @@
+{
+  "surum": 1,
+  "tur": "nihai_rapor",
+  "kosu_kimligi": "kosu_20261113_120000",
+  "sahne_kimligi": "sahne_ornek_test",
+  "mod": "ucta",
+  "raporlar": [
+    {
+      "rapor_kimligi": "R001",
+      "sinif": "insan",
+      "konum": {
+        "x_m": -9.8,
+        "y_m": 99.2
+      },
+      "ilk_konum": {
+        "x_m": -4.0,
+        "y_m": 98.4
+      },
+      "guven": 0.91,
+      "tespit_sayisi": 3,
+      "ilk_tespit": {
+        "arac_kimligi": 1,
+        "n": 410,
+        "uretim_mono_ns": 1012000000000
+      },
+      "en_yuksek_guven_tespiti": {
+        "arac_kimligi": 2,
+        "n": 413,
+        "uretim_mono_ns": 1013500000000
+      }
+    },
+    {
+      "rapor_kimligi": "R002",
+      "sinif": "enkaz",
+      "konum": {
+        "x_m": 42.0,
+        "y_m": -60.5
+      },
+      "ilk_konum": {
+        "x_m": 42.0,
+        "y_m": -60.5
+      },
+      "guven": 0.37,
+      "tespit_sayisi": 1,
+      "ilk_tespit": {
+        "arac_kimligi": 3,
+        "n": 870,
+        "uretim_mono_ns": 1030000000000
+      },
+      "en_yuksek_guven_tespiti": {
+        "arac_kimligi": 3,
+        "n": 870,
+        "uretim_mono_ns": 1030000000000
+      }
+    },
+    {
+      "rapor_kimligi": "R003",
+      "sinif": "insan",
+      "konum": null,
+      "ilk_konum": null,
+      "guven": 0.52,
+      "tespit_sayisi": 1,
+      "ilk_tespit": {
+        "arac_kimligi": 2,
+        "n": 55,
+        "uretim_mono_ns": 1002000000000
+      },
+      "en_yuksek_guven_tespiti": {
+        "arac_kimligi": 2,
+        "n": 55,
+        "uretim_mono_ns": 1002000000000
+      }
+    }
+  ]
+}
