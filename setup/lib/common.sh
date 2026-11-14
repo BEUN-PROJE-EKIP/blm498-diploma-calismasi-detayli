@@ -404,6 +404,12 @@ port_yeni() {
         <(awk -v s="${sinir:-0}" '!/^#/ && $3 != "-" && $3 + 1 >= s {print $1, $2}' "$sonra" | LC_ALL=C sort -u) | tr '\n' ';' || true
 }
 
+# port_kapanan <önce_dosya> <sonra_dosya> : "önce"de olup "sonra"da olmayan dinleyiciler (yalnız bilgi; hata sayılmaz) "proto adres;" biçiminde.
+port_kapanan() {
+    local once="$1" sonra="$2"
+    LC_ALL=C comm -23 <(awk '!/^#/ {print $1, $2}' "$once" | LC_ALL=C sort -u) <(awk '!/^#/ {print $1, $2}' "$sonra" | LC_ALL=C sort -u) | tr '\n' ';' || true
+}
+
 # --- Hata yakalama -----------------------------------------------------------
 _on_err() {
     local rc="$1" line="$2" src="$3" cmd="$4"

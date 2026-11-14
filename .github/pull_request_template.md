@@ -4,7 +4,7 @@
 
 ## Hangi madde?
 
-Ağaç maddesi: `K7` gibi · İlgili gereksinim: `FR-…`
+Kilometre taşı: `M4` gibi · Ağaç maddesi: `A1` gibi · İlgili gereksinim: `FR-…`
 
 ## Kontrol listesi
 
@@ -12,7 +12,7 @@ Ağaç maddesi: `K7` gibi · İlgili gereksinim: `FR-…`
 - [ ] Maddenin **"Bitti:" ölçütü** gerçekten sağlandı (nasıl gösterdiğini aşağıya yaz)
 - [ ] `./setup/verify_all.sh` hepsi `(+)`
 - [ ] `setup/` veya `config/` değiştiyse `./setup/lock_ozet.sh --check` `(+)`
-- [ ] Maddeyi işaretlediysem `python3 araclar/ilerleme.py --yaz` çalıştırıldı ve README değişikliği commit'te
+- [ ] Maddeyi ağaçta `[x]` işaretledim; README ilerleme bölümüne dokunmadım (depo sahibi birleştirmeden sonra yeniler)
 - [ ] Kilitli değerlere (25 Mbit/s profil, çıkarım ayarları, karar kuralları, kilit dosyaları) dokunmadım
 - [ ] Depoya büyük dosya, model ağırlığı, günlük, şifre veya token girmedi
 - [ ] `docs/` içindeki kaynak belgeleri değiştirmedim

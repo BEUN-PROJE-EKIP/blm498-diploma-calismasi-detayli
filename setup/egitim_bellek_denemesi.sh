@@ -111,7 +111,7 @@ mkdir -p "$OUT_DIR"
 # --- Ölçüm anlık görüntüleri -------------------------------------------------------
 snapshot() { # snapshot <ad>
     local n="$1"
-    ss -lntuH 2>/dev/null | awk '{print $1, $5}' | LC_ALL=C sort > "$OUT_DIR/$n.ports" || true
+    port_snapshot "$OUT_DIR/$n.ports"
     find /dev/shm -maxdepth 1 -printf '%f\n' 2>/dev/null | LC_ALL=C sort > "$OUT_DIR/$n.shm" || true
     { nvidia-smi --query-compute-apps=pid --format=csv,noheader 2>/dev/null | LC_ALL=C sort | tr '\n' ' ' || true; } > "$OUT_DIR/$n.gpu"
     { tc qdisc show dev lo 2>/dev/null | sed 's/direct_packets_stat [0-9]*//' || true; ip -4 addr show lo 2>/dev/null || true; } > "$OUT_DIR/$n.net"
@@ -194,10 +194,10 @@ if [[ "$(cat "$OUT_DIR/once.gpu")" == "$(cat "$OUT_DIR/sonra.gpu")" ]]; then
 else
     log_fail "GPU süreç listesi değişti: önce='$(cat "$OUT_DIR/once.gpu")' sonra='$(cat "$OUT_DIR/sonra.gpu")'"
 fi
-port_yeni="$(LC_ALL=C comm -13 "$OUT_DIR/once.ports" "$OUT_DIR/sonra.ports" | tr '\n' ';' || true)"
-port_kapanan="$(LC_ALL=C comm -23 "$OUT_DIR/once.ports" "$OUT_DIR/sonra.ports" | tr '\n' ';' || true)"
-if [[ -z "$port_yeni" ]]; then log_ok "Yeni dinleyen TCP/UDP portu yok (başlangıçtakilere göre)"; else log_fail "Yeni dinleyen port(lar) kaldı: $port_yeni"; fi
-if [[ -n "$port_kapanan" ]]; then log_info "Başlangıçta var olup kapanan dinleyiciler (testle ilgisiz, hata değil): $port_kapanan"; fi
+yeni_portlar="$(port_yeni "$OUT_DIR/once.ports" "$OUT_DIR/sonra.ports")"
+kapanan_portlar="$(port_kapanan "$OUT_DIR/once.ports" "$OUT_DIR/sonra.ports")"
+if [[ -z "$yeni_portlar" ]]; then log_ok "Yeni dinleyen TCP/UDP portu yok (başlangıçtakilere göre)"; else log_fail "Yeni dinleyen port(lar) kaldı: $yeni_portlar"; fi
+if [[ -n "$kapanan_portlar" ]]; then log_info "Başlangıçta var olup kapanan dinleyiciler (testle ilgisiz, hata değil): $kapanan_portlar"; fi
 shm_new="$(comm -13 "$OUT_DIR/once.shm" "$OUT_DIR/sonra.shm" | tr '\n' ' ')"
 if [[ -z "$shm_new" ]]; then log_ok "/dev/shm altında yeni dosya yok"; else log_fail "/dev/shm altında artık dosya: $shm_new"; fi
 if diff -q "$OUT_DIR/once.net" "$OUT_DIR/sonra.net" >/dev/null; then

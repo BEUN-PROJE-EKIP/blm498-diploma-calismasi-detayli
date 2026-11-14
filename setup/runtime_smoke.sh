@@ -99,7 +99,7 @@ snapshot() { # snapshot <ad> : süreç sayıları, dinleyen portlar, tc/ip durum
     {
         for c in gz px4 mavsdk_server ruby; do echo "proc $c $(pgrep -x -c "$c" || true)"; done
     } > "$TMP_DIR/$n.proc"
-    ss -lntuH 2>/dev/null | awk '{print $1, $5}' | LC_ALL=C sort > "$TMP_DIR/$n.ports" || true
+    port_snapshot "$TMP_DIR/$n.ports"
     { tc qdisc show dev lo 2>/dev/null | sed 's/direct_packets_stat [0-9]*//' || true; ip -4 addr show lo 2>/dev/null || true; } > "$TMP_DIR/$n.net"
 }
 
@@ -277,16 +277,16 @@ post_checks() {
     else
         log_fail "Artık süreç var (gz/px4/mavsdk_server/ruby): $(diff "$TMP_DIR/once.proc" "$TMP_DIR/sonra.proc" | tr '\n' ';' || true)"
     fi
-    # Yalnız başlangıçta olmayan (yeni) dinleyiciler hata sayılır: testle ilgisiz bir uygulamanın başlangıçtaki geçici portu test sırasında
+    # Yalnız başlangıçta olmayan (yeni) ve sahibi testten sonra başlamış süreçlere ait dinleyiciler hata sayılır (makine geneli değil: kullanıcının tarayıcısı vb. sayılmaz): testle ilgisiz bir uygulamanın başlangıçtaki geçici portu test sırasında
     # kapanabilir. Testin bıraktığı artık süreç ayrıca "Süreç denetimi" ile yakalanır; kapanan dinleyici yalnız bilgidir.
-    port_yeni="$(LC_ALL=C comm -13 "$TMP_DIR/once.ports" "$TMP_DIR/sonra.ports" | tr '\n' ';' || true)"
-    port_kapanan="$(LC_ALL=C comm -23 "$TMP_DIR/once.ports" "$TMP_DIR/sonra.ports" | tr '\n' ';' || true)"
-    if [[ -z "$port_yeni" ]]; then
+    yeni_portlar="$(port_yeni "$TMP_DIR/once.ports" "$TMP_DIR/sonra.ports")"
+    kapanan_portlar="$(port_kapanan "$TMP_DIR/once.ports" "$TMP_DIR/sonra.ports")"
+    if [[ -z "$yeni_portlar" ]]; then
         log_ok "Yeni dinleyen TCP/UDP portu yok (başlangıçtakilere göre)"
     else
-        log_fail "Yeni dinleyen port(lar) kaldı: $port_yeni"
+        log_fail "Yeni dinleyen port(lar) kaldı: $yeni_portlar"
     fi
-    if [[ -n "$port_kapanan" ]]; then log_info "Başlangıçta var olup kapanan dinleyiciler (testle ilgisiz, hata değil): $port_kapanan"; fi
+    if [[ -n "$kapanan_portlar" ]]; then log_info "Başlangıçta var olup kapanan dinleyiciler (testle ilgisiz, hata değil): $kapanan_portlar"; fi
     if [[ "$DAEMON_ONCE" -eq 0 ]]; then
         if pgrep -f '[r]os2-daemon' >/dev/null; then log_fail "Artık ros2 daemon süreci var"; else log_ok "ros2 daemon süreci yok"; fi
     fi

@@ -4,10 +4,20 @@ Bu depo, **"Afet Bölgelerinde Haberleşme Altyapısından Bağımsız Olarak Ç
 
 ## Önce oku
 
-1. `README.md` — proje, kurulum, ilerleme.
-2. `planlama/gelistirme_agaci.md` — bütün hedefler, her maddenin **bitti ölçütü** ve ağırlığı.
+1. `README.md` — durum panosu: kurulum, doğrulama komutları ve ilerleme (kilometre taşı ağacı).
+2. `planlama/gelistirme_agaci.md` — **kilometre taşı tablosu** (her M'nin tek sahibi ve `Bekler` sütunu), bütün hedefler, her maddenin **bitti ölçütü** ve ağırlığı; maddeler kilometre taşına göre iş sırasıyla dizilidir.
 3. `planlama/mimari.md` — şemalar, portlar, ölçülen ağın kuralları.
 4. `docs/` — kaynak belgeler (GŞÖA ve proje el kitabı). **Değiştirilemez.** Metin olarak okumak için: `pdftotext -layout docs/<dosya>.pdf /dev/stdout` (çıktıyı depoya yazma).
+
+## Göreve başlarken
+
+1. Kullanıcıya adını sor (söylediyse onu kullan).
+2. `planlama/gelistirme_agaci.md` içindeki **Kilometre taşları** tablosunda o kişinin sorumlu olduğu M'leri bul.
+3. Her M için `Bekler` sütunundaki M'lerin bitip bitmediğine bak (README'deki "Bekler" satırı aynı bilgiyi verir).
+4. Başlayabilir M'lerde **bitmemiş en üstteki maddeyi** ve onun **"Bitti:" ölçütünü** kullanıcıya göster.
+5. Dal adı öner: `ad/madde-kimligi-kisa-konu` (örn. `mikail/A1-sahne-ureticisi`).
+6. Başka kişinin M'sindeki maddeye başlama; gerekirse önce sahibine sor.
+7. Ortak dosyalara (`.github/CODEOWNERS` içindeki yollar) dokunacaksan önce depo sahibine sor.
 
 ## Çalışma alışkanlıkları
 
@@ -39,4 +49,4 @@ Bu depo, **"Afet Bölgelerinde Haberleşme Altyapısından Bağımsız Olarak Ç
 
 - `main` dalına doğrudan commit veya push yok; GitHub'da `main` korumalıdır (PR ve en az 1 onay zorunlu, doğrudan push ve force push reddedilir). Her iş kendi dalında yapılır (`ad/konu`), sonra Pull Request açılır ve **incelendikten sonra** birleştirilir.
 - PR'dan önce: `./setup/verify_all.sh` hepsi `(+)`; `setup/` veya `config/` değiştiyse `./setup/lock_ozet.sh --check`.
-- Bir ağaç maddesini bitirdiysen maddeyi `[x]` yap ve `python3 araclar/ilerleme.py --yaz` ile README'deki ilerleme bölümünü yenile.
+- Bir ağaç maddesini bitirdiysen maddeyi `[x]` yap; README'deki ilerleme bölümünü **yenileme**: onu depo sahibi birleştirmeden sonra yeniler (aynı bölüme dokunan PR'lar çakışır). Bu yüzden `python3 araclar/ilerleme.py --kontrol` PR'da `(-)` verebilir ("README ilerleme bölümü eski"); bu beklenen bir durumdur, PR'ı engellemez.
