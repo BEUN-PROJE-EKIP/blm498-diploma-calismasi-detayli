@@ -2,7 +2,7 @@
 """Alan pilotu koşusunun çözümlemesi (ölçüm yardımcısı): süre/uzunluk/RTF, yönelim (yaw, uçuş yönü), kapsama, bölge taşması, kare sonucu bütünlüğü.
 
 Kullanım:  python araclar/alan_pilot_analiz.py <koşu_klasörü> --arac N [--cikti <md_yolu>]
-Girdi: koşu klasöründeki araç günlükleri, kayit/*.jsonl (kare_sonuc, kamera_alici, gazebo_damga), koordinator_deneme.jsonl, alan_pilot_olcum.jsonl
+Girdi: koşu klasöründeki araç günlükleri, kayit/*.jsonl (kare_sonuc, kamera_alici, gazebo_damga), koordinator kaydı (koordinator_deneme.jsonl ya da asıl koordinatörün yer_istasyonu_gorev.jsonl), alan_pilot_olcum.jsonl
 (gözlemci: Gazebo model pozları + PX4 yönelim/konum/hız; araclar/alan_pilot_olcum.py), config/bolge_rota.json, config/kamera_kalibrasyon.json.
 Çıktı: önce "SONUC <gecti|kaldi> <ad> | <ayrıntı>" satırları (M1 kapısı denetimleri; kaldı varsa çıkış 1), sonra ölçüm tabloları (Markdown). Ayrıca koşu klasörüne
 `analiz/kare_yonelim_<araç>.csv` (her görev karesi için Gazebo/PX4 yönelimi) yazılır. Eşik konmaz: yönelim ve kapsama sayıları RAPORLANIR, geçti/kaldı ölçütü değildir.
@@ -277,7 +277,8 @@ def ana(argv):
     kam = Kamera(os.path.join(KOK, "config", "kamera_kalibrasyon.json"))
     baslangic = {k: tuple(float(v) for v in p.split(",")) for k, p in zip(kimlikler, ham["UAV_START_POSES"].split())}
     olcum = jsonl(os.path.join(klasor, "alan_pilot_olcum.jsonl"))
-    koord = jsonl(os.path.join(klasor, "koordinator_deneme.jsonl"))
+    from koordinator_kayit import koordinator_olaylari
+    koord = koordinator_olaylari(klasor)      # deneme koordinatörünün ya da asıl yer istasyonu koordinatörünün kaydı (aynı olay sözlüğü biçimi)
     damga_hepsi = jsonl(os.path.join(klasor, "kayit", "gazebo_damga.jsonl"))
     os.makedirs(os.path.join(klasor, "analiz"), exist_ok=True)
 

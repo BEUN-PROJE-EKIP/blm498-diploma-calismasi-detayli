@@ -5,7 +5,7 @@ Kullanım:
   sozlesme_dogrula.py [--yapilandirma config/deney.env] <dosya.json> [--sahne sahne.json]
   sozlesme_dogrula.py [--yapilandirma ...] --hedef-listesi-uret <sahne.json>
 Dosya türü dosyadaki "tur" alanından anlaşılır (sahne | bolge_rota | kamera_kalibrasyon | hedef_listesi | kosu_ustveri).
-Uzantısı .jsonl olan dosya JSON Lines'tır (satır başına bir JSON nesnesi): tur: kare_olay (öntanımlı), arac_durum_kaydi, kare_sonuc ya da isci_kaynak (ilk dolu satırdan anlaşılır).
+Uzantısı .jsonl olan dosya JSON Lines'tır (satır başına bir JSON nesnesi): tur: kare_olay (öntanımlı), arac_durum_kaydi, kare_sonuc, isci_kaynak ya da gorev_olay (ilk dolu satırdan anlaşılır).
 --sahne yalnız hedef_listesi için: listenin verilen sahnedeki hedeflerle birebir aynı olduğu da denetlenir.
 Çıkış: 0 geçerli, 1 geçersiz (Türkçe, alan yoluyla "nokta nokta" hata listesi), 2 kullanım/okuma hatası.
 Yalnız standart kitaplık kullanılır. Eşikler ve aralıklar config/deney.env'den okunur (tek kaynak); biçimler planlama/sozlesmeler.md'dedir.
@@ -886,12 +886,96 @@ def dogrula_isci_kaynak_dosyasi(c, satirlar):
     return hatalar
 
 
+GOREV_OLAYLARI = ("gorev_atandi", "hazir", "eslesme", "t0", "tarama_bitisi", "son_sonuc", "t1", "tamamlandi", "zaman_asimi", "birlestirme_yok", "yok_sayildi", "hata")
+GOREV_ARAC_ZORUNLU = ("gorev_atandi", "hazir", "tarama_bitisi", "tamamlandi")
+GOREV_MISSION_ZORUNLU = ("gorev_atandi", "t0", "t1")
+
+
+def dogrula_gorev_olay(c, d):
+    """Yer istasyonu görev koordinatörünün görev olay kaydı (JSON Lines'ın bir satırı; taslak sürüm)."""
+    h = Hatalar()
+    if not alan_denetle(h, "", d, ["surum", "tur", "olay", "mono_ns", "sim_ns"],
+                        ["arac_kimligi", "mission_id", "n_ilk", "n_son", "t_s_ns", "t_b_ns", "yayimci", "t1_eksi_son_bitis_ns", "neden", "ayrinti"]):
+        return h.liste
+    ust_alanlar(h, d, "gorev_olay")
+    olay = d.get("olay")
+    if olay not in GOREV_OLAYLARI:
+        h.ekle("olay", f"{list(GOREV_OLAYLARI)} değerlerinden biri olmalı (bulunan: {olay!r})")
+    if not (tam_sayi_mi(d.get("mono_ns")) and d["mono_ns"] > 0):
+        h.ekle("mono_ns", "pozitif tam sayı (CLOCK_MONOTONIC, ns) olmalı")
+    sim = d.get("sim_ns")
+    if sim is not None and not (tam_sayi_mi(sim) and sim >= 0):
+        h.ekle("sim_ns", "negatif olmayan tam sayı (ns) ya da null (simülasyon saati henüz bilinmiyor) olmalı")
+    if "arac_kimligi" in d and not (tam_sayi_mi(d["arac_kimligi"]) and d["arac_kimligi"] in c.arac_kimlikleri):
+        h.ekle("arac_kimligi", f"UAV_SYS_IDS değerlerinden biri olmalı ({c.arac_kimlikleri}; bulunan: {d['arac_kimligi']!r})")
+    if olay in GOREV_ARAC_ZORUNLU and "arac_kimligi" not in d:
+        h.ekle("arac_kimligi", f"'{olay}' olayında zorunlu")
+    if olay in GOREV_MISSION_ZORUNLU and not (isinstance(d.get("mission_id"), str) and d["mission_id"]):
+        h.ekle("mission_id", f"'{olay}' olayında boş olmayan metin olarak zorunlu")
+    if olay == "tarama_bitisi":
+        n1, n2 = d.get("n_ilk"), d.get("n_son")
+        if not (tam_sayi_mi(n1) and tam_sayi_mi(n2) and 0 <= n1 <= n2):
+            h.ekle("n_ilk", f"'tarama_bitisi' olayında 0 <= n_ilk <= n_son tam sayıları zorunlu (bulunan: {n1!r}, {n2!r})")
+    elif "n_ilk" in d or "n_son" in d:
+        h.ekle("n_ilk", "yalnız 'tarama_bitisi' olayında bulunabilir")
+    for k in ("t_s_ns", "t_b_ns"):
+        if k in d and d[k] is not None and not (tam_sayi_mi(d[k]) and d[k] >= 0):
+            h.ekle(k, "negatif olmayan tam sayı (ns) ya da null olmalı")
+    if olay == "eslesme" and not (tam_sayi_mi(d.get("yayimci")) and d["yayimci"] >= 0):
+        h.ekle("yayimci", "'eslesme' olayında negatif olmayan tam sayı zorunlu")
+    elif olay != "eslesme" and "yayimci" in d:
+        h.ekle("yayimci", "yalnız 'eslesme' olayında bulunabilir")
+    if "t1_eksi_son_bitis_ns" in d and (olay != "t1" or not tam_sayi_mi(d["t1_eksi_son_bitis_ns"])):
+        h.ekle("t1_eksi_son_bitis_ns", "yalnız 't1' olayında ve tam sayı (ns) olarak bulunabilir")
+    for k in ("neden", "ayrinti"):
+        if k in d and not (isinstance(d[k], str) and d[k]):
+            h.ekle(k, "boş olmayan metin olmalı")
+    if olay in ("yok_sayildi", "hata", "zaman_asimi") and not isinstance(d.get("neden"), str):
+        h.ekle("neden", f"'{olay}' olayında zorunlu")
+    return h.liste
+
+
+def dogrula_gorev_olay_dosyasi(c, satirlar):
+    """Bir koşunun görev kaydı: tek yazar (yer istasyonu), mono_ns geriye gitmez; en çok bir t0 ve bir t1; t0 → son_sonuc → t1 sırası."""
+    hatalar = []
+    son, dolu = None, 0
+    gorulen = {}
+    for no, ham in enumerate(satirlar, 1):
+        if not ham.strip():
+            hatalar.append(f"satır {no}: boş satır olamaz")
+            continue
+        try:
+            d = json.loads(ham)
+        except json.JSONDecodeError as e:
+            hatalar.append(f"satır {no}: JSON geçersiz: {e}")
+            continue
+        dolu += 1
+        hs = dogrula_gorev_olay(c, d)
+        hatalar.extend(f"satır {no}: {x}" for x in hs)
+        if hs:
+            continue
+        if son is not None and d["mono_ns"] < son:
+            hatalar.append(f"satır {no}: mono_ns: geriye gidiyor ({d['mono_ns']} < {son})")
+        son = d["mono_ns"]
+        o = d["olay"]
+        if o in ("t0", "t1") and o in gorulen:
+            hatalar.append(f"satır {no}: '{o}' olayı ikinci kez yazılamaz (satır {gorulen[o]})")
+        if o == "t1" and "t0" not in gorulen:
+            hatalar.append(f"satır {no}: 't1' olayı 't0' olayından önce olamaz")
+        if o == "t1" and "son_sonuc" not in gorulen:
+            hatalar.append(f"satır {no}: 't1' olayından önce 'son_sonuc' olayı yazılmış olmalı (COMPLETE yalnız bütün sonuçlardan sonra)")
+        gorulen.setdefault(o, no)
+    if dolu == 0 and not hatalar:
+        hatalar.append("dosya boş: en az bir kayıt olmalı")
+    return hatalar
+
+
 # ---------------------------------------------------------------------------------------------------------------------------------
 TURLER = {"sahne": dogrula_sahne, "bolge_rota": dogrula_bolge_rota, "kamera_kalibrasyon": dogrula_kalibrasyon, "hedef_listesi": dogrula_hedef_listesi,
           "kosu_ustveri": dogrula_kosu_ustveri}
 
 
-JSONL_TURLERI = {"arac_durum_kaydi": dogrula_arac_durum_dosyasi, "kare_sonuc": dogrula_kare_sonuc_dosyasi, "isci_kaynak": dogrula_isci_kaynak_dosyasi}
+JSONL_TURLERI = {"arac_durum_kaydi": dogrula_arac_durum_dosyasi, "kare_sonuc": dogrula_kare_sonuc_dosyasi, "isci_kaynak": dogrula_isci_kaynak_dosyasi, "gorev_olay": dogrula_gorev_olay_dosyasi}
 
 
 def json_oku(yol):

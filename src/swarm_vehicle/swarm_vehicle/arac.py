@@ -1,12 +1,12 @@
 """Araç süreci: her İHA için tek bir ROS 2 düğümü (/uav_N): px4_adapter + durum/görev modülü + görev durum makinesi (FR-2, FR-3, FR-4, FR-5 araç tarafı, FR-7).
 
 Kullanım:  python -m swarm_vehicle.arac <araç sırası 1..N>      (rclpy, swarm_msgs ve MAVSDK aynı süreçte: ROS kurulu ve .venv etkin ortam; setup/env.sh)
-Akış (GŞÖA 7.4, 7.5): bağlan → kimlik → rota yükle → HAZIR → hazırlık (kalkış + ilk nokta; t0 ÖNCESİ; çıkarım işçisi bu sırada başlar, modeli yükler ve ısınır) →
+Akış (GŞÖA 7.4, 7.5): bağlan → kimlik → kendi Mission'ını bekle ve yerel bolge_rota.json ile birebir karşılaştır (uyuşmazlık = açık hata, yükleme yok) → rotayı Mission'dan yükle → HAZIR → hazırlık (kalkış + ilk nokta; t0 ÖNCESİ; çıkarım işçisi bu sırada başlar, modeli yükler ve ısınır) →
 çıkarım işçisi hazır → BARIYER_BEKLE (yayımı hazır bildirimidir; işçi hazır olmadan geçilmez) →
 tarama başlatma mesajı (t_s = o anki simülasyon saati) → görevi başlat → TARAMA → son nokta (t_b) → tarama bitişi yayımı → WAIT → eşleşen COMPLETE → TAMAMLANDI.
 İş parçacıkları: ana iş parçacığı ROS yürütücüsü; bağdaştırıcının döngü iş parçacığı (MAVSDK asenkron döngüsü, son nokta geri çağrısı burada çalışır);
 akış iş parçacığı (engelleyen bağdaştırıcı çağrıları); gz-transport saat geri çağrısı. Durum makinesine erişim tek kilitle serileşir.
-Çıkış kodları: 0 TAMAMLANDI; 1 beklenmeyen hata; 2 yapılandırma/kullanım; 3 kimlik doğrulanamadı (HAZIR'a geçilmez); 143 SIGTERM.
+Çıkış kodları: 0 TAMAMLANDI; 1 beklenmeyen hata; 2 yapılandırma/kullanım; 3 kimlik doğrulanamadı (HAZIR'a geçilmez); 4 Mission yerel dosyayla uyuşmuyor (yükleme yok); 5 Mission zamanında gelmedi; 143 SIGTERM.
 Çıkarım işçisi bu sürecin ALT SÜRECİDİR (cikarim_istemci.py; IP kullanmayan AF_UNIX kanal); kabul edilen her görev karesi işçiye gider, her görev numarası için tam bir kare sonucu
 (`swarm_msgs/FrameResult`) üretilir, yerel kayda (`kayit/kare_sonuc_<araç>.jsonl`) yazılır, `kare_sonucu_kancasi`na verilir ve uçta modda ortak konudan (`KONU_KARE_SONUC`, reliable) yer istasyonuna yayımlanır (`sonuc_yayin.py`; yayım kare işleme iş parçacığını bloke etmez; kapanışta bütün iletilerin onayı beklenir).
 Simülasyon zamanı gz-transport'tan doğrudan okunur (ros_gz_bridge yok); gz-transport `GZ_IP=127.0.0.1` ile kilitlenir (başka değer verilmişse süreç açık hata ile çıkar). 2 Hz durum yayımı duvar saati zamanlayıcısıyla yapılır [varsayım: RTF ≈ 1]; her durum geçişinde ayrıca bir ek ileti yayımlanır (2 Hz'lik akış yarım saniyeden kısa süren durumu — ör. en son bitiren aracın WAIT'i — kaçırmasın).
@@ -18,6 +18,7 @@ import sys
 import threading
 import time
 
+from . import gorev as _gorev
 from . import rota as _rota
 from .cikarim_istemci import IsciIstemcisi
 from .kamera_alici import n_ilk_hesapla
@@ -27,6 +28,8 @@ from .sonuc_yayin import SonucYayinci
 from .durum_makinesi import (AD, STATE_BARIYER_BEKLE, STATE_HAZIR, STATE_TAMAMLANDI, STATE_TARAMA, STATE_WAIT, DurumMakinesi)
 
 CIKIS_KIMLIK = 3
+CIKIS_MISSION_UYUSMUYOR = 4        # alınan Mission yerel bolge_rota.json ile birebir eşit değil: yükleme yok
+CIKIS_MISSION_ZAMAN = 5             # GOREV_BEKLE_SN içinde kendi Mission'ı gelmedi
 GZ_IP_YEREL = "127.0.0.1"
 
 
@@ -72,11 +75,26 @@ class Arac:
         self.yayinci_yol = os.path.join(self.klasor, "kayit", f"arac_sureci_{self.arac_kimligi}.jsonl") if self.klasor else None
         self.yayinci = None
         self.pub_sonuc = None
+        self.atanan_gorev = None                      # alınan ve doğrulanan Mission sözlüğü (gorev.py)
+        self.mission_olayi = threading.Event()
+        self.pub_onay = None
+        self._tarama_mono = None
+        self._sus = self._sus_ayristir(os.environ.get("ARAC_DURUM_SUS", ""), self.arac_kimligi)   # YALNIZ test: (başlangıç_sn, süre_sn) tarama başından; durum yayımı bu pencerede susar
         self.isci = None
         self.isleyici = None
         self.kare_sonucu_kancasi = None          # isteğe bağlı yerel kanca: callable(FrameResult); DDS yayımı ayrıdır (self.yayinci)
         self.kare_sonucu_mesaj_sayisi = 0
         self._FrameResult = self._Detection = None
+
+    @staticmethod
+    def _sus_ayristir(metin, arac_kimligi):
+        """ARAC_DURUM_SUS: `<başlangıç_sn>:<süre_sn>` (bütün araçlar) ya da `<araç>:<başlangıç_sn>:<süre_sn>` (yalnız o araç); boşsa kapalı."""
+        parca = metin.strip().split(":")
+        if not metin.strip():
+            return None
+        if len(parca) == 3:
+            return (float(parca[1]), float(parca[2])) if int(parca[0]) == arac_kimligi else None
+        return float(parca[0]), float(parca[1])
 
     # --- günlük ---------------------------------------------------------------------------------------------------------------------------
     def log(self, olay, **kv):
@@ -122,6 +140,8 @@ class Arac:
     def _yayinla(self):
         if not self.yayin_acik:
             return
+        if self._sus is not None and self._tarama_mono is not None and self._sus[0] <= time.monotonic() - self._tarama_mono < self._sus[0] + self._sus[1]:
+            return                                    # test anahtarı ARAC_DURUM_SUS: durum yayımı bu pencerede susar (izleme bayat uyarısını sınamak için); akış değişmez
         from swarm_msgs.msg import VehicleState
         with self._yay_kilit:                         # zamanlayıcı (ana iş parçacığı) ve geçiş yayımları (akış/yürütücü) birbirine girmesin
             d = self.adapter.durum()
@@ -157,6 +177,8 @@ class Arac:
         with self.kilit:
             ok = self.sm.tarama_baslat(m.mission_id, t_s)
         if ok:
+            self._tarama_mono = time.monotonic()
+        if ok:
             self.isci.n_ilk = n_ilk_hesapla(t_s, self.kamera.hz)   # işçi enjeksiyonu belirteçleri (+k) için; kareler kuyruğa girmeden önce
             if self.yayinci is not None:
                 self.yayinci.n_ilk = self.isci.n_ilk            # yayım enjeksiyonu belirteçleri (+k) için
@@ -164,6 +186,35 @@ class Arac:
             self.log("tarama_baslat_alindi", mission_id=m.mission_id, t_s_ns=t_s)
             self._yayinla()                           # geçiş anında ek yayım (TARAMA)
             self.baslat_olayi.set()
+
+    def _mission_geldi(self, m):
+        """Ortak Mission konusu: yalnız bu aracın Mission'ı alınır (ilk geçerli olan; ikincisi yok sayılır ve günlüğe yazılır)."""
+        if int(m.vehicle_id) != self.arac_kimligi:
+            return
+        if self.atanan_gorev is not None:
+            self.log("mission_tekrar_yok_sayildi", mission_id=m.mission_id)
+            return
+        self.atanan_gorev = _gorev.mesajdan_sozluk(m)
+        self.log("mission_alindi", mission_id=m.mission_id, bolge=m.region_id, nokta=len(m.waypoints))
+        self.mission_olayi.set()
+
+    def _komut_geldi(self, m):
+        """Komut yolu iskeleti: komut px4_adapter.komut_isle'ye iletilir (PX4'e yazmaz); onay (vehicle_id = bu araç, aynı sıra) ortak onay konusuna yayımlanır."""
+        ack, neden = self.adapter.komut_isle(m.vehicle_id, m.sequence)
+        a = self._Command()
+        a.vehicle_id, a.sequence, a.ack_state = self.arac_kimligi, m.sequence, ack
+        self.pub_onay.publish(a)
+        self.log("komut_alindi", vehicle_id=int(m.vehicle_id), sequence=int(m.sequence), ack="ACK_REJECTED" if ack == 3 else ack, neden=neden)
+
+    def _mission_bekle(self, sure_sn):
+        """Bu aracın Mission'ı gelene dek bekler (GOREV_BEKLE_SN). Dönen: Mission sözlüğü ya da None (zaman aşımı)."""
+        sinir = time.monotonic() + sure_sn
+        while not self.mission_olayi.wait(0.2):
+            if self.dur_olayi.is_set():
+                raise InterruptedError("Mission beklenirken durduruldu")
+            if time.monotonic() > sinir:
+                return None
+        return self.atanan_gorev
 
     def _complete_geldi(self, m):
         with self.kilit:
@@ -193,7 +244,23 @@ class Arac:
                 self.log("hata", neden="kimlik doğrulanamadı; HAZIR'a geçilmez")
                 self.cikis_kodu = CIKIS_KIMLIK
                 return
-            noktalar, bolge = _rota.rota_oku(os.path.join(_rota.KOK, "config", "bolge_rota.json"), self.arac_kimligi)
+            yerel_yol = os.path.join(_rota.KOK, "config", "bolge_rota.json")
+            self.log("mission_bekleniyor", sure_sn=self.ham["GOREV_BEKLE_SN"])
+            mission = self._mission_bekle(float(self.ham["GOREV_BEKLE_SN"]))
+            if mission is None:
+                self.log("hata", neden=f"kendi Mission'ı {self.ham['GOREV_BEKLE_SN']} sn içinde gelmedi; rota yüklenmedi")
+                self.cikis_kodu = CIKIS_MISSION_ZAMAN
+                return
+            fark = _gorev.mission_karsilastir(mission, _gorev.bolge_rota_oku(yerel_yol), self.arac_kimligi)
+            if fark:
+                self.log("mission_uyusmuyor", mission_id=mission["mission_id"], fark="; ".join(fark).replace(" ", "_"))
+                self.log("hata", neden="Mission yerel bolge_rota.json ile uyuşmuyor; rota yüklenmedi (açık hata)")
+                self.cikis_kodu = CIKIS_MISSION_UYUSMUYOR
+                return
+            self.log("mission_dogrulandi", mission_id=mission["mission_id"], bolge=mission["region_id"], yerel_sha256=_gorev.dosya_sha256(yerel_yol)[:16])
+            with self.kilit:
+                self.sm.beklenen_mission_id = mission["mission_id"]       # farklı kimlikli tarama başlatma yok sayılır
+            noktalar, bolge = _gorev.mission_noktalari(mission), mission["region_id"]
             y = self.adapter.gorev_yukle(noktalar)
             self.log("rota_yuklendi", bolge=bolge, oge_sayisi=y["oge_sayisi"], sure_s=f"{y['sure_s']:.2f}")
             self.yayin_acik = True                                     # HAZIR: rota PX4'e yüklü, kalkış öncesi
@@ -266,8 +333,9 @@ class Arac:
         import rclpy
         from rclpy.node import Node
         from rclpy.qos import DurabilityPolicy, HistoryPolicy, QoSProfile, ReliabilityPolicy
-        from swarm_msgs.msg import Complete, ScanFinished, ScanStart, VehicleState
+        from swarm_msgs.msg import Command, Complete, Mission, ScanFinished, ScanStart, VehicleState
         from . import px4_adapter
+        self._Command = Command
 
         from swarm_msgs.msg import Detection, FrameResult
         self._FrameResult, self._Detection = FrameResult, Detection
@@ -297,6 +365,12 @@ class Arac:
         self.yayinci = SonucYayinci(self.arac_kimligi, self.kamera.hz, self.pub_sonuc.publish, self.yayinci_yol, self.log,
                                     onay_bekle=lambda sn: self.pub_sonuc.wait_for_all_acked(Duration(seconds=sn)))
         self.yayinci.baslat()
+        qos_gorev = QoSProfile(history=HistoryPolicy.KEEP_LAST, depth=10, reliability=ReliabilityPolicy.RELIABLE, durability=DurabilityPolicy.TRANSIENT_LOCAL)
+        qos_komut = QoSProfile(history=HistoryPolicy.KEEP_LAST, depth=10, reliability=ReliabilityPolicy.RELIABLE, durability=DurabilityPolicy.VOLATILE)
+        qos_onay = QoSProfile(history=HistoryPolicy.KEEP_LAST, depth=20, reliability=ReliabilityPolicy.RELIABLE, durability=DurabilityPolicy.TRANSIENT_LOCAL)
+        self.pub_onay = node.create_publisher(Command, h["KONU_KOMUT_ONAY"], qos_onay)
+        node.create_subscription(Mission, h["KONU_GOREV"], self._mission_geldi, qos_gorev)
+        node.create_subscription(Command, h["KONU_KOMUT"], self._komut_geldi, qos_komut)
         node.create_subscription(VehicleState, h["KONU_DURUM"], self._durum_geldi, qos_durum)
         node.create_subscription(ScanStart, h["KONU_TARAMA_BASLAT"], self._tarama_baslat_geldi, kontrol(1))
         node.create_subscription(Complete, h["KONU_COMPLETE"], self._complete_geldi, kontrol(1))

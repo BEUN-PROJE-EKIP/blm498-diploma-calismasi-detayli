@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
-"""Deneme koordinatörü (YALNIZ test sürücüsü; yer istasyonu değildir, PX4'e dokunmaz, hedef birleştirme ve kare koşulu yoktur).
+"""Deneme koordinatörü (YALNIZ test sürücüsü; asıl yer istasyonu görev koordinatörü `swarm_gcs.gorev_koordinatoru`'dur ve olağan akışı o yürütür; bu betik olumsuz senaryolar — erken/yanlış olaylar, gecikme/eksik sonuç —
+ve Gazebo model pozu kaydı gibi test ölçümleri için kullanılır; PX4'e dokunmaz, hedef birleştirme yoktur). Araçların beklediği `Mission` iletilerini de yayımlar (aynı `gorev.py` mantığı; ortak görev kimliği = ScanStart kimliği).
 
 Kullanım:  python araclar/koordinator_deneme.py --arac N [--erken-scan-start] [--erken-complete] [--yanlis-complete] [--yanlis-bekle-sn S] [--zaman-asimi-sn S] [--sonuc-zaman-asimi-sn S]
   --arac N               beklenen araç sayısı (UAV_SYS_IDS'in ilk N değeri)
@@ -111,6 +112,7 @@ def ana(argv):
 
     rclpy.init()
     dugum = Node("mission_coordinator_deneme", namespace="/gcs")
+    kimlik = f"G_{time.strftime('%Y%m%d_%H%M%S')}"
 
     def kontrol(derinlik):
         return QoSProfile(history=HistoryPolicy.KEEP_LAST, depth=derinlik, reliability=ReliabilityPolicy.RELIABLE, durability=DurabilityPolicy.TRANSIENT_LOCAL)
@@ -136,6 +138,13 @@ def ana(argv):
     dugum.create_subscription(VehicleState, ham["KONU_DURUM"], durum_geldi, qos_durum)
     dugum.create_subscription(ScanFinished, ham["KONU_TARAMA_BITIS"], bitis_geldi, kontrol(10))
     pub_start = dugum.create_publisher(ScanStart, ham["KONU_TARAMA_BASLAT"], kontrol(1))
+    from geometry_msgs.msg import Point
+    from swarm_msgs.msg import Mission
+    from swarm_vehicle import gorev as gorev_mod
+    pub_mission = dugum.create_publisher(Mission, ham["KONU_GOREV"], kontrol(10))
+    br = gorev_mod.bolge_rota_oku(os.path.join(KOK, "config", "bolge_rota.json"))
+    for k_ in kimlikler:                      # araçlar rotayı yüklemeden önce kendi Mission'larını bekler (transient_local: araçlar sonradan başlasa da alır)
+        pub_mission.publish(gorev_mod.mesaj_doldur(Mission, Point, gorev_mod.mission_sozlugu(br, k_, kimlik)))
     pub_complete = dugum.create_publisher(Complete, ham["KONU_COMPLETE"], kontrol(1))
 
     def spin_bekle(kosul, sn, ne):
@@ -153,7 +162,6 @@ def ana(argv):
         while time.monotonic() < t:
             rclpy.spin_once(dugum, timeout_sec=0.05)
 
-    kimlik = f"G_{time.strftime('%Y%m%d_%H%M%S')}"
     sinir_ns = time.monotonic() + zaman_asimi
     kayit.yaz("basladi", arac_sayisi=n_arac, mission_id=kimlik, erken_scan_start=erken_start, erken_complete=erken_complete, yanlis_complete=yanlis_complete)
     kayit.yaz("birlestirme_yok", ayrinti="hedef birleştirme (FR-5, B15) M3'tedir; COMPLETE koşulunda yoktur")

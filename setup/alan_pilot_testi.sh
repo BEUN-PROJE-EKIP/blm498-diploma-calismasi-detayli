@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
 # alan_pilot_testi.sh — alan ve rota mini pilotu: üç araç tam rotayı uçar; süre, uzunluk, RTF, yönelim, kapsama, bölge taşması ölçülür (başsız Gazebo + PX4 SITL
-# + ROS 2 araç süreçleri + deneme koordinatörü + salt okuma gözlemci).
+# + ROS 2 araç süreçleri + asıl yer istasyonu koordinatörü, hepsi araclar/kosu.sh ile + salt okuma gözlemci).
 # Kullanım: ./alan_pilot_testi.sh [--dry-run | --verify | -h]
-#   (argümansız)  tek ölçüm koşusu: kosu.sh baslat --arac 3 → koordinatör + üç araç süreci (çıkarım işçisi açık, enjeksiyon kapalı) + gözlemci
+#   (argümansız)  tek ölçüm koşusu: kosu.sh baslat --arac 3 --yer-istasyonu var → asıl koordinatör + üç araç süreci (çıkarım işçisi açık, enjeksiyon kapalı) + gözlemci
 #                 (araclar/alan_pilot_olcum.py: Gazebo model pozları ve PX4 yönelim/konum/hız telemetrisi, salt okuma) → araclar/alan_pilot_analiz.py
-#                 → kosu.sh durdur. Çözümleme tabloları koşu klasöründe `alan_pilot_ozet.md` dosyasına da yazılır; ayrıca aday alan tablosu
+#                 → kosu.sh bekle → kosu.sh durdur. Çözümleme tabloları koşu klasöründe `alan_pilot_ozet.md` dosyasına da yazılır; ayrıca aday alan tablosu
 #                 (araclar/alan_aday_tablo.py, simülasyonsuz) yazdırılır.
 #   --dry-run     hiçbir süreç başlatmaz, hiçbir şey yazmaz; ne çalıştıracağını yazar
 #   --verify      hafif önkoşul denetimi (araçlar, betikler, numpy); süreç başlatmaz
@@ -48,6 +48,7 @@ grup_oldur() { # grup_oldur <pgid> : önce TERM, 5 sn sonra KILL
 }
 
 exit_hook() {
+    [[ "$DRY_RUN" -eq 0 && "$MODE" != verify ]] || return 0   # --dry-run/--verify hiçbir süreç başlatmaz; yaşayan (başkasına ait) koşuya DOKUNMAZ
     local i
     for ((i = ${#PGIDS[@]} - 1; i >= 0; i--)); do grup_oldur "${PGIDS[$i]}"; done
     PGIDS=()
@@ -83,9 +84,9 @@ check_prereqs() {
 }
 
 print_plan() {
-    log_info "[dry-run] kosu.sh baslat --arac $N_ARAC; koordinatör (--arac $N_ARAC) + üç araç süreci (python -m swarm_vehicle.arac N, SWARM_BIND_ADDR=$UAV1_ADDR $UAV2_ADDR $UAV3_ADDR)"
+    log_info "[dry-run] kosu.sh baslat --arac $N_ARAC --yer-istasyonu var (asıl yer istasyonu koordinatörü + üç araç süreci: SWARM_BIND_ADDR=$UAV1_ADDR $UAV2_ADDR $UAV3_ADDR)"
     log_info "[dry-run] gRPC portları ($MAVSDK_GRPC_PORTS) dinlemeye geçince gözlemci: python araclar/alan_pilot_olcum.py --arac $N_ARAC (Gazebo model pozları + PX4 telemetri, salt okuma)"
-    log_info "[dry-run] koordinatör bitince araçlar kapanır; gözlemci SIGTERM ile kapatılır; araclar/alan_pilot_analiz.py <koşu> --arac $N_ARAC; kosu.sh durdur; araclar/alan_aday_tablo.py"
+    log_info "[dry-run] kosu.sh bekle (koordinatör ve araçlar biter); gözlemci SIGTERM ile kapatılır; araclar/alan_pilot_analiz.py <koşu> --arac $N_ARAC; kosu.sh durdur; araclar/alan_aday_tablo.py"
     log_info "[dry-run] Her koşu sonunda araç süreci/koordinatör/gözlemci/px4/gz/mavsdk_server artığı, yeni dinleyen port, /dev/shm; sonda ros2 daemon, tc/ip denetimi. Hiçbir süreç başlatılmadı"
 }
 
@@ -172,22 +173,14 @@ portlar_dinliyor() { # tüm gRPC portları dinlemede mi
 }
 
 olcum_kosusu() {
-    local ad=olcum i kpg opg rc=0 arc t0=$SECONDS out line
-    local -a apid=()
-    log_info "== $ad: üç araç tam rota (çıkarım işçisi açık, enjeksiyon kapalı) =="
-    kosu_baslat "$ad" --arac "$N_ARAC" || return 0
-    ros_baslat "$KOSU_DIR/koordinator.out" timeout -k 5 1700 python "$KOORD" --arac "$N_ARAC" --zaman-asimi-sn 1600
-    kpg="$LAST_PG"
-    sleep 4
-    for ((i = 1; i <= N_ARAC; i++)); do
-        ros_baslat "$KOSU_DIR/arac_$i.out" python -m swarm_vehicle.arac "$i"
-        apid+=("$LAST_PG")
-    done
-    log_info "$ad: koordinatör pid $kpg, araç süreçleri pid ${apid[*]}"
-    # gözlemci: araçların mavsdk_server'ları dinlemeye geçince (bağdaştırıcı bağlanınca)
+    local ad=olcum i opg rc=0 t0=$SECONDS out line
+    log_info "== $ad: üç araç tam rota (çıkarım işçisi açık, enjeksiyon kapalı; kosu.sh baslat --yer-istasyonu var → bekle → durdur) =="
+    kosu_baslat "$ad" --arac "$N_ARAC" --yer-istasyonu var || return 0
+    log_info "$ad: asıl yer istasyonu koordinatörü ve $N_ARAC araç süreci kosu.sh ile başlatıldı"
+    # gözlemci: araçların mavsdk_server'ları dinlemeye geçince (bağdaştırıcı bağlanınca; hazırlık evresi sürerken)
     for ((i = 0; i < 1200; i++)); do
         portlar_dinliyor && break
-        kill -0 "$kpg" 2>/dev/null || break
+        [[ ! -f "$KOSU_DIR/yer_istasyonu.cikis" ]] || break
         sleep 0.25
     done
     if portlar_dinliyor; then
@@ -207,14 +200,8 @@ olcum_kosusu() {
         opg=""
         log_fail "$ad: mavsdk_server portları dinlemeye geçmedi; gözlemci başlatılamadı"
     fi
-    wait "$kpg" 2>/dev/null || rc=$?
-    if [[ "$rc" -eq 0 ]]; then log_ok "$ad: koordinatör çıkış 0 ($((SECONDS - t0)) sn gerçek)"; else log_fail "$ad: koordinatör çıkış kodu $rc"; tail -n 8 "$KOSU_DIR/koordinator.out"; fi
-    for ((i = 0; i < N_ARAC; i++)); do
-        arc=0
-        for ((rc = 0; rc < 300; rc++)); do kill -0 "${apid[$i]}" 2>/dev/null || break; sleep 0.1; done
-        if kill -0 "${apid[$i]}" 2>/dev/null; then log_fail "$ad: araç $((i + 1)) süreci TAMAMLANDI'dan sonra 30 sn içinde kapanmadı"; else wait "${apid[$i]}" 2>/dev/null || arc=$?; fi
-        if [[ "$arc" -eq 0 ]]; then log_ok "$ad: araç $((i + 1)) süreci kendiliğinden kapandı (çıkış 0)"; else log_fail "$ad: araç $((i + 1)) süreci çıkış kodu $arc"; tail -n 6 "$KOSU_DIR/arac_$((i + 1)).out"; fi
-    done
+    "$KOSU" bekle --sure-sn 900 > "$TMP_DIR/bekle.log" 2>&1 || rc=$?
+    if [[ "$rc" -eq 0 ]]; then log_ok "$ad: yer istasyonu çıkış 0, araç süreçleri kapandı ($((SECONDS - t0)) sn gerçek)"; else log_fail "$ad: kosu.sh bekle çıkış kodu $rc"; tail -n 6 "$TMP_DIR/bekle.log"; fi
     if [[ -n "${opg:-}" ]]; then grup_oldur "$opg"; log_info "$ad: gözlemci kapatıldı: $(tail -n 1 "$KOSU_DIR/olcum.out")"; fi
     PGIDS=()
     # çözümleme

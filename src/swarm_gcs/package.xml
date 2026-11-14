@@ -3,7 +3,7 @@
 <package format="3">
   <name>swarm_gcs</name>
   <version>0.1.0</version>
-  <description>Sürü yazılımının yer istasyonu paketi. Bu sürümde yalnız kare sonucu alıcı modülü ve sonuç defteri vardır (B11); görev koordinatörü düğümü sonraki kartın konusudur.</description>
+  <description>Sürü yazılımının yer istasyonu paketi. Görev koordinatörü (/gcs/mission_coordinator), izleme, komut arayüzü iskeleti ve kare sonucu alıcısı bu pakettedir; merkezi mod işçileri ve hedef birleştirme sonraki aşamalardır.</description>
   <maintainer email="takim@example.com">Proje ekibi</maintainer>
   <license>Apache-2.0</license>
 

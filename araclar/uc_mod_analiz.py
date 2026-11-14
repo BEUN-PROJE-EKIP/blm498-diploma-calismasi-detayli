@@ -90,7 +90,9 @@ def ana(argv):
     from swarm_vehicle import rota
     ham = rota.deney_env_oku()
     kimlikler = [int(x) for x in ham["UAV_SYS_IDS"].split()][:n_arac]
-    koord = jsonl(os.path.join(klasor, "koordinator_deneme.jsonl"))
+    sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+    from koordinator_kayit import koordinator_olaylari
+    koord = koordinator_olaylari(klasor)      # deneme koordinatörünün ya da asıl yer istasyonu koordinatörünün kaydı (aynı olay sözlüğü biçimi)
     ol = lambda ad: [x for x in koord if x["olay"] == ad]  # noqa: E731
     t0 = (ol("t0") or [None])[0]
     t1 = (ol("t1") or [None])[0]

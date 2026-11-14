@@ -1,0 +1,11 @@
+{"surum": 1, "tur": "gorev_olay", "olay": "gorev_atandi", "mono_ns": 1000000000000, "sim_ns": null, "arac_kimligi": 1, "mission_id": "G_20261114_120000"}
+{"surum": 1, "tur": "gorev_olay", "olay": "gorev_atandi", "mono_ns": 1000000100000, "sim_ns": null, "arac_kimligi": 2, "mission_id": "G_20261114_120000"}
+{"surum": 1, "tur": "gorev_olay", "olay": "hazir", "mono_ns": 1060000000000, "sim_ns": 90000000000, "arac_kimligi": 1}
+{"surum": 1, "tur": "gorev_olay", "olay": "eslesme", "mono_ns": 1061000000000, "sim_ns": 91000000000, "yayimci": 2}
+{"surum": 1, "tur": "gorev_olay", "olay": "birlestirme_yok", "mono_ns": 1061100000000, "sim_ns": 91100000000, "ayrinti": "hedef birleştirme (B15) M3'tedir"}
+{"surum": 1, "tur": "gorev_olay", "olay": "t0", "mono_ns": 1062000000000, "sim_ns": 92000000000, "mission_id": "G_20261114_120000"}
+{"surum": 1, "tur": "gorev_olay", "olay": "yok_sayildi", "mono_ns": 1100000000000, "sim_ns": 130000000000, "arac_kimligi": 2, "neden": "mission_id_uyusmuyor"}
+{"surum": 1, "tur": "gorev_olay", "olay": "tarama_bitisi", "mono_ns": 1252000000000, "sim_ns": 282000000000, "arac_kimligi": 1, "n_ilk": 185, "n_son": 565, "t_s_ns": null, "t_b_ns": null}
+{"surum": 1, "tur": "gorev_olay", "olay": "son_sonuc", "mono_ns": 1252500000000, "sim_ns": 282500000000}
+{"surum": 1, "tur": "gorev_olay", "olay": "t1", "mono_ns": 1252600000000, "sim_ns": 282600000000, "mission_id": "G_20261114_120000", "t1_eksi_son_bitis_ns": 600000000}
+{"surum": 1, "tur": "gorev_olay", "olay": "tamamlandi", "mono_ns": 1253000000000, "sim_ns": 283000000000, "arac_kimligi": 1}

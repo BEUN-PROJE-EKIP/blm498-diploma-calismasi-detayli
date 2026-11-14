@@ -21,7 +21,7 @@ BOZUK="$ORNEK/bozuk"
 BEKLENEN="$BOZUK/beklenen.txt"
 LOCK="$SETUP_DIR/locks/sha256sums.txt"
 GECERLI=(sahne_ornek_test.json bolge_rota_ornek.json kamera_kalibrasyon_ornek.json hedef_listesi_ornek.json kosu_ustveri_ornek.json
-         kare_olay_gazebo_damga_ornek.jsonl kare_olay_arac_sureci_ornek.jsonl kare_olay_yer_istasyonu_ornek.jsonl arac_durum_kaydi_ornek.jsonl kare_olay_kamera_alici_ornek.jsonl
+         kare_olay_gazebo_damga_ornek.jsonl kare_olay_arac_sureci_ornek.jsonl gorev_olay_ornek.jsonl kare_olay_yer_istasyonu_ornek.jsonl arac_durum_kaydi_ornek.jsonl kare_olay_kamera_alici_ornek.jsonl
          kare_sonuc_ornek.jsonl isci_kaynak_ornek.jsonl)
 
 dogrula() { python3 -I "$DOGRULA" "$@"; }

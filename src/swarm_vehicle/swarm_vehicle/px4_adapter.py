@@ -28,6 +28,7 @@ warnings.filterwarnings("ignore", category=FutureWarning)   # mavsdk paketinin y
 from mavsdk import System  # noqa: E402
 from mavsdk.mission import MissionItem, MissionPlan  # noqa: E402
 
+from . import komut_yolu as _komut  # noqa: E402
 from . import rota as _rota  # noqa: E402
 
 # WGS84
@@ -114,6 +115,7 @@ class Px4Adapter:
         self._origin = None                   # (enlem, boylam): yerel ENU orijini
         self._yuklu = 0                       # PX4'e yüklenip geri indirilerek doğrulanan görev öğesi sayısı
         self._ilk_hedef = None                # rotanın ilk noktası (enlem, boylam)
+        self._son_komut_sira = None           # bu araçta görülen en büyük komut sıra numarası (komut yolu iskeleti)
         self._ilk_yon = None                  # ilk tarama doğrusunun yönü (kuzeyden saat yönünde derece); rotadan hesaplanır, yoksa None
         self._hazir_tamam = False             # hazırlık: havada ve ilk noktada
         self._ilerleme = (0, 0)
@@ -361,6 +363,16 @@ class Px4Adapter:
                               "monotonik_ns": time.monotonic_ns()})
                 except Exception as e:  # noqa: BLE001
                     self._gunluk("geri_cagri_hatasi", hata=repr(e))
+
+    # --- komut yolu iskeleti ------------------------------------------------------------------------------------------------------------------
+    def komut_isle(self, vehicle_id, sequence):
+        """Yer istasyonundan araç komut konusuyla gelen komutun denetimi (komut yolu: swarm_gcs → araç komut konusu → px4_adapter). Belge komut türlerini tanımlamaz; kullanıcı kararı gereği yeni tür
+        uydurulmaz ve PX4'e HİÇBİR ŞEY YAZILMAZ: bu yöntem `_yaz` çağırmaz, komut sayacını artırmaz. Araç kimliği ve sıra numarası denetlenir (yanlış araç, tekrar ya da geriye giden sıra reddedilir);
+        denetimi geçen komut da ACK_REJECTED döner (neden: komut türü belgede tanımlı değil). Dönen: (ack_state, neden). Neden `komut_reddedildi` olayıyla günlüğe yazılır (`_yaz`'ın `komut` olayı değildir)."""
+        with self._kilit:
+            ack, neden, self._son_komut_sira = _komut.denetle(self.arac_kimligi, vehicle_id, sequence, self._son_komut_sira)
+        self._gunluk("komut_reddedildi", vehicle_id=int(vehicle_id), sequence=int(sequence), ack="ACK_REJECTED", neden=neden)
+        return ack, neden
 
     # --- iç: kimlik ve TEK komut yolu -------------------------------------------------------------------------------------------------------
     async def _kimlik_dogrula(self):

@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # uc_mod_testi.sh — uçta mod kabul testleri (B11): araçlar kare sonuçlarını reliable DDS ile yer istasyonuna gönderir; yer istasyonu alıcı modülü ve sonuç defteri; deneme
-# koordinatöründe COMPLETE kare koşulu (başsız Gazebo + PX4 SITL + ROS 2 araç süreçleri + deneme koordinatörü).
+# koordinatöründe COMPLETE kare koşulu (başsız Gazebo + PX4 SITL + ROS 2 araç süreçleri). Olağan akış (tek, hata, uc) araclar/kosu.sh + ASIL yer istasyonu koordinatörüyle (kosu.sh baslat --yer-istasyonu var → bekle → durdur);
+# gecikme/eksik sonuç senaryoları (gecikme) deneme koordinatörüyle (araçları bu betik başlatır).
 # Kullanım: ./uc_mod_testi.sh [--dry-run | --verify | -h] [birim] [tek] [hata] [uc] [gecikme]
 #   (argümansız)  hepsini çalıştırır; adlar verilirse yalnız onlar.
 #   --dry-run     hiçbir süreç başlatmaz, hiçbir şey derlemez; ne çalıştıracağını yazar
@@ -8,10 +9,10 @@
 # Testler:
 #   birim     birim testleri (sonuç defteri, yayımcı, QoS ayarı; ROS'suz), colcon build (swarm_msgs, swarm_vehicle, swarm_gcs), saf modüllerin rclpy'siz içe aktarımı, py_compile, tek komut yolu,
 #             SHM/taşıma profili denetimi
-#   tek       --arac 1, enjeksiyon kapalı: [n_ilk, n_son] her numara için yer istasyonunda tam bir sonuç; araç ↔ yer istasyonu birebir; COMPLETE yalnız son sonuçtan sonra; L = kullanilabilir − uretim;
+#   tek       --arac 1 (kosu.sh + asıl koordinatör), enjeksiyon kapalı: [n_ilk, n_son] her numara için yer istasyonunda tam bir sonuç; araç ↔ yer istasyonu birebir; COMPLETE yalnız son sonuçtan sonra; L = kullanilabilir − uretim;
 #             sürü ağı sayaçları (tc), araç soketleri yalnız 10.10.0.x, SHM yok
-#   hata      --arac 1, enjeksiyon açık (KAMERA_ENJEKSIYON=dusur=+20, ISCI_ENJEKSIYON=hata=+40): yer istasyonunda STATUS_FRAME_NOT_RECEIVED ve STATUS_PROCESSING_ERROR; COMPLETE yine her numara tamamken
-#   uc        --arac 3, tam rota, enjeksiyon kapalı: üç araçta tam küme; bariyer bütün eşleşmelerden sonra; t0, tarama bitişleri, son sonuç, t1 sırası; araç başına L, RTF, tc
+#   hata      --arac 1 (kosu.sh + asıl koordinatör), enjeksiyon açık (KAMERA_ENJEKSIYON=dusur=+20, ISCI_ENJEKSIYON=hata=+40): yer istasyonunda STATUS_FRAME_NOT_RECEIVED ve STATUS_PROCESSING_ERROR; COMPLETE yine her numara tamamken
+#   uc        --arac 3 (kosu.sh + asıl koordinatör), tam rota, enjeksiyon kapalı: üç araçta tam küme; bariyer bütün eşleşmelerden sonra; t0, tarama bitişleri, son sonuç, t1 sırası; araç başına L, RTF, tc
 #   gecikme   (1) araç 1'in sondan üçüncü sonucunun yayımı KARE_SONUC_ENJEKSIYON=gecik=+379:20 ile 20 sn geciktirilir: koordinatör COMPLETE'i bekler; (2) sonuç hiç gelmez (gecik=+379:100000):
 #             COMPLETE yayımlanmaz, koordinatör açık hata ile çıkar
 # Araç süreçleri ve koordinatör `setsid` ile ayrı süreç gruplarında başlatılır; her çıkışta (hata, Ctrl-C dahil) bu betik kendisi toplar. Bu betik install_all.sh/verify_all.sh sırasına GİRMEZ. sudo gerekmez.
@@ -63,6 +64,7 @@ grup_oldur() { # grup_oldur <pgid> : önce TERM, 5 sn sonra KILL
 }
 
 exit_hook() {
+    [[ "$DRY_RUN" -eq 0 && "$MODE" != verify ]] || return 0   # --dry-run/--verify hiçbir süreç başlatmaz; yaşayan (başkasına ait) koşuya DOKUNMAZ
     local i
     for ((i = ${#PGIDS[@]} - 1; i >= 0; i--)); do grup_oldur "${PGIDS[$i]}"; done
     PGIDS=()
@@ -101,9 +103,9 @@ check_prereqs() {
 
 print_plan() {
     log_info "[dry-run] birim: birim testleri (${BIRIM_TESTLER[*]##*/}); colcon build --base-paths src --packages-select swarm_msgs swarm_vehicle swarm_gcs; saf modüllerin rclpy'siz içe aktarımı; py_compile; tek komut yolu; SHM/taşıma profili"
-    log_info "[dry-run] tek: kosu.sh baslat --arac 1 → koordinatör + araç 1 (SWARM_BIND_ADDR=$UAV1_ADDR) → uc_mod_analiz.py → durdur"
+    log_info "[dry-run] tek: kosu.sh baslat --arac 1 --yer-istasyonu var (asıl koordinatör + araç 1; SWARM_BIND_ADDR=$UAV1_ADDR) → bekle → uc_mod_analiz.py → durdur"
     log_info "[dry-run] hata: tek + KAMERA_ENJEKSIYON=dusur=+20, ISCI_ENJEKSIYON=hata=+40"
-    log_info "[dry-run] uc: kosu.sh baslat --arac 3 → koordinatör + üç araç süreci (${UAV_ADDRS[*]}) → tc sayacı, soket ve SHM denetimi → analiz → durdur"
+    log_info "[dry-run] uc: kosu.sh baslat --arac 3 --yer-istasyonu var (asıl koordinatör + üç araç süreci: ${UAV_ADDRS[*]}) → bekle → tc sayacı, soket ve SHM denetimi → analiz → durdur"
     log_info "[dry-run] gecikme: (1) KARE_SONUC_ENJEKSIYON=gecik=+379:20 (2) gecik=+379:100000 + koordinatör --sonuc-zaman-asimi-sn 40"
     log_info "[dry-run] Her testten sonra araç süreci/koordinatör/px4/gz/mavsdk_server artığı, yeni dinleyen port, /dev/shm; sonda ros2 daemon, tc/ip denetimi. Hiçbir süreç başlatılmadı"
 }
@@ -129,6 +131,7 @@ snapshot() { # snapshot <ad>
         for c in px4 gz mavsdk_server ruby; do echo "proc $c $(pgrep -x -c "$c" || true)"; done
         echo "proc arac $(pgrep -f -c 'swarm_vehicle[.]arac' || true)"
         echo "proc koordinator $(pgrep -f -c 'koordinator_deneme[.]py' || true)"
+        echo "proc yer_istasyonu $(pgrep -f -c 'swarm_gcs[.]gorev_koordinatoru' || true)"
         echo "proc isci $(pgrep -f -c 'swarm_vehicle[.]cikarim_isci' || true)"
     } > "$TMP_DIR/$n.proc"
     ss -lntuH 2>/dev/null | awk '{print $1, $5}' | LC_ALL=C sort > "$TMP_DIR/$n.ports" || true
@@ -176,7 +179,7 @@ json_gecerli() { # json_gecerli <ad> <beklenen_bitis_durumu>
     if out="$(python3 -I "$DOGRULA" "$KOSU_DIR/kosu.json" 2>&1)"; then log_ok "$ad: kosu.json doğrulayıcıdan geçti"; else log_fail "$ad: kosu.json GEÇERSİZ"; while IFS= read -r l; do log_info "  | $l"; done <<< "$out"; fi
     bd="$(python3 -I "$HELPER" durum-alani "$KOSU_DIR/kosu.json" bitis_durumu)"
     if [[ "$bd" == "$bekl" ]]; then log_ok "$ad: bitiş durumu '$bd'"; else log_fail "$ad: bitiş durumu '$bd' (beklenen '$bekl')"; fi
-    for f in "$KOSU_DIR/kayit/yer_istasyonu_kare.jsonl" "$KOSU_DIR"/kayit/arac_sureci_*.jsonl; do
+    for f in "$KOSU_DIR/kayit/yer_istasyonu_kare.jsonl" "$KOSU_DIR/kayit/yer_istasyonu_gorev.jsonl" "$KOSU_DIR"/kayit/arac_sureci_*.jsonl; do
         [[ -f "$f" ]] || continue
         if out="$(python3 -I "$DOGRULA" "$f" 2>&1)"; then log_ok "$ad: ${f#"$KOSU_DIR"/} doğrulayıcıdan geçti ($(tail -n 1 <<< "$out" | sed 's/, .*jsonl)/)/'))"; else log_fail "$ad: ${f#"$KOSU_DIR"/} GEÇERSİZ: $(head -n 3 <<< "$out" | tr '\n' ';')"; fi
     done
@@ -267,6 +270,50 @@ senaryo() {
     json_gecerli "$ad" tamamlandi
 }
 
+# senaryo_asil <ad> <araç_sayısı> <analiz_argümanları|-> : OLAĞAN AKIŞ, ASIL yer istasyonu koordinatörüyle: kosu.sh baslat --yer-istasyonu var (EK_ENV ile) → bekle → analiz → durdur
+senaryo_asil() {
+    local ad="$1" n="$2" analiz_arg="$3" i rc=0 t0=$SECONDS tc0 tc1 id line w p
+    local -a aa=() pids=()
+    tc0="$(tc_bayt)"
+    env "${EK_ENV[@]+"${EK_ENV[@]}"}" "$KOSU" baslat --arac "$n" --yer-istasyonu var > "$TMP_DIR/$ad.baslat.log" 2>&1 || rc=$?
+    if [[ "$rc" -ne 0 ]]; then log_fail "$ad: baslat başarısız (çıkış $rc)"; tail -n 10 "$TMP_DIR/$ad.baslat.log"; return 0; fi
+    id="$(cat "$KOK/aktif")"
+    KOSU_DIR="$KOK/$id"
+    log_ok "$ad: baslat tamam, koşu $id (asıl yer istasyonu koordinatörü + $n araç süreci); ek ortam: ${EK_ENV[*]:-yok}"
+    # t0 yayımlanınca soket ve SHM denetimi (araç sürecinin python alt süreci)
+    for ((i = 0; i < 6000; i++)); do
+        if [[ -f "$KOSU_DIR/kayit/yer_istasyonu_gorev.jsonl" ]] && grep -q '"olay": "t0"' "$KOSU_DIR/kayit/yer_istasyonu_gorev.jsonl"; then break; fi
+        if [[ -f "$KOSU_DIR/yer_istasyonu.cikis" ]]; then break; fi
+        sleep 0.25
+    done
+    if [[ -f "$KOSU_DIR/kayit/yer_istasyonu_gorev.jsonl" ]] && grep -q '"olay": "t0"' "$KOSU_DIR/kayit/yer_istasyonu_gorev.jsonl"; then
+        for ((i = 1; i <= n; i++)); do
+            w="$(python3 -I "$HELPER" surecler "$KOSU_DIR/kosu.json" | awk -v a="arac_$i" '$1 == a {print $2}')"
+            p="$(pgrep -P "$w" -f 'swarm_vehicle[.]arac' | head -n 1 || true)"
+            pids+=("${p:-$w}")
+        done
+        soket_denetimi "$ad" "${pids[@]}"
+    fi
+    rc=0
+    "$KOSU" bekle --sure-sn 900 > "$TMP_DIR/$ad.bekle.log" 2>&1 || rc=$?
+    if [[ "$rc" -eq 0 ]]; then log_ok "$ad: yer istasyonu çıkış 0 ($((SECONDS - t0)) sn gerçek)"; else log_fail "$ad: kosu.sh bekle çıkış kodu $rc"; tail -n 6 "$TMP_DIR/$ad.bekle.log"; fi
+    tc1="$(tc_bayt)"
+    rc=0
+    if [[ "$analiz_arg" != "-" ]]; then read -r -a aa <<< "$analiz_arg"; fi
+    "$VENV_PY" -I "$ANALIZ" "$KOSU_DIR" --arac "$n" "${aa[@]+"${aa[@]}"}" --tc-once "${tc0:-0}" --tc-sonra "${tc1:-0}" > "$TMP_DIR/$ad.analiz.log" 2>&1 || rc=$?
+    while IFS= read -r line; do
+        case "$line" in
+            "SONUC gecti "*) log_ok "$ad: ${line#SONUC gecti }" ;;
+            "SONUC kaldi "*) log_fail "$ad: ${line#SONUC kaldi }" ;;
+            "OLCUM "*) log_info "$ad: ${line#OLCUM }" ;;
+            Traceback*|*Error*) log_fail "$ad: analiz hatası: $line" ;;
+        esac
+    done < "$TMP_DIR/$ad.analiz.log"
+    if [[ "$rc" -gt 1 ]]; then log_fail "$ad: analiz çıkış kodu $rc"; tail -n 12 "$TMP_DIR/$ad.analiz.log" | while IFS= read -r line; do log_info "  | $line"; done; fi
+    komut_dene "$TMP_DIR/$ad.durdur.log" "$ad: durdur tamam" "$ad: durdur başarısız" "$KOSU" durdur
+    json_gecerli "$ad" tamamlandi
+}
+
 want() { local t; for t in "${TESTS[@]}"; do [[ "$t" == "$1" ]] && return 0; done; return 1; }
 
 # --- Testler ----------------------------------------------------------------------------------------------------------
@@ -315,21 +362,21 @@ test_tek() {
     local ad=tek
     log_info "== tek: araç 1 + koordinatör, enjeksiyon kapalı =="
     EK_ENV=()
-    senaryo "$ad" 1 - ; kalan_yok "$ad"
+    senaryo_asil "$ad" 1 - ; kalan_yok "$ad"
 }
 
 test_hata() {
     local ad=hata
     log_info "== hata: araç 1, kare kaybı (KAMERA_ENJEKSIYON=dusur=+20) ve işçi hatası (ISCI_ENJEKSIYON=hata=+40) =="
     EK_ENV=("KAMERA_ENJEKSIYON=dusur=+20" "ISCI_ENJEKSIYON=hata=+40")
-    senaryo "$ad" 1 --hata ; EK_ENV=(); kalan_yok "$ad"
+    senaryo_asil "$ad" 1 --hata ; EK_ENV=(); kalan_yok "$ad"
 }
 
 test_uc() {
     local ad=uc
     log_info "== uc: üç araç, tam rota, enjeksiyon kapalı =="
     EK_ENV=()
-    senaryo "$ad" 3 - ; kalan_yok "$ad"
+    senaryo_asil "$ad" 3 - ; kalan_yok "$ad"
 }
 
 test_gecikme() {
@@ -346,7 +393,7 @@ test_gecikme() {
 snapshot once
 DAEMON_ONCE=0; if pgrep -f '[r]os2-daemon' >/dev/null; then DAEMON_ONCE=1; fi
 [[ "$DAEMON_ONCE" -eq 0 ]] || log_warn "Başlangıçta ros2 daemon yaşıyor (ölçülen ağa trafik basar); önce durdurun"
-if [[ -n "$(pgrep -a -x gz; pgrep -a -x ruby; pgrep -a -x px4; pgrep -a -x mavsdk_server; pgrep -af 'swarm_vehicle[.]arac|koordinator_deneme[.]py|swarm_vehicle[.]cikarim_isci')" ]]; then
+if [[ -n "$(pgrep -a -x gz; pgrep -a -x ruby; pgrep -a -x px4; pgrep -a -x mavsdk_server; pgrep -af 'swarm_vehicle[.]arac|koordinator_deneme[.]py|swarm_gcs[.]gorev_koordinatoru|swarm_vehicle[.]cikarim_isci')" ]]; then
     fail_stop "Başlangıçta gz/ruby/px4/mavsdk_server/araç süreci/işçi/koordinatör yaşıyor; önce kapatın (görsel istemci 'gz sim -g' açıksa kapatın)"
 fi
 [[ ! -f "$KOK/aktif" ]] || fail_stop "Bitmemiş bir koşu var ($(cat "$KOK/aktif")); önce araclar/kosu.sh temizle"

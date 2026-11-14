@@ -173,9 +173,20 @@ Yukarıdaki doğrulama listesinden ayrıdır: yazılım bileşenlerini (araç s�
 | `./setup/kamera_alici_testi.sh` | Kamera, damga bileşeni ve kamera alıcısı: kayıpsız akış, kayıp ve geç kare senaryoları (`kayip`) | `birim kayip` alt kümesi yaklaşık 5 dk; tam koşu daha uzun | `cmake` (damga bileşeni derlemesi); `colcon build` |
 | `./setup/cikarim_isci_testi.sh` | Çıkarım işçisi ve kare sonucu: GPU/CPU arka uçları, hata ve işçi ölümü senaryoları, üç araç | yaklaşık 15 dk | model ağırlık dosyaları (`yolo26l.pt`, `yolo26s.pt`, `yolo26s.onnx`; `.generated/models/`); GPU sürücüsü |
 | `./setup/uc_mod_testi.sh` | Uçta mod: araçlar kare sonuçlarını reliable DDS ile yer istasyonuna gönderir; her numara için tam bir sonuç, dört durum, COMPLETE'in son sonuçtan sonra gelmesi, gecikmiş/eksik sonuç senaryoları (alt kümeler: `birim`, `tek`, `hata`, `uc`, `gecikme`) | yaklaşık 25 dk (tamamı) | `colcon build` (üç paket: `swarm_msgs`, `swarm_vehicle`, `swarm_gcs`); model ağırlıkları |
+| `./setup/yer_istasyonu_testi.sh` | Yer istasyonu görev koordinatörü (`/gcs/mission_coordinator`): `Mission` ataması ve yerel rota karşılaştırması, bariyer/t0, COMPLETE/t1, izleme, komut yolu iskeleti, `kosu.sh` ile tek komutla üç araçlı koşu (alt kümeler: `birim`, `uc`, `komut`, `mission`, `bayat`) | yaklaşık 25 dk (tamamı) | `colcon build` (üç paket); model ağırlıkları |
 | `./setup/alan_pilot_testi.sh` | Alan ve rota mini pilotu: üç araç tam rotayı uçar; süre, yönelim, kapsama, bölge taşması ölçülür; aday alan tablosu yazdırılır | yaklaşık 5 dk | `colcon build`; model ağırlıkları; `numpy` (venv) |
 
 Notlar: süreler bu geliştirme makinesindendir (RTX 5070, 7950X); ölçüm testleri (`alan_pilot_testi`, `yuk_olcum_testi`) görsel istemci açıkken çalıştırılmamalıdır.
+
+**Tek komutla uçta modda üç araçlı koşu.** Kurulum ve `colcon build` sonrası (sürü ağı uygulanmış, `ros2 daemon` kapalı):
+
+```bash
+./araclar/kosu.sh baslat --arac 3 --yer-istasyonu var   # Gazebo + 3 PX4 + yer istasyonu görev koordinatörü + 3 araç süreci
+./araclar/kosu.sh bekle                                 # yer istasyonu bitene dek bekler; çıkış kodu 0 = koşu tamam
+./araclar/kosu.sh durdur
+```
+
+`--yer-istasyonu` verilmezse yalnız Gazebo ve PX4 başlar (kendi bağdaştırıcısını bağlayan testler için); `--yer-istasyonu yok` araç süreçlerini başlatır, koordinatörü başlatmaz. Koşu klasörü: `.generated/kosular/<kimlik>/` (görev kaydı `kayit/yer_istasyonu_gorev.jsonl`, izleme `kayit/yer_istasyonu_durum.jsonl`).
 
 **Gazebo görüntüsünü izlemek (isteğe bağlı).** Koşular başsızdır (görsel arayüz yok). Bir koşu sürerken görmek için ayrı bir terminalde, koşunun Gazebo bölümüyle bağlan: `GZ_PARTITION=<koşu bölümü> GZ_IP=127.0.0.1 gz sim -g` (bölüm adı `./setup/alan_pilot_testi.sh` çıktısının başında ve koşu klasöründeki `kosu.json` içindedir: `gz_partition`); kamera görüntüsü için açılan pencerede "Image Display" eklentisini ekleyip aracın kamera konusunu seç. **Önizleme açıkken yapılan koşu ölçüm sayılmaz** (ekran kartı ve işlemci yükü ekler); ölçüm koşusundan önce pencereyi kapat.
 

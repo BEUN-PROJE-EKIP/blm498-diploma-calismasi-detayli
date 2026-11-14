@@ -1,6 +1,11 @@
 # Biçim: dosya | doğrulayıcı çıktısında bulunması gereken metin | (isteğe bağlı) ek argümanlar
 # Her bozuk örnek reddedilmeli (çıkış kodu 1) ve çıktı belirtilen nedeni içermeli.
 kare_olay_gonderim_yanlis_kaynak.jsonl | yalnız araç süreci yazar
+gorev_olay_t1_sonuctan_once.jsonl | önce 'son_sonuc' olayı yazılmış olmalı
+gorev_olay_t1_t0_oncesi.jsonl | 't0' olayından önce olamaz
+gorev_olay_bilinmeyen_olay.jsonl | değerlerinden biri olmalı
+gorev_olay_mono_geriye.jsonl | geriye gidiyor
+gorev_olay_aralik_ters.jsonl | 0 <= n_ilk <= n_son
 sahne_test_14_insan.json | test bölümünde 15 insan olmalı
 sahne_yakin_hedefler.json | merkezleri arası
 sahne_alan_disi.json | alan dışında

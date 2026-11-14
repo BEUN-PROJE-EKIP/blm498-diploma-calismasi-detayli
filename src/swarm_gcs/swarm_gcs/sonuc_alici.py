@@ -1,7 +1,7 @@
 """Yer istasyonu kare sonucu alıcısı (B11, uçta mod): ortak kare sonucu konusuna (`KONU_KARE_SONUC`, reliable) ve tarama bitişi konusuna abone olur, sonuç defterini doldurur ve
 her geçerli sonuç için sonucun yer istasyonunda KULLANILABİLİR olduğu anı `kare_olay` (`kaynak: yer_istasyonu`, `olay: kullanilabilir`) olarak `kayit/yer_istasyonu_kare.jsonl` dosyasına yazar.
 
-Bu modül görev koordinatörünün (sonraki kart) parçası olacaktır; bu kartta deneme koordinatörü kullanır. rclpy düğümü dışarıdan verilir (aynı iş parçacığında `spin` edilir): abone geri çağrısı hafiftir
+Bu modül görev koordinatörünün (`gorev_koordinatoru`) parçasıdır; test sürücüsü deneme koordinatörü de kullanır. rclpy düğümü dışarıdan verilir (aynı iş parçacığında `spin` edilir): abone geri çağrısı hafiftir
 (defter güncellemesi + kuyruğa koyma); diske yazmayı ayrı bir iş parçacığı yapar. Kullanılabilirlik anı = geri çağrının başladığı `CLOCK_MONOTONIC` (iletinin alıcıya teslim edildiği an).
 Durum eşlemesi (`sonuc_durumu`): STATUS_DETECTIONS → `sonuc`, STATUS_NO_DETECTION → `tespit_yok`, STATUS_FRAME_NOT_RECEIVED → `kare_alinamadi`, STATUS_PROCESSING_ERROR → `islem_hatasi`
 (dört durum ayrıdır; işlem hatası "tespit yok" ya da "kare alınamadı" olarak yazılmaz). STATUS_UNKNOWN ya da ızgara dışı numaralandırma geçersiz sayılır ve sayılır/günlüğe yazılır.
