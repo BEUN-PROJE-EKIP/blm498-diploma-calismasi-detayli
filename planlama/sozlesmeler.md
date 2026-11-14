@@ -121,6 +121,7 @@ Mevcut anahtarlar (ağ, kimlik/port, kamera, çıkarım, eğitim) değişmedi. E
 | `SAHNE_GUNES_YUKSEKLIK_MIN/MAKS_DERECE` | 20, 85 | varsayım |
 | `KAL_KAMERA_KONUM_Z_M` | 0,10 | varsayım (ölçüm sahnesi düzeni) |
 | `MODEL_SINIFLAR` | `insan enkaz` | belge |
+| `BIRLESTIRME_ARALIK_M` | 2,5 | belge, kilitli (FR-19: aynı sınıf ve adayın sabit ilk konumuna en fazla 2,5 m; hedef birleştirme B15 ve nihai rapor doğrulayıcısı (§11.1) buradan okur) |
 | `KOSU_TEST_SAHNE_SAYISI`, `KOSU_MIMARILER`, `KOSU_ESZAMANLI` | 30, `ucta merkezi`, 0 | belge |
 | `KOSU_SIRA_TOHUMU` | 20260101 | varsayım (ana deney öncesi kaydedilir ve kilitlenir) |
 | `KOSU_ARAC_SAYISI` | 1 | varsayım (koşu betiğinin varsayılan araç sayısı) |
@@ -356,7 +357,7 @@ Değerlendirme ve analiz yazılımının (B18, E1a–E5a; M6a) girdileri, onlar�
 
 ### 11.1 Nihai hedef raporu (`tur: "nihai_rapor"`)
 
-Üreten: B15 (hedef birleştirme; M3). Okuyan: B18 (değerlendirme; M6a). Koşu başına bir dosya; yer istasyonunda **nihai hedef birleştirmesi tamamlandıktan sonra** yazılır. Birleştirme kuralı [belge]: tespitler üretim zamanı, araç ve kare numarası sırasıyla işlenir; aynı sınıftaki bir tespit mevcut adayın **sabit ilk konumuna en fazla 2,5 m** uzaklıktaysa o adaya eklenir, değilse yeni aday açılır; nihai konum, adaydaki **en yüksek güvenli** tespitin konumudur; gerçek hedef kimliği birleştirmede kullanılmaz (bu yüzden raporda gerçek hedef kimliği alanı **yoktur**; eşleştirme değerlendirmede yapılır).
+Üreten: B15 (hedef birleştirme; M3). Okuyan: B18 (değerlendirme; M6a). Koşu başına bir dosya; yer istasyonunda **nihai hedef birleştirmesi tamamlandıktan sonra** yazılır. Birleştirme kuralı [belge]: tespitler üretim zamanı, araç ve kare numarası sırasıyla işlenir; aynı sınıftaki bir tespit mevcut adayın **sabit ilk konumuna en fazla `BIRLESTIRME_ARALIK_M` (2,5 m)** uzaklıktaysa o adaya eklenir, değilse yeni aday açılır; nihai konum, adaydaki **en yüksek güvenli** tespitin konumudur; gerçek hedef kimliği birleştirmede kullanılmaz (bu yüzden raporda gerçek hedef kimliği alanı **yoktur**; eşleştirme değerlendirmede yapılır).
 
 | Alan | Tür / birim | Zorunluluk | Etiket | Açıklama |
 |---|---|---|---|---|
@@ -367,7 +368,7 @@ Değerlendirme ve analiz yazılımının (B18, E1a–E5a; M6a) girdileri, onlar�
 | `raporlar[].rapor_kimligi` | kimlik | zorunlu | [varsayım] | Koşu içinde tekil; gerçek hedef kimliği değildir. |
 | `raporlar[].sinif` | `MODEL_SINIFLAR` | zorunlu | [belge] | `insan` \| `enkaz`. |
 | `raporlar[].konum` | `{x_m, y_m}` ENU, m ya da `null` | zorunlu | [belge] | En yüksek güvenli tespitin konumu. `null` = **konumsuz rapor** (FP sayılır [belge]). |
-| `raporlar[].ilk_konum` | `{x_m, y_m}` ya da `null` | zorunlu | [belge] | Adayın sabit ilk konumu; `konum` ile birlikte dolu/`null`; dolu iken aralarındaki yatay uzaklık ≤ 2,5 m. |
+| `raporlar[].ilk_konum` | `{x_m, y_m}` ya da `null` | zorunlu | [belge] | Adayın sabit ilk konumu; `konum` ile birlikte dolu/`null`; dolu iken aralarındaki yatay uzaklık ≤ `BIRLESTIRME_ARALIK_M`. |
 | `raporlar[].guven` | sayı, `[INF_CONF, 1]` | zorunlu | [belge] | En yüksek tespit güveni (güven eşiği altı tespit yoktur). |
 | `raporlar[].tespit_sayisi` | tam sayı ≥ 1 | zorunlu | [varsayım] | Adaya eklenen tespit sayısı. |
 | `raporlar[].ilk_tespit`, `raporlar[].en_yuksek_guven_tespiti` | `{arac_kimligi, n, uretim_mono_ns}` | zorunlu | [varsayım] | Üreten araç (`UAV_SYS_IDS`), kare numarası ve karenin üretim anı (monotonik ns, t_üretim [belge]). `ilk_tespit` en yüksek güvenli tespitten sonra olamaz; tek tespitli adayda ikisi aynıdır. |

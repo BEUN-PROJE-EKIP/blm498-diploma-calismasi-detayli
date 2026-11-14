@@ -39,7 +39,7 @@ class Yapilandirma:
         "SAHNE_BOLUMLER SAHNE_SINIFLAR SAHNE_TEST_INSAN SAHNE_TEST_ENKAZ SAHNE_MERKEZ_MESAFE_TEST_M SAHNE_MERKEZ_MESAFE_DIGER_M SAHNE_DIGER_HEDEF_MAKS "
         "SAHNE_INSAN_VARYANTLARI SAHNE_ENKAZ_VARYANTLARI SAHNE_TEST_OZEL_INSAN SAHNE_TEST_OZEL_ENKAZ SAHNE_ZEMIN_VARYANTLARI "
         "SAHNE_GUNES_YUKSEKLIK_MIN_DERECE SAHNE_GUNES_YUKSEKLIK_MAKS_DERECE KAL_KAMERA_KONUM_Z_M CAM_WIDTH CAM_HEIGHT CAM_HFOV_DEG CAM_HFOV_RAD UAV_SYS_IDS "
-        "CAM_RATE_HZ KOSU_MIMARILER MODEL_SINIFLAR INF_CONF INF_MAX_DET"
+        "CAM_RATE_HZ KOSU_MIMARILER MODEL_SINIFLAR INF_CONF INF_MAX_DET BIRLESTIRME_ARALIK_M"
     ).split()
 
     def __init__(self, ham):
@@ -70,6 +70,7 @@ class Yapilandirma:
         self.mimariler = ham["KOSU_MIMARILER"].split()
         self.model_siniflari = ham["MODEL_SINIFLAR"].split()
         self.guven_esigi, self.max_det = f(ham["INF_CONF"]), int(ham["INF_MAX_DET"])
+        self.birlestirme_aralik = f(ham["BIRLESTIRME_ARALIK_M"])
 
     @property
     def x_aralik(self):
@@ -973,7 +974,6 @@ def dogrula_gorev_olay_dosyasi(c, satirlar):
 # ---------------------------------------------------------------------------------------------------------------------------------
 # Değerlendirme arayüzleri (taslak sürüm): nihai hedef raporu, koşu ölçüm özeti, sınırlayıcı bayt kaydı (planlama/sozlesmeler.md §11)
 # ---------------------------------------------------------------------------------------------------------------------------------
-BIRLESTIRME_ARALIK_M = 2.5            # [belge] aynı sınıf ve adayın sabit ilk konumuna en fazla 2,5 m uzaklıktaki tespit o adaya eklenir
 OLCUM_TAMAMLANAMA_NEDENLERI = ("zaman_asimi", "kuyruk_tasmasi", "surec_olumu", "diger")     # [varsayım] adlar; M6b'de kesinleşir
 SAYAC_SINIFI = "1:10"                 # [varsayım] ölçülen ağın sınırlayıcı sınıfı (setup/60_ag_emulasyon_tc.sh)
 OLCUM_TOL = 1e-6
@@ -1057,8 +1057,8 @@ def dogrula_nihai_rapor(c, d):
             h.ekle(f"{yol}.ilk_konum", "konum ile birlikte dolu ya da birlikte null olmalı (konumsuz rapor)")
         elif k_dolu and ik_dolu:
             uz = math.hypot(x["konum"]["x_m"] - x["ilk_konum"]["x_m"], x["konum"]["y_m"] - x["ilk_konum"]["y_m"])
-            if uz > BIRLESTIRME_ARALIK_M + 1e-9:
-                h.ekle(f"{yol}.konum", f"adayın sabit ilk konumuna en çok {BIRLESTIRME_ARALIK_M:g} m uzaklıkta olmalı (bulunan: {uz:.2f} m)")
+            if uz > c.birlestirme_aralik + 1e-9:
+                h.ekle(f"{yol}.konum", f"adayın sabit ilk konumuna en çok {c.birlestirme_aralik:g} m uzaklıkta olmalı (BIRLESTIRME_ARALIK_M) (bulunan: {uz:.2f} m)")
         g = x.get("guven")
         if not (sayi_mi(g) and c.guven_esigi <= g <= 1):
             h.ekle(f"{yol}.guven", f"[{c.guven_esigi:g}, 1] aralığında sayı olmalı (en yüksek güvenli tespitin güveni; bulunan: {g!r})")
