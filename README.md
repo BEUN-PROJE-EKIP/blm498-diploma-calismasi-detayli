@@ -244,145 +244,173 @@ Normal. Ağ ayarı yeniden başlatmada silinir. Şunu çalıştır: `./setup/60_
 
 `████████░░░░░░░░░░░░` %40,4
 
-Kilometre taşları (✔ bitti, ◐ sürüyor, ☐ başlamadı). Biten kilometre taşları kapalıdır, başlığına tıklayınca açılır.
+Kilometre taşları (✔ bitti, ◐ sürüyor, ☐ başlamadı). Maddeler iş sırasıyla dizilidir: sıradaki iş, bitmemiş en üstteki maddedir. Biten kilometre taşları kapalıdır, başlığına tıklayınca açılır.
 
 <details>
-<summary>✔ <b>K · Kurulum ve doğrulama</b> · Ömer Faruk GÜNER · %100,0</summary>
+<summary>✔ <b>K - Kurulum ve doğrulama</b> [%100,0]</summary>
 
-- ✔ K1 Temel yazılım kurulumu
-- ✔ K2a Ortam kilidi ve özet listesi
-- ✔ K2b apt ve NVIDIA sürüm kaydı
-- ✔ K3 GPU ve CUDA uyum testi
-- ✔ K4 Ultralytics ve MAVSDK sürüm kilidi
-- ✔ K5 gz-transport Python doğrulaması
-- ✔ K6 Fast DDS profili
-- ✔ K7 Bağlantı ve kimlik testleri
-- ✔ K8 Simülasyon ve PX4 zaman ekseni
-- ✔ K9 Kamera damga ve sıra ölçümü
-- ✔ K10 Kamera görüş açısı kilidi
-- ✔ K11 Üç araç yük ölçümü
-- ✔ K12 GPU/CPU kararı
-- ✔ K13 Eğitim batch denemesi
-- ✔ B16 Ağ emülasyonu betiği
-- ✔ B17 Kuyruk sınırı 4 MiB
-- ✔ B20 Yapılandırma ağ bölümü
-
-</details>
-
-<details>
-<summary>✔ <b>M0 · Sözleşmeler</b> · Ömer Faruk GÜNER · %100,0</summary>
-
-- ✔ B1 swarm_msgs mesaj paketi
+- ✔ K1 - Temel yazılım kurulumu
+- ✔ K2a - Ortam kilidi ve özet listesi
+- ✔ K2b - apt ve NVIDIA sürüm kaydı
+- ✔ K3 - GPU ve CUDA uyum testi
+- ✔ K4 - Ultralytics ve MAVSDK sürüm kilidi
+- ✔ K5 - gz-transport Python doğrulaması
+- ✔ K6 - Fast DDS profili
+- ✔ K7 - Bağlantı ve kimlik testleri
+- ✔ K8 - Simülasyon ve PX4 zaman ekseni
+- ✔ K9 - Kamera damga ve sıra ölçümü
+- ✔ K10 - Kamera görüş açısı kilidi
+- ✔ K11 - Üç araç yük ölçümü
+- ✔ K12 - GPU/CPU kararı
+- ✔ K13 - Eğitim batch denemesi
+- ✔ B16 - Ağ emülasyonu betiği
+- ✔ B17 - Kuyruk sınırı 4 MiB
+- ✔ B20 - Yapılandırma ağ bölümü
 
 </details>
 
 <details>
-<summary>✔ <b>M1 · Tek araç iskeleti</b> · Ömer Faruk GÜNER · %100,0</summary>
+<summary>✔ <b>M0 - Sözleşmeler</b> [%100,0]</summary>
 
-- ✔ B2 Bölgeler ve şerit rotaları
-- ✔ B3 PX4 bağdaştırıcısı
-- ✔ B4 Araç süreci ve durum makinesi
-- ✔ B6 Araç kamerası
-- ✔ B7 Gazebo damga bileşeni
-- ✔ B8 Kamera alıcısı
-- ✔ B9 Çıkarım işçisi
-- ✔ B10 Kare sonuç iletisi
+- ✔ B1 - swarm_msgs mesaj paketi
 
 </details>
 
 <details>
-<summary>✔ <b>M2 · Üç araç</b> · Ömer Faruk GÜNER · %100,0</summary>
+<summary>✔ <b>M1 - Tek araç iskeleti</b> [%100,0]</summary>
 
-- ✔ B5 Yer istasyonu koordinatörü
-- ✔ B11 Uçta mod iletişimi
+- ✔ B3 - PX4 bağdaştırıcısı
+- ✔ B4 - Araç süreci ve durum makinesi
+- ✔ B6 - Araç kamerası
+- ✔ B7 - Gazebo damga bileşeni
+- ✔ B8 - Kamera alıcısı
+- ✔ B9 - Çıkarım işçisi
+- ✔ B10 - Kare sonuç iletisi
+- ✔ B2 - Bölgeler ve şerit rotaları
+
+</details>
+
+<details>
+<summary>✔ <b>M2 - Üç araç</b> [%100,0]</summary>
+
+- ✔ B11 - Uçta mod iletişimi
+- ✔ B5 - Yer istasyonu koordinatörü
 
 </details>
 
 <details open>
-<summary>☐ <b>M3 · Merkezi mod ve izleme</b> · Ömer Faruk GÜNER · %0,0</summary>
+<summary>☐ <b>M3 - Merkezi mod ve izleme</b> [Ömer Faruk GÜNER, %0,0]</summary>
 
-- ☐ B12 Merkezi mod
-- ☐ B13 Disk kuyrukları ve aşama damgaları
-- ☐ B14 Poz enterpolasyonu ve konum hesabı
-- ☐ B15 Hedef birleştirme
+Bekler: yok, başlayabilir
 
-</details>
-
-<details open>
-<summary>☐ <b>M4 · Veri hattı</b> · Mikail DEĞER · %0,0</summary>
-
-- ☐ A1 Sahne üreticisi
-- ☐ A2 Eğitim, doğrulama, test sahneleri
-- ☐ A3 Etiket üretim yöntemi
-- ☐ A4a Görüntü ve etiket üretim kodu
-- ☐ A4b Eğitim ve doğrulama görüntüleri üretimi
-- ☐ A5 Etiket görsel kontrolü
-- ☐ A12 Çıkarım ayarları kilidi
+- ☐ B12 - Merkezi mod
+- ☐ B13 - Disk kuyrukları ve aşama damgaları
+- ☐ B14 - Poz enterpolasyonu ve konum hesabı
+- ☐ B15 - Hedef birleştirme
 
 </details>
 
 <details open>
-<summary>☐ <b>M5 · Model</b> · Mikail DEĞER · %0,0</summary>
+<summary>☐ <b>M4 - Veri hattı</b> [Mikail DEĞER, %0,0]</summary>
 
-- ☐ A6 Hazır veri seti (isteğe bağlı)
-- ☐ A7 Eğitim süresi pilotu
-- ☐ A8 A planı modeli eğitimi (isteğe bağlı)
-- ☐ A9 B planı modeli eğitimi
-- ☐ A10 Epoch seçimi
-- ☐ A11 Veri planı kaydı (isteğe bağlı)
-- ☐ A13 Model ve veri özetleri
+Bekler: yok, başlayabilir
 
-</details>
-
-<details open>
-<summary>☐ <b>M6 · Değerlendirme ve kabul</b> · Ömer Faruk GÜNER · %0,0</summary>
-
-- ☐ B18 Değerlendirme yazılımı (Miraç BOZACIOĞLU)
-- ☐ B19 Bütünleşik işlev testi
-- ☐ C1 Kabul testi 1: ağ adresleri
-- ☐ C2 Kabul testi 2: yerel trafik
-- ☐ C3 Kabul testi 3: sınırlayıcı sayacı
-- ☐ C4 Kabul testi 4: sayaç ve kayıtlar
-- ☐ C5 Kabul testi 5: paket düşürme
-- ☐ C6 Uç–merkez kaynak eşitliği
-- ☐ C7 İşçi CPU eşlemesi
-- ☐ C8 D ölçümü
-- ☐ C9 L ölçümü ve ek çıktılar
-- ☐ E1a Eşleştirme analiz betiği (Miraç BOZACIOĞLU)
-- ☐ E2a İyileşme analiz betiği (Miraç BOZACIOĞLU)
-- ☐ E3a Bootstrap betiği (Miraç BOZACIOĞLU)
-- ☐ E4a Karar kuralı betiği (Miraç BOZACIOĞLU)
-- ☐ E5a Sansürlü koşu betiği (Miraç BOZACIOĞLU)
+- ☐ A1 - Sahne üreticisi
+- ☐ A2 - Eğitim, doğrulama, test sahneleri
+- ☐ A3 - Etiket üretim yöntemi
+- ☐ A4a - Görüntü ve etiket üretim kodu
+- ☐ A4b - Eğitim ve doğrulama görüntüleri üretimi
+- ☐ A5 - Etiket görsel kontrolü
+- ☐ A12 - Çıkarım ayarları kilidi
 
 </details>
 
 <details open>
-<summary>☐ <b>M7 · Pilotlar ve kilit</b> · Ömer Faruk GÜNER · %0,0</summary>
+<summary>☐ <b>M5 - Model</b> [Mikail DEĞER, %0,0]</summary>
 
-- ☐ B21 Yapılandırma genişletmesi
-- ☐ C10 Kuyruk sınırı pilotu
-- ☐ C11 Nihai yapılandırma pilotları
-- ☐ C12 H hesabı
-- ☐ C13 Protokol ve ortam kilidi
-- ☐ C14 Koşu otomasyonu
+Bekler: M4
+
+- ☐ A7 - Eğitim süresi pilotu
+- ☐ A9 - B planı modeli eğitimi
+- ☐ A10 - Epoch seçimi
+- ☐ A13 - Model ve veri özetleri
+- ☐ A6 - Hazır veri seti (isteğe bağlı)
+- ☐ A8 - A planı modeli eğitimi (isteğe bağlı)
+- ☐ A11 - Veri planı kaydı (isteğe bağlı)
 
 </details>
 
 <details open>
-<summary>☐ <b>M8 · Ana deneyler ve analiz</b> · Ömer Faruk GÜNER · %0,0</summary>
+<summary>☐ <b>M6a - Değerlendirme ve analiz yazılımı</b> [Miraç BOZACIOĞLU, %0,0]</summary>
 
-- ☐ D1 Ana koşular 1–10
-- ☐ D2 Ana koşular 11–20
-- ☐ D3 Ana koşular 21–30
-- ☐ D4 Yeniden koşular ve kayıt
-- ☐ D5 Veri bütünlüğü
-- ☐ E1b Eşleştirme analizi, gerçek veri (Miraç BOZACIOĞLU)
-- ☐ E2b İyileşme analizi, gerçek veri (Miraç BOZACIOĞLU)
-- ☐ E3b Bootstrap, gerçek veri (Miraç BOZACIOĞLU)
-- ☐ E4b Karar tablosu, gerçek veri (Miraç BOZACIOĞLU)
-- ☐ E5b Sansürlü koşu analizi, gerçek veri (Miraç BOZACIOĞLU)
-- ☐ E6 Ek ölçülerin incelenmesi (Miraç BOZACIOĞLU)
-- ☐ E7 Sonuç raporu (Miraç BOZACIOĞLU)
+Bekler: yok, başlayabilir
+
+- ☐ B18 - Değerlendirme yazılımı
+- ☐ E1a - Eşleştirme analiz betiği
+- ☐ E2a - İyileşme analiz betiği
+- ☐ E3a - Bootstrap betiği
+- ☐ E4a - Karar kuralı betiği
+- ☐ E5a - Sansürlü koşu betiği
+
+</details>
+
+<details open>
+<summary>☐ <b>M6b - Bütünleşik koşu ve kabul testleri</b> [Ömer Faruk GÜNER, %0,0]</summary>
+
+Bekler: M3, M5, M6a
+
+- ☐ B19 - Bütünleşik işlev testi
+- ☐ C1 - Kabul testi 1: ağ adresleri
+- ☐ C2 - Kabul testi 2: yerel trafik
+- ☐ C3 - Kabul testi 3: sınırlayıcı sayacı
+- ☐ C4 - Kabul testi 4: sayaç ve kayıtlar
+- ☐ C5 - Kabul testi 5: paket düşürme
+- ☐ C6 - Uç–merkez kaynak eşitliği
+- ☐ C7 - İşçi CPU eşlemesi
+- ☐ C8 - D ölçümü
+- ☐ C9 - L ölçümü ve ek çıktılar
+
+</details>
+
+<details open>
+<summary>☐ <b>M7 - Pilotlar ve kilit</b> [Ömer Faruk GÜNER, %0,0]</summary>
+
+Bekler: M6a, M6b
+
+- ☐ B21 - Yapılandırma genişletmesi
+- ☐ C10 - Kuyruk sınırı pilotu
+- ☐ C14 - Koşu otomasyonu
+- ☐ C11 - Nihai yapılandırma pilotları
+- ☐ C12 - H hesabı
+- ☐ C13 - Protokol ve ortam kilidi
+
+</details>
+
+<details open>
+<summary>☐ <b>M8a - Ana deneyler</b> [Ömer Faruk GÜNER, %0,0]</summary>
+
+Bekler: M7
+
+- ☐ D1 - Ana koşular 1–10
+- ☐ D2 - Ana koşular 11–20
+- ☐ D3 - Ana koşular 21–30
+- ☐ D4 - Yeniden koşular ve kayıt
+- ☐ D5 - Veri bütünlüğü
+
+</details>
+
+<details open>
+<summary>☐ <b>M8b - Analiz ve rapor</b> [Miraç BOZACIOĞLU, %0,0]</summary>
+
+Bekler: M8a
+
+- ☐ E1b - Eşleştirme analizi, gerçek veri
+- ☐ E2b - İyileşme analizi, gerçek veri
+- ☐ E3b - Bootstrap, gerçek veri
+- ☐ E4b - Karar tablosu, gerçek veri
+- ☐ E5b - Sansürlü koşu analizi, gerçek veri
+- ☐ E6 - Ek ölçülerin incelenmesi
+- ☐ E7 - Sonuç raporu
 
 </details>
 
