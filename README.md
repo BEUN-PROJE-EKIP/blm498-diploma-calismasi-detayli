@@ -236,130 +236,157 @@ Normal. Ağ ayarı yeniden başlatmada silinir. Şunu çalıştır: `./setup/60_
 ## Tamamlanma Yüzdesi
 
 <!-- ILERLEME:BASLA -->
-**Projenin tamamlanma oranı: %25,9**  (28 / 74 madde bitti)
+**Genel tamamlanma: %25,9** (28 / 80 madde; kod ve makine işi dahil)
 
 `█████░░░░░░░░░░░░░░░` %25,9
 
-| Paket | Tarih | Ağırlık | Biten madde | Paketin ilerlemesi |
-|---|---|---|---|---|
-| K. Kurulum ve doğrulama testleri | 1 Şubat 2027 - 14 Şubat 2027 | %10 | 14 / 14 | %100,0 |
-| A. Veri ve model | 15 Şubat 2027 - 21 Mart 2027 | %20 | 0 / 13 | %0,0 |
-| B. Sürü yazılımı | 15 Şubat 2027 - 21 Mart 2027 | %25 | 14 / 21 | %63,6 |
-| C. Kabul testleri ve pilot koşular | 22 Mart 2027 - 18 Nisan 2027 | %20 | 0 / 14 | %0,0 |
-| D. Ana deneyler | 19 Nisan 2027 - 9 Mayıs 2027 | %15 | 0 / 5 | %0,0 |
-| E. Analiz ve raporlama | 10 Mayıs 2027 - 28 Mayıs 2027 | %10 | 0 / 7 | %0,0 |
+**Geliştirme oranı: %40,4** (28 / 55 geliştirme maddesi; yalnız kod ve altyapı işi)
 
-Aşağıdaki başlıklara tıklayınca maddeleri görürsün. Biten maddeler işaretli kutu (☑), kalın `[TAMAMLANDI]` etiketi ve italik açıklamayla; bitmeyenler boş kutuyla (☐) gösterilir.
+`████████░░░░░░░░░░░░` %40,4
+
+Kilometre taşları (✔ bitti, ◐ sürüyor, ☐ başlamadı). Biten kilometre taşları kapalıdır, başlığına tıklayınca açılır.
 
 <details>
-<summary><b>K. Kurulum ve doğrulama testleri</b> · 1 Şubat 2027 - 14 Şubat 2027 · 14 / 14 madde · %100,0</summary>
+<summary>✔ <b>K · Kurulum ve doğrulama</b> · Ömer Faruk GÜNER · %100,0</summary>
 
-- [x] **K1 [TAMAMLANDI]** - *Ubuntu 24.04, ROS 2 Jazzy, Gazebo Harmonic 8.15, PX4 v1.16.0, MAVSDK-Python 3.17.4 + mavsdk_server kurulumu; Gazebo grafik arayüzsüz, yalnız sunucu modunda çalışır (FR-31)*
-- [x] **K2a [TAMAMLANDI]** - *Ortam kilidi: sürümler (`versions.env`), Python kilidi (pip `-c`, PyTorch/Ultralytics dahil), PX4 commit kaydı, SHA-256 özet listesi, kurulum raporu (FR-31)*
-- [x] **K2b [TAMAMLANDI]** - *Ortam kilidi: apt paketlerinin ve NVIDIA sürücüsü/CUDA bileşenlerinin tam sürüm listesi kaydı (FR-31)*
-- [x] **K3 [TAMAMLANDI]** - *NVIDIA sürücüsü, CUDA ve PyTorch CUDA derlemesi uyum testi (RTX 5070, sm_120) (GŞÖA 6.2)*
-- [x] **K4 [TAMAMLANDI]** - *Ultralytics (8.4.210) ve MAVSDK-Python (3.17.4) sürümlerinin birlikte çalışma testinde sabitlenmesi (FR-31)*
-- [x] **K5 [TAMAMLANDI]** - *gz-transport Python bağlamalarının çalıştığının doğrulanması (gerçek mesaj alışverişi) (GŞÖA 5.3)*
-- [x] **K6 [TAMAMLANDI]** - *Fast DDS XML profili (yalnız UDPv4; SHM, data-sharing, intraprocess kapalı; sabit tek yayın keşif) ve ROS 2 tarafından uygulandığının doğrulanması (FR-21)*
-- [x] **K7 [TAMAMLANDI]** - *Tek araç ve üç araç bağlantı/kimlik testleri: MAV_SYS_ID 1–3, UDP 14540–14542, gRPC 50051–50053, ad alanı /uav_1–/uav_3, beklenen sistem kimliği doğrulanmadan komut yok (FR-2, FR-8)*
-- [x] **K8 [TAMAMLANDI]** - *Tek araç: simülasyon zamanı ile PX4 zaman damgalarının aynı eksende olduğunun doğrulanması (FR-17)*
-- [x] **K9 [TAMAMLANDI]** - *Tek araç: Gazebo kamera damgalarının 0,5 s'nin tam katı ve karelerin sırayla teslim edildiğinin doğrulanması; doğrulanmazsa iki mod için yedek yola geçiş kararı (FR-10, FR-11)*
-- [x] **K10 [TAMAMLANDI]** - *Kameranın yatay görüş açısının 30 m'den hedef piksel boyutu ölçülerek belirlenmesi ve 3. hafta başında kilitlenmesi (GŞÖA 5.2)*
-- [x] **K11 [TAMAMLANDI]** - *Üç araç + üç kamera + üç GPU işçisi + Gazebo birlikte: işçi başına kare/s, gerçek zaman faktörü, GPU belleği ölçümü (nms=False) (FR-15, FR-24)*
-- [x] **K12 [TAMAMLANDI]** - *GPU/CPU kararı: araç başına 2 kare/s sağlanıyor mu; sağlanmıyorsa YOLO26s + ONNX Runtime CPU hız ölçümü, NMS'siz çıktı kontrolü, B planı kararı (FR-15)*
-- [x] **K13 [TAMAMLANDI]** - *Eğitim denemesi: batch=16 GPU belleğine sığıyor mu (sığmazsa bellek ölçütüyle en büyük değer), eğitim içi doğrulama nms=False kullanıyor mu (GŞÖA 6.2)*
+- ✔ K1 Temel yazılım kurulumu
+- ✔ K2a Ortam kilidi ve özet listesi
+- ✔ K2b apt ve NVIDIA sürüm kaydı
+- ✔ K3 GPU ve CUDA uyum testi
+- ✔ K4 Ultralytics ve MAVSDK sürüm kilidi
+- ✔ K5 gz-transport Python doğrulaması
+- ✔ K6 Fast DDS profili
+- ✔ K7 Bağlantı ve kimlik testleri
+- ✔ K8 Simülasyon ve PX4 zaman ekseni
+- ✔ K9 Kamera damga ve sıra ölçümü
+- ✔ K10 Kamera görüş açısı kilidi
+- ✔ K11 Üç araç yük ölçümü
+- ✔ K12 GPU/CPU kararı
+- ✔ K13 Eğitim batch denemesi
+- ✔ B16 Ağ emülasyonu betiği
+- ✔ B17 Kuyruk sınırı 4 MiB
+- ✔ B20 Yapılandırma ağ bölümü
 
 </details>
 
 <details>
-<summary><b>A. Veri ve model</b> · 15 Şubat 2027 - 21 Mart 2027 · 0 / 13 madde · %0,0</summary>
+<summary>✔ <b>M0 · Sözleşmeler</b> · Ömer Faruk GÜNER · %100,0</summary>
 
-- [ ] A1 - Gazebo sahne üreticisi: iki sınıf (görünür insan, görünür enkaz yığını); ışık, konum, yönelim tohumla; kısmi örtülme yok; hedefler birbirini örtmez (FR-16, FR-26)
-- [ ] A2 - 60 eğitim + 10 doğrulama + 30 test sahnesi; yerleşim, tohum ve görünüm varyantı bölümler arasında ayrık; test hedef merkezleri ≥ 10 m; test sahnesinde 15 insan + 15 enkaz (FR-26)
-- [ ] A3 - Etiket üretimi: Gazebo sınır kutusu kamerası (olmazsa hedef sınır kutularının izdüşümü); yöntem pilotta kilitlenir (GŞÖA 6.1)
-- [ ] A4 - 7.200 eğitim + 1.200 doğrulama görüntüsü ve etiketleri, yerden 30 m, test koşularıyla aynı kamera ayarları (GŞÖA 6.2)
-- [ ] A5 - Etiketlerin %10'u sahne ve sınıf bazında tabakalı görsel kontrol; sistematik hata ilgili bölümün tümünde düzeltilir (GŞÖA 6.1)
-- [ ] A6 - (isteğe bağlı) Hazır veri seti: akademik lisanslı, havadan çekilmiş; künye, lisans, SHA-256; sınıf eşleme tablosu ve örneklem kontrolü; yalnız eğitim bölümüne (GŞÖA 6.1)
-- [ ] A7 - Eğitim süresinin pilotta ölçülmesi, 14 haftalık takvime uygunluk değerlendirmesi (GŞÖA 6.2)
-- [ ] A8 - (isteğe bağlı, ana deneylerden sonra, model kilidini değiştirmez) A veri planı modeli (hazır veri + Gazebo) eğitimi: 50 epoch, batch=16, 640, nms=False (eğitim çağrısında `nms=False` açıkça verilir; verilmezse eğitim içi doğrulama NMS'li başlıkla çalışır, K13 bulgusu), save_period=1 (FR-15, FR-16)
-- [ ] A9 - B veri planı modeli (yalnız Gazebo) aynı ayarlarla eğitimi; eğitim çağrısında `nms=False` açıkça verilir (K13 bulgusu: verilmezse eğitim içi doğrulama NMS'li) (FR-15, FR-16)
-- [ ] A10 - Epoch seçimi: Gazebo doğrulama sahnelerinde iki sınıf ortalama AP50'yi en çoklayan epoch (eşitlikte erken) (GŞÖA 6)
-- [ ] A11 - Veri planı (kullanıcı kararı): B planı (yalnız Gazebo) birinci öncelik ve sabittir; A planı isteğe bağlı ek deney olarak yalnız zaman kalırsa, ana deneylerden sonra denenir ve sonucu (beklenen/düşük çıkması dahil, önceden varsayılmadan) raporlanır; ana deneylerde kullanılan model kilidini ve seçimi değiştirmez (GŞÖA 6)
-- [ ] A12 - Çıkarım ayarlarının sabitlenmesi: güven 0,25; nms=False; max_det 300; FP32; batch=1 (FR-15)
-- [ ] A13 - Model ve veri dosyalarının nihai SHA-256 özetleri (6. hafta sonu) (FR-31)
+- ✔ B1 swarm_msgs mesaj paketi
 
 </details>
 
 <details>
-<summary><b>B. Sürü yazılımı</b> · 15 Şubat 2027 - 21 Mart 2027 · 14 / 21 madde · %63,6</summary>
+<summary>✔ <b>M1 · Tek araç iskeleti</b> · Ömer Faruk GÜNER · %100,0</summary>
 
-- [x] **B1 [TAMAMLANDI]** - *`swarm_msgs`: durum, görev, tarama başlatma/bitiş, COMPLETE, kare sonucu, "kare alınamadı", komut (araç kimliği, sıra numarası, onay durumu) mesaj tanımları (FR-2, FR-3, FR-4, FR-12)*
-- [x] **B2 [TAMAMLANDI]** - *Alanın üç çakışmayan tarama bölgesine ayrılması, şerit planı (w = 2·30·tan(görüş açısı/2), komşu izler ≥ 2 m örtüşür), rota dosyaları (FR-1)*
-- [x] **B3 [TAMAMLANDI]** - *`px4_adapter`: araç başına ayrı MAVSDK System ve mavsdk_server; sistem kimliği doğrulaması; rotanın yerden 30 m görev (mission) olarak yüklenmesi; PX4'e komut yazan tek modül (FR-7, FR-8)*
-- [x] **B4 [TAMAMLANDI]** - *Araç süreci (`swarm_vehicle`): tek ROS 2 düğümü /uav_N, durum/görev modülü, 2 Hz durum, diğer iki aracın durumunu alma ve kaydetme, durum makinesi (HAZIR → BARİYER_BEKLE → TARAMA → WAIT → TAMAMLANDI) (FR-2, FR-4)*
-- [x] **B5 [TAMAMLANDI]** - *Yer istasyonu (`swarm_gcs`): `/gcs/mission_coordinator` (hazır bildirimleri, başlangıç bariyeri, t0; COMPLETE koşulları, t1), izleme ve komut arayüzü (FR-3, FR-5)*
-- [x] **B6 [TAMAMLANDI]** - *Araç gövdesine sabit, aşağı bakan kamera (640 × 480 RGB8, sıkıştırmasız, 2 kare/s) ve kalibrasyon dosyası (FR-9)*
-- [x] **B7 [TAMAMLANDI]** - *Gazebo sunucusunda damga bileşeni: araç kimliği, simülasyon zamanı, kare numarası (n = 2·t_sim), üretim anının monotonik zamanı (FR-10, FR-23)*
-- [x] **B8 [TAMAMLANDI]** - *Kamera alıcısı: gz-transport doğrudan abone (ros_gz_bridge yok), kare numaralandırma, "kare alınamadı" ve "geç geldi" kuralları; damgalar doğrulanmazsa yedek yol (FR-10, FR-11)*
-- [x] **B9 [TAMAMLANDI]** - *Çıkarım işçisi (alt süreç, IP kullanmayan yerel kanal): YOLO26L, GPU, FP32, batch=1, nms=False, güven 0,25; B planında YOLO26s + ONNX Runtime CPU (FR-13, FR-15, FR-16)*
-- [x] **B10 [TAMAMLANDI]** - *Kare sonuç iletisi: tespit yoksa açık "tespit yok", işlem hatası ve "kare alınamadı" "tespit yok" olarak kodlanmaz (FR-12)*
-- [x] **B11 [TAMAMLANDI]** - *Uçta mod: kare sonuçları, "kare alınamadı" kayıtları reliable DDS QoS ile; durum ve görev mesajları DDS ile (FR-13)*
-- [ ] B12 - Merkezi mod: araç başına TCP kanalı, sıkıştırmasız görüntü, geri basınçta kare atılmaz; her iletide araç kimliği, kare numarası, simülasyon zamanı, kamera kalibrasyon kimliği ve kare üretim anına eşlenmiş canlı PX4 konum/yönelim tahmini; yer istasyonunda üç çıkarım işçisi (FR-14)
-- [ ] B13 - Disk destekli uygulama kuyrukları; kare başına aşama zaman damgaları (üretim, kuyruğa giriş, aktarım, çıkarım başı/sonu, kullanılabilirlik) (GŞÖA 6.8)
-- [ ] B14 - Kare–poz enterpolasyonu (konum doğrusal, yönelim küresel) ve konum hesaplayıcı (NED→ENU, kutu merkezinden ışın–zemin kesişimi, aralık sınırı 100 ms); telemetri yüksek hızda alınıp kaynak zamanına göre saklanır, merkezde gecikmiş kare 2 Hz durum mesajıyla konumlandırılmaz (FR-17, FR-18)
-- [ ] B15 - Hedef birleştirme: üretim zamanına göre işleme, aynı sınıf ve ilk konuma ≤ 2,5 m ise aday, en yüksek güvenli tespitin konumu (FR-19)
-- [x] **B16 [TAMAMLANDI]** - *Ağ emülasyonu betiği: loopback 10.10.0.0/24, tek ortak htb sınırlayıcı 25 Mbit/s, bayt sınırlı FIFO, geri alma ve doğrulama (FR-20)*
-- [x] **B17 [TAMAMLANDI]** - *Sınırlayıcı kuyruk sınırının el kitabındaki öngörülen değere (4 MiB) getirilmesi ve yeniden doğrulanması (eskiden yapılandırmada 256 KiB idi) (FR-20)*
-- [ ] B18 - Değerlendirme yazılımı: sınıf ve ≤ 5 m şartıyla Macar algoritmasıyla bire bir atama; TP, FP, FN, R, precision (FR-28)
-- [ ] B19 - Bütünleşik işlev testi, iki modda: bölge paylaşımı, ortak başlangıç, ilerleme bildirimi, ortak tamamlanma; her görev karesi için sonuç veya "kare alınamadı" (FR-1, FR-2, FR-3, FR-4, FR-5)
-- [x] **B20 [TAMAMLANDI]** - *Deney yapılandırma dosyasının ağ ve port bölümü (adresler, kuyruk, portlar, kimlikler) (GŞÖA 5.1)*
-- [ ] B21 - Deney yapılandırma dosyasının genişletilmesi: sahne, rota, model, koşu, çıkarım ayarları (GŞÖA 5.1)
+- ✔ B2 Bölgeler ve şerit rotaları
+- ✔ B3 PX4 bağdaştırıcısı
+- ✔ B4 Araç süreci ve durum makinesi
+- ✔ B6 Araç kamerası
+- ✔ B7 Gazebo damga bileşeni
+- ✔ B8 Kamera alıcısı
+- ✔ B9 Çıkarım işçisi
+- ✔ B10 Kare sonuç iletisi
 
 </details>
 
 <details>
-<summary><b>C. Kabul testleri ve pilot koşular</b> · 22 Mart 2027 - 18 Nisan 2027 · 0 / 14 madde · %0,0</summary>
+<summary>✔ <b>M2 · Üç araç</b> · Ömer Faruk GÜNER · %100,0</summary>
 
-- [ ] C1 - Ağ sınırı kabul testi 1: ölçülen DDS ve görüntü kanalı soketleri yalnız 10.10.0.x adreslerini kullanır (FR-25)
-- [ ] C2 - Kabul testi 2: yerel trafik üretilirken D sayacı artmaz; yer istasyonu bileşenleri ve çıkarım alt süreçlerinde DDS yok (FR-25)
-- [ ] C3 - Kabul testi 3: bilinen boyutlu gönderim sınırlayıcıdan geçer, bir kez sayılır, burst ≥ en büyük paket (FR-25)
-- [ ] C4 - Kabul testi 4: sayaçlar ile kare ve mesaj sıra kayıtları karşılaştırılır, açıklanmamış boşluk yok (FR-25, FR-22)
-- [ ] C5 - Kabul testi 5: eşleşmeden sonra %100 paket düşürme, her iki modda; uygulama teslimi durur, Gazebo–PX4/MAVLink sürer, kaldırılınca devam eder (FR-25)
-- [ ] C6 - Uç/merkez ve kaynak eşitliği doğrulaması: aynı sahne, rota, tohum, kamera, ağırlık özeti, GPU, FP32, batch, nms=False, güven; bellek ve GPU kayıtları (GŞÖA 5.3)
-- [ ] C7 - İşçi CPU eşlemesi: işçi başına aynı fiziksel çekirdeğe ait iki mantıksal CPU, çakışmasız, diğer süreçler dışarıda; iki modda aynı eşleme (GŞÖA 5.2)
-- [ ] C8 - D ölçümü: t0 ve t1 anlarında sınırlayıcı gönderilmiş bayt sayaçları; COMPLETE baytları ayrı (FR-22)
-- [ ] C9 - L ölçümü ve ek çıktılar (precision, FP/görev, konum hatası, tamamlanamayan oranı, hazırlık süresi, RTF, kare sayısı, GPU kullanımı/belleği) (FR-23, FR-24)
-- [ ] C10 - Ayar pilotları: ortak FIFO kuyruk sınırının kesin değeri (FR-20)
-- [ ] C11 - Nihai yapılandırmayla pilotlar: 3 doğrulama sahnesi × 2 mod = 6 koşu; rota uzunluğu, hız, tarama süresi, RTF; her hedef ≥ 1 karenin görüş alanında (FR-27)
-- [ ] C12 - Tp, Sp, Dp ve H = 60·⌈2·max(Tp, Sp + 8Dp/C)/60⌉ hesabı (FR-27)
-- [ ] C13 - Kalan protokol değerleri (telemetri aralık sınırı vb.); ortam kilidi ve protokol kilidi (etiketli commit + SHA-256 listesi) (FR-31)
-- [ ] C14 - Koşu otomasyonu: 30 sahne × 2 mod, çift içi sıra kaydedilen rastgele tohumla, eşzamanlı çalıştırma yok, eğitim de ana koşularla eşzamanlı yapılmaz, başlatma dosyaları tek yapılandırmadan (FR-26)
+- ✔ B5 Yer istasyonu koordinatörü
+- ✔ B11 Uçta mod iletişimi
 
 </details>
 
-<details>
-<summary><b>D. Ana deneyler</b> · 19 Nisan 2027 - 9 Mayıs 2027 · 0 / 5 madde · %0,0</summary>
+<details open>
+<summary>☐ <b>M3 · Merkezi mod ve izleme</b> · Ömer Faruk GÜNER · %0,0</summary>
 
-- [ ] D1 - Ana koşular: sahne 1–10 (her biri iki modda) (FR-26, FR-27)
-- [ ] D2 - Ana koşular: sahne 11–20 (FR-26, FR-27)
-- [ ] D3 - Ana koşular: sahne 21–30 (FR-26, FR-27)
-- [ ] D4 - Teknik geçersizlik halinde ilgili çiftin iki mod için yeniden çalıştırılması; tamamlanamayan koşuların kaydı (dışlama yok) (FR-27)
-- [ ] D5 - Koşu verilerinin bütünlüğü: dosya özetleri, sayaç–kayıt tutarlılığı (FR-31)
+- ☐ B12 Merkezi mod
+- ☐ B13 Disk kuyrukları ve aşama damgaları
+- ☐ B14 Poz enterpolasyonu ve konum hesabı
+- ☐ B15 Hedef birleştirme
+
+</details>
+
+<details open>
+<summary>☐ <b>M4 · Veri hattı</b> · Mikail DEĞER · %0,0</summary>
+
+- ☐ A1 Sahne üreticisi
+- ☐ A2 Eğitim, doğrulama, test sahneleri
+- ☐ A3 Etiket üretim yöntemi
+- ☐ A4a Görüntü ve etiket üretim kodu
+- ☐ A4b Eğitim ve doğrulama görüntüleri üretimi
+- ☐ A5 Etiket görsel kontrolü
+- ☐ A12 Çıkarım ayarları kilidi
 
 </details>
 
-<details>
-<summary><b>E. Analiz ve raporlama</b> · 10 Mayıs 2027 - 28 Mayıs 2027 · 0 / 7 madde · %0,0</summary>
+<details open>
+<summary>☐ <b>M5 · Model</b> · Mikail DEĞER · %0,0</summary>
 
-- [ ] E1 - Hedef eşleştirme ve R, precision, FP; iki mod için mutlak ve sınıf bazlı (FR-24, FR-28)
-- [ ] E2 - D, B, T için sahne başına yüzde iyileşme; L için medyan ve 95. yüzdelik farkları (FR-29)
-- [ ] E3 - %95 percentile bootstrap, 10.000 yeniden örnekleme, eşleştirme bozulmadan (FR-29)
-- [ ] E4 - Ölçüt ölçüt karar kuralı; R için üç sonuçlu kural; tek ortak başarı kararı yok; "fark gösterilemedi" eşdeğerlik değil (FR-30)
-- [ ] E5 - Tamamlanamayan koşular: sansürlü süre gösterimi, kısmi trafik, tamamlanan çiftlerle koşullu analiz (FR-27)
-- [ ] E6 - RTF, kare sayısı, rota sapması, konum hatası ve birleştirme hatalarının incelenmesi (GŞÖA 6.8)
-- [ ] E7 - Sonuçların raporlanması (simülasyon sınırları ve varsayımlar açıkça belirtilerek) (FR-30)
+- ☐ A6 Hazır veri seti (isteğe bağlı)
+- ☐ A7 Eğitim süresi pilotu
+- ☐ A8 A planı modeli eğitimi (isteğe bağlı)
+- ☐ A9 B planı modeli eğitimi
+- ☐ A10 Epoch seçimi
+- ☐ A11 Veri planı kaydı (isteğe bağlı)
+- ☐ A13 Model ve veri özetleri
 
 </details>
+
+<details open>
+<summary>☐ <b>M6 · Değerlendirme ve kabul</b> · Ömer Faruk GÜNER · %0,0</summary>
+
+- ☐ B18 Değerlendirme yazılımı (Miraç BOZACIOĞLU)
+- ☐ B19 Bütünleşik işlev testi
+- ☐ C1 Kabul testi 1: ağ adresleri
+- ☐ C2 Kabul testi 2: yerel trafik
+- ☐ C3 Kabul testi 3: sınırlayıcı sayacı
+- ☐ C4 Kabul testi 4: sayaç ve kayıtlar
+- ☐ C5 Kabul testi 5: paket düşürme
+- ☐ C6 Uç–merkez kaynak eşitliği
+- ☐ C7 İşçi CPU eşlemesi
+- ☐ C8 D ölçümü
+- ☐ C9 L ölçümü ve ek çıktılar
+- ☐ E1a Eşleştirme analiz betiği (Miraç BOZACIOĞLU)
+- ☐ E2a İyileşme analiz betiği (Miraç BOZACIOĞLU)
+- ☐ E3a Bootstrap betiği (Miraç BOZACIOĞLU)
+- ☐ E4a Karar kuralı betiği (Miraç BOZACIOĞLU)
+- ☐ E5a Sansürlü koşu betiği (Miraç BOZACIOĞLU)
+
+</details>
+
+<details open>
+<summary>☐ <b>M7 · Pilotlar ve kilit</b> · Ömer Faruk GÜNER · %0,0</summary>
+
+- ☐ B21 Yapılandırma genişletmesi
+- ☐ C10 Kuyruk sınırı pilotu
+- ☐ C11 Nihai yapılandırma pilotları
+- ☐ C12 H hesabı
+- ☐ C13 Protokol ve ortam kilidi
+- ☐ C14 Koşu otomasyonu
+
+</details>
+
+<details open>
+<summary>☐ <b>M8 · Ana deneyler ve analiz</b> · Ömer Faruk GÜNER · %0,0</summary>
+
+- ☐ D1 Ana koşular 1–10
+- ☐ D2 Ana koşular 11–20
+- ☐ D3 Ana koşular 21–30
+- ☐ D4 Yeniden koşular ve kayıt
+- ☐ D5 Veri bütünlüğü
+- ☐ E1b Eşleştirme analizi, gerçek veri (Miraç BOZACIOĞLU)
+- ☐ E2b İyileşme analizi, gerçek veri (Miraç BOZACIOĞLU)
+- ☐ E3b Bootstrap, gerçek veri (Miraç BOZACIOĞLU)
+- ☐ E4b Karar tablosu, gerçek veri (Miraç BOZACIOĞLU)
+- ☐ E5b Sansürlü koşu analizi, gerçek veri (Miraç BOZACIOĞLU)
+- ☐ E6 Ek ölçülerin incelenmesi (Miraç BOZACIOĞLU)
+- ☐ E7 Sonuç raporu (Miraç BOZACIOĞLU)
+
+</details>
+
+Ayrıntı ve bitti ölçütleri: `planlama/gelistirme_agaci.md`.
 <!-- ILERLEME:BITIS -->
 
 ---

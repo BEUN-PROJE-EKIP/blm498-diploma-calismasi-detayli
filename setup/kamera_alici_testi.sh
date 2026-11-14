@@ -129,7 +129,7 @@ snapshot() { # snapshot <ad>
         echo "proc arac $(pgrep -f -c 'swarm_vehicle[.]arac' || true)"
         echo "proc koordinator $(pgrep -f -c 'koordinator_deneme[.]py' || true)"
     } > "$TMP_DIR/$n.proc"
-    ss -lntuH 2>/dev/null | awk '{print $1, $5}' | LC_ALL=C sort > "$TMP_DIR/$n.ports" || true
+    port_snapshot "$TMP_DIR/$n.ports"
     shm_list > "$TMP_DIR/$n.shm"
     { tc qdisc show dev lo 2>/dev/null | sed 's/direct_packets_stat [0-9]*//' || true; ip -4 addr show lo 2>/dev/null || true; } > "$TMP_DIR/$n.net"
 }
@@ -139,7 +139,7 @@ kalan_yok() { # kalan_yok <etiket>
     sleep 1
     snapshot "k_$et"
     if ! diff -q "$TMP_DIR/once.proc" "$TMP_DIR/k_$et.proc" >/dev/null; then ok=0; log_fail "$et: artık süreç var: $(diff "$TMP_DIR/once.proc" "$TMP_DIR/k_$et.proc" | tr '\n' ';' || true)"; fi
-    yeni="$(LC_ALL=C comm -13 "$TMP_DIR/once.ports" "$TMP_DIR/k_$et.ports" | tr '\n' ';' || true)"
+    yeni="$(port_yeni "$TMP_DIR/once.ports" "$TMP_DIR/k_$et.ports")"
     if [[ -n "$yeni" ]]; then ok=0; log_fail "$et: yeni dinleyen port(lar): $yeni"; fi
     yeni="$(comm -13 "$TMP_DIR/once.shm" "$TMP_DIR/k_$et.shm" | tr '\n' ' ')"
     if [[ -n "$yeni" ]]; then ok=0; log_fail "$et: /dev/shm artığı: $yeni"; fi

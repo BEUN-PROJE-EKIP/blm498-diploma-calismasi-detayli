@@ -381,6 +381,29 @@ print_steps_table() {
     return "$bad"
 }
 
+# --- Dinleyen port denetimi (test betikleri) ----------------------------------
+# Test, çalıştırmadan önce ve sonra dinleyen portları karşılaştırır. Makine geneli karşılaştırma, testten bağımsız süreçlerin (ör. kullanıcının tarayıcısı) açtığı
+# UDP/TCP portlarını yanlış alarm olarak yakalıyordu. Bu yüzden yalnız sahibi ilk anlık görüntüden SONRA başlamış süreçlerin (testin/koşunun başlattığı süreçlerin)
+# yeni portları sayılır; ilk anlık görüntüden önce var olan bir sürecin sonradan açtığı port sayılmaz. Sahibi görünmeyen soket (başka kullanıcı) sayılmaz.
+# port_snapshot <dosya> : ilk satır "#epoch <şimdi>", sonra sıralı "proto adres sahip_süreç_başlangıç_epoch" satırları (sahip görünmüyorsa "-").
+port_snapshot() {
+    local dosya="$1" simdi
+    simdi="$(date +%s)"
+    echo "#epoch $simdi" > "$dosya"
+    LC_ALL=C awk -v simdi="$simdi" 'NR == FNR { gecen[$1] = $2; next }
+        { pid = ""; if (match($0, /pid=[0-9]+/)) pid = substr($0, RSTART + 4, RLENGTH - 4)
+          print $1, $5, ((pid != "" && (pid in gecen)) ? simdi - gecen[pid] : "-") }' \
+        <(ps -eo pid=,etimes= 2>/dev/null || true) <(ss -lntupH 2>/dev/null || true) | LC_ALL=C sort -u >> "$dosya" || true
+}
+
+# port_yeni <önce_dosya> <sonra_dosya> : "sonra"da olup "önce"de olmayan, sahibi "önce" anından sonra (1 sn payla) başlamış sürecin portlarını "proto adres;" biçiminde yazar (yoksa boş).
+port_yeni() {
+    local once="$1" sonra="$2" sinir
+    sinir="$(awk '/^#epoch / {print $2; exit}' "$once")"
+    LC_ALL=C comm -13 <(awk '!/^#/ {print $1, $2}' "$once" | LC_ALL=C sort -u) \
+        <(awk -v s="${sinir:-0}" '!/^#/ && $3 != "-" && $3 + 1 >= s {print $1, $2}' "$sonra" | LC_ALL=C sort -u) | tr '\n' ';' || true
+}
+
 # --- Hata yakalama -----------------------------------------------------------
 _on_err() {
     local rc="$1" line="$2" src="$3" cmd="$4"
