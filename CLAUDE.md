@@ -46,11 +46,11 @@ Bu depo, **"Afet Bölgelerinde Haberleşme Altyapısından Bağımsız Olarak Ç
 - NVIDIA sürücüsünü, çekirdeği veya önyükleyiciyi **kurma, kaldırma, değiştirme**. Sürücü yalnız doğrulanır.
 - `apt upgrade`, `apt dist-upgrade`, `apt autoremove` çalıştırma. Paketleri yalnız kurulum betikleri kurar.
 - `rm -rf` ile proje klasörü dışında silme yapma.
-- **`sudo` çalıştırma.** Kuruluma dokunan komutları kullanıcı kendi terminalinde çalıştırır. Sen yalnız kuruluma dokunmayan kısımları sınarsın: `bash -n`, `--dry-run`, mantık testleri.
-- **`git push` yapma.** Push'u kullanıcı kendi terminalinden yapar.
+- **`sudo` çalıştırma** (yasak yapay zekâ asistanı içindir; kişi kendi Konsole'unda çalıştırır). Kuruluma dokunan komutları kullanıcı kendi terminalinde çalıştırır. Sen yalnız kuruluma dokunmayan kısımları sınarsın: `bash -n`, `--dry-run`, mantık testleri.
+- **`git push` yapma** (yasak yapay zekâ asistanı içindir). Push'u kişi kendi terminalinden yapar; asistan bu komutu ona bırakır.
 
 ## Git akışı
 
-- `main` dalına doğrudan commit veya push yok; GitHub'da `main` korumalıdır (PR ve en az 1 onay zorunlu, doğrudan push ve force push reddedilir). Her iş kendi dalında yapılır (`ad/konu`), sonra Pull Request açılır ve **incelendikten sonra** birleştirilir.
+- `main` dalına doğrudan commit veya push yok; GitHub'da `main` korumalıdır (PR ve en az 1 onay zorunlu, doğrudan push ve force push reddedilir). Her iş kendi dalında yapılır (`ad/konu`); dalını **kendin** gönderirsin: `git push -u origin ad/konu` (`git push` ve `sudo` yasakları yapay zekâ asistanı içindir, asistan bu komutları sana bırakır). Sonra Pull Request açılır ve **incelendikten sonra** birleştirilir.
 - PR'dan önce: `./setup/verify_all.sh` hepsi `(+)`; `setup/` veya `config/` değiştiyse `./setup/lock_ozet.sh --check`.
 - Bir ağaç maddesini bitirdiysen maddeyi `[x]` yap; README'deki ilerleme bölümünü **yenileme**: onu depo sahibi birleştirmeden sonra yeniler (aynı bölüme dokunan PR'lar çakışır). Bu yüzden `python3 araclar/ilerleme.py --kontrol` PR'da `(-)` verebilir ("README ilerleme bölümü eski"); bu beklenen bir durumdur, PR'ı engellemez.
