@@ -395,6 +395,26 @@ class KareIsleyiciTesti(unittest.TestCase):
         self.assertEqual([k.defter.kayitlar[n]["durum"] for n in (20, 21, 22)], ["kare_alinamadi", "islem_hatasi", "islem_hatasi"])    # asla "tespit yok" değil
         self.assertEqual(k.defter.eksikler(20, 22), [])
 
+    def test_kapanis_son_kancayi_bekler(self):
+        """Son sonucun kancası yavaşken kapanış dönmeden önce kanca tamamlanmış olmalı (kapanışta ileti sayacı tam)."""
+        import threading
+        import time
+        i = ci.IsciIstemcisi(dict(HAM, ISCI_CPU_SABITLE="0"), 1, 1, None, lambda *a, **k: None, arka_uc="sahte")
+        sayac = []
+
+        def yavas_kanca(kayit):
+            time.sleep(0.5)                       # defter.ekle'den SONRA, kanca bitmeden bekleyici uyanabilir
+            sayac.append(kayit["n"])
+        k = ki.KareIsleyici(HAM, 1, i, None, lambda *a, **kw: None, yavas_kanca)
+        k.kayip(20, 1)
+        k.kayip(21, 1)
+        t = threading.Thread(target=k.kayip, args=(22, 1))
+        t.start()
+        zamaninda, zorla, hatali = k.kapanis_tamamla(20, 22, 5.0, lambda: [])
+        self.assertTrue(zamaninda)
+        self.assertEqual(sorted(sayac), [20, 21, 22])          # dönüşte üç kanca da bitmiş
+        t.join()
+
 
 class DosyaKurallari(unittest.TestCase):
     def test_isci_modulu_rclpy_ice_aktarmaz(self):

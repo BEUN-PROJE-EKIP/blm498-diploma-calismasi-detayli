@@ -160,6 +160,24 @@ Aşağıdaki kontroller bu ayarın açık olmasını bekler.
 
 Bir test arkasında süreç bırakırsa sonraki test `(-)` verebilir. Gerekirse `ros2 daemon stop` çalıştırıp tekrar dene.
 
+### Geliştirici testleri
+
+Yukarıdaki doğrulama listesinden ayrıdır: yazılım bileşenlerini (araç süreci, kamera, çıkarım işçisi, rota…) sınar. Kurulum sonrası, yazılımı değiştirdiğinde çalıştır; hepsi başsız Gazebo + PX4 SITL açar ve kendi artığını toplar. Aynı anda yalnız bir tanesi çalışsın (ortak portlar). Ortak ön koşullar: kurulum tamam (`./setup/verify_all.sh` hepsi `(+)`), sürü ağı uygulanmış (`./setup/60_ag_emulasyon_tc.sh`), `colcon build` ile derlenmiş `install/` (`px4_adapter_testi`, `arac_sureci_testi`, `kamera_alici_testi` ve `cikarim_isci_testi` içindeki `birim`/`statik` adımları bunu kendisi derler; `alan_pilot_testi` derlemeyi yapmaz, `install/` hazır olmalıdır), `ros2 daemon` kapalı. Alt küme için test adı verilir (örn. `./setup/arac_sureci_testi.sh birim`); `--dry-run` ne yapacağını yazar, süreç başlatmaz.
+
+| Komut | Ne sınar? | Yaklaşık süre | Ön koşul |
+|---|---|---|---|
+| `./setup/sozlesme_testi.sh` | Sözleşme dosyası doğrulayıcısı: geçerli örnekler geçer, bozuk örnekler beklenen nedenle reddedilir (simülasyon yok) | < 1 dk | yok |
+| `./setup/kosu_testi.sh` | `araclar/kosu.sh`: koşu başlat/durdur/temizle, koşu üst verisi, çöküş ve zorla kapatma | yaklaşık 3-4 dk | PX4 derlenmiş; damga bileşeni için `cmake` |
+| `./setup/px4_adapter_testi.sh` | `px4_adapter` (kimlik koruması, görev yükleme, hazırlık, görev), bölge/rota üretimi ve tek komut yolu | yaklaşık 8 dk | `colcon build` yapabilen ROS 2 ortamı |
+| `./setup/arac_sureci_testi.sh` | Araç süreci ve görev durum makinesi (tek ve üç araç + deneme koordinatörü), durum geçişleri | yaklaşık 10 dk | `colcon build`; `.venv` |
+| `./setup/kamera_alici_testi.sh` | Kamera, damga bileşeni ve kamera alıcısı: kayıpsız akış, kayıp ve geç kare senaryoları (`kayip`) | `birim kayip` alt kümesi yaklaşık 5 dk; tam koşu daha uzun | `cmake` (damga bileşeni derlemesi); `colcon build` |
+| `./setup/cikarim_isci_testi.sh` | Çıkarım işçisi ve kare sonucu: GPU/CPU arka uçları, hata ve işçi ölümü senaryoları, üç araç | yaklaşık 15 dk | model ağırlık dosyaları (`yolo26l.pt`, `yolo26s.pt`, `yolo26s.onnx`; `.generated/models/`); GPU sürücüsü |
+| `./setup/alan_pilot_testi.sh` | Alan ve rota mini pilotu: üç araç tam rotayı uçar; süre, yönelim, kapsama, bölge taşması ölçülür; aday alan tablosu yazdırılır | yaklaşık 5 dk | `colcon build`; model ağırlıkları; `numpy` (venv) |
+
+Notlar: süreler bu geliştirme makinesindendir (RTX 5070, 7950X); ölçüm testleri (`alan_pilot_testi`, `yuk_olcum_testi`) görsel istemci açıkken çalıştırılmamalıdır.
+
+**Gazebo görüntüsünü izlemek (isteğe bağlı).** Koşular başsızdır (görsel arayüz yok). Bir koşu sürerken görmek için ayrı bir terminalde, koşunun Gazebo bölümüyle bağlan: `GZ_PARTITION=<koşu bölümü> GZ_IP=127.0.0.1 gz sim -g` (bölüm adı `./setup/alan_pilot_testi.sh` çıktısının başında ve koşu klasöründeki `kosu.json` içindedir: `gz_partition`); kamera görüntüsü için açılan pencerede "Image Display" eklentisini ekleyip aracın kamera konusunu seç. **Önizleme açıkken yapılan koşu ölçüm sayılmaz** (ekran kartı ve işlemci yükü ekler); ölçüm koşusundan önce pencereyi kapat.
+
 ### Sorun mu var?
 
 <details>

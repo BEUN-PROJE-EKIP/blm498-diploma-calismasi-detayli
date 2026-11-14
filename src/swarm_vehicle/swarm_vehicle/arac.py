@@ -191,7 +191,7 @@ class Arac:
             self.yayin_acik = True                                     # HAZIR: rota PX4'e yüklü, kalkış öncesi
             self.log("durum", durum=AD[STATE_HAZIR])
             h = self.adapter.hazirlik()
-            self.log("hazirlik_bitti", kalkis_sure_s=f"{h['kalkis_sure_s']:.1f}", gidis_sure_s=f"{h['gidis_sure_s']:.1f}", sure_s=f"{h['sure_s']:.1f}")
+            self.log("hazirlik_bitti", kalkis_sure_s=f"{h['kalkis_sure_s']:.1f}", gidis_sure_s=f"{h['gidis_sure_s']:.1f}", donus_sure_s=f"{h['donus_sure_s']:.1f}", sure_s=f"{h['sure_s']:.1f}")
             t_isci = time.monotonic()
             bilgi = self.isci.hazir_bekle()                         # model yükleme + ısınma hazırlık evresindedir; işçi hazır olmadan BARIYER_BEKLE'ye geçilmez
             if bilgi is None:

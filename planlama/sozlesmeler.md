@@ -20,7 +20,7 @@ Doğrulayıcı: `araclar/sozlesme_dogrula.py` (yalnız standart kitaplık). Eşi
 | `sahne_kimligi` | kimlik | Örn. `S-TEST-0001`. |
 | `bolum` | `egitim` \| `dogrulama` \| `test` | [belge] Üç veri bölümü. |
 | `tohum` | tam sayı ≥ 0 | Sahneyi üreten rastgele tohum [belge: tohumlar bölümler arasında ayrılır]. |
-| `alan` | nesne | `cerceve: "yerel_ENU"`, `merkez_m: [0, 0]`, `genislik_m`, `yukseklik_m`. **Bütün sahnelerde yapılandırmadaki alanla aynıdır** (`ALAN_*`). [varsayım] 300 m × 300 m: `x ∈ [−150, 150]`, `y ∈ [−150, 150]`. |
+| `alan` | nesne | `cerceve: "yerel_ENU"`, `merkez_m: [0, 0]`, `genislik_m`, `yukseklik_m`. **Bütün sahnelerde yapılandırmadaki alanla aynıdır** (`ALAN_*`). **Kilitli** (M1 1.7, 2026-11-14) 300 m × 300 m: `x ∈ [−150, 150]`, `y ∈ [−150, 150]`. |
 | `isik` | nesne | `gunes_azimut_derece` ∈ [0, 360) (yerel ENU'da `+x` ekseninden saat yönünün tersine, güneşin bulunduğu yön), `gunes_yukseklik_derece` ∈ [`SAHNE_GUNES_YUKSEKLIK_MIN/MAKS_DERECE`] (20–85, [varsayım]). Işık tohumla değişir [belge]. |
 | `zemin` | nesne | `gorunum_varyanti` ∈ `SAHNE_ZEMIN_VARYANTLARI` ([varsayım] `zemin_a/b/c`). |
 | `hedefler` | liste | Aşağıda. |
@@ -132,6 +132,7 @@ Mevcut anahtarlar (ağ, kimlik/port, kamera, çıkarım, eğitim) değişmedi. E
 | `KAMERA_LINK`, `KAMERA_ALGILAYICI`, `CAM_CLIP_NEAR_M`, `CAM_CLIP_FAR_M` | `camera_link`, `camera`, 0,1, 200 | varsayım (üretilen modeldeki adlar ve kırpma düzlemleri) |
 | `KARE_NUMARALAMA` | `izgara` | belge/K9 (yedek yol uygulanmaz; başka değer açık hata verir) |
 | `PX4A_HAZIRLIK_SN`, `PX4A_IRTIFA_TOLERANS_M` | 240, 1 | varsayım (hazırlık evresi üst sınırı, gerçek saniye; kalkışta ve ilk noktada irtifa kabul payı, m) |
+| `PX4A_YON_ESIK_DERECE`, `PX4A_YON_HIZ_ESIK_MS`, `PX4A_YON_SN` | 3, 0,3, 30 | varsayım (hazırlığın son adımı: ilk noktada konum tutarak ilk tarama doğrusunun yönüne dönüş; bitiş ölçütü: yaw farkı ≤ eşik derece ve yatay hız ≤ eşik m/s; üst sınır gerçek saniye, aşılırsa hazırlık hatası; yön rotadan hesaplanır) |
 | `DURUM_YAYIN_HZ` | 2 | belge (durum 2 Hz) |
 | `KONU_DURUM`, `KONU_TARAMA_BASLAT`, `KONU_TARAMA_BITIS`, `KONU_COMPLETE` | bkz. §9 | varsayım (konu adları) |
 | `ARAC_KAPANIS_BEKLE_SN`, `ARAC_SIM_SAAT_SN` | 3, 30 | varsayım (TAMAMLANDI sonrası durum yayımı sürdürme süresi; gz saatinin ilk gelişi için üst sınır, gerçek saniye) |
@@ -194,7 +195,7 @@ Bir koşunun başlatılması, durdurulması ve kayıt düzeni. Bu bölüm **tasl
 | `kosu_kimligi` | Kimlik kuralı; `kosu_<YYYYAAGG>_<SSDDSS>`. |
 | `baslangic`, `bitis` | `{duvar_iso, monotonik_ns}`: saat dilimli ISO 8601 duvar saati ve `CLOCK_MONOTONIC` ns (pozitif tam sayı). Koşu sürerken `bitis` `null`. |
 | `depo` | `commit` (40 onaltılık), `calisma_agaci_temiz` (bool). |
-| `yapilandirma_sha256`, `ortam_kilidi_sha256` | `config/deney.env` ve `setup/locks/sha256sums.txt` özetleri. |
+| `yapilandirma_sha256`, `ortam_kilidi_sha256`, `rota_sha256` | `config/deney.env`, `setup/locks/sha256sums.txt` ve `config/bolge_rota.json` özetleri. Rota dosyası sahne dosyasından girdi almaz; aynı rota özeti bütün sahnelerde aynıdır (bölge ve rota dosyaları tüm sahnelerde aynı). `rota_sha256` sürüm 1'de 2026-11-14'ten itibaren zorunludur (bu tarihten önceki geliştirme koşularının `kosu.json` dosyalarında yoktur). |
 | `arac_sayisi`, `arac_kimlikleri` | 1…`UAV_SYS_IDS` uzunluğu; kimlikler `UAV_SYS_IDS` değerleri (MAV_SYS_ID). |
 | `mimari_modu` | Şimdilik `"yok"`; sonraki adımlarda `KOSU_MIMARILER` değerleri. |
 | `sahne_kimligi` | Şimdilik `null`; sonra sahne dosyasının kimliği. |

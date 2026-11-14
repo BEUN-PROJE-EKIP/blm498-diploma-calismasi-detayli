@@ -22,11 +22,16 @@ class KareIsleyici:
         self.yazici = ks.KayitYazici(kayit_yol)
         self.kapaniyor = False
         self._k = threading.Lock()
+        self._bitir_kilit = threading.Lock()    # bir sonucun defter + yazma + kanca adımları bölünmez; kapanış bekleyicisi bunu bekler
         self.sureler_ms = []                    # işlenen karelerin işçi içi (cikarim_sonu − cikarim_basi) süreleri
         self.atilan_toplam = 0
 
     # --- sonuç üretimi ----------------------------------------------------------------------------------------------------------------------
     def _bitir(self, n, damga_ns, durum, tespitler=(), atilan=0, hata=None):
+        with self._bitir_kilit:
+            return self._bitir_kilitli(n, damga_ns, durum, tespitler, atilan, hata)
+
+    def _bitir_kilitli(self, n, damga_ns, durum, tespitler, atilan, hata):
         kayit = ks.kayit_olustur(self.arac_kimligi, n, damga_ns, durum, tespitler, atilan, hata, time.monotonic_ns())
         if not self.defter.ekle(kayit):
             self.log("kare_sonuc_cift", n=n, durum=durum, ayrinti="bu numara için zaten sonuç var; ikinci sonuç yazılmadı")
@@ -61,6 +66,8 @@ class KareIsleyici:
         """[n_ilk, n_son] için bütün sonuçlar gelene dek bekler. Süre dolarsa: kapanış karesi gelmediyse sondaki kayıpları alıcıya yazdırır (`alici_kapat_zorla`), hâlâ sonuçsuz kalan numaralar
         için `islem_hatasi` yazar (işlenemedi). Dönen: (tamam_zamaninda, zorla_kayip_numaralari, islem_hatasi_numaralari)."""
         zamaninda = self.defter.bekle_tamam(n_ilk, n_son, bekle_sn)
+        with self._bitir_kilit:     # defter son numarayı görünce bekleyici uyanır; sürmekte olan son _bitir'in yazması ve kancası bitmeden dönülmez
+            pass
         zorla, hatali = [], []
         if not zamaninda:
             zorla = list(alici_kapat_zorla() or [])

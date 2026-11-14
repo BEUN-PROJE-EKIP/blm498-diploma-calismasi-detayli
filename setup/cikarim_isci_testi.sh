@@ -141,8 +141,10 @@ snapshot() { # snapshot <ad>
 }
 
 kalan_yok() { # kalan_yok <etiket>
-    local et="$1" ok=1 yeni
+    local et="$1" ok=1 yeni k
     sleep 1
+    # canlı denetim izleyicisi araç süreci kalkınca en geç bir örnekleme aralığı (2 sn) sonra çıkar: en çok 5 sn beklenir; süre dolarsa kontrol yine (-) verir (gevşetilmez)
+    for ((k = 0; k < 50; k++)); do [[ "$(pgrep -f -c 'cikarim_canli_denetim[.]py' || true)" == "0" ]] && break; sleep 0.1; done
     snapshot "k_$et"
     if ! diff -q "$TMP_DIR/once.proc" "$TMP_DIR/k_$et.proc" >/dev/null; then ok=0; log_fail "$et: artık süreç var: $(diff "$TMP_DIR/once.proc" "$TMP_DIR/k_$et.proc" | tr '\n' ';' || true)"; fi
     yeni="$(LC_ALL=C comm -13 "$TMP_DIR/once.ports" "$TMP_DIR/k_$et.ports" | tr '\n' ';' || true)"

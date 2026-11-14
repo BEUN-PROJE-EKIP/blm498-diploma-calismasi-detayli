@@ -5,7 +5,7 @@
 #   --dry-run     hiçbir süreç başlatmaz, hiçbir şey derlemez; ne çalıştıracağını yazar
 #   --verify      hafif önkoşul denetimi (araçlar, betikler, yapılandırma); süreç başlatmaz
 # Testler:
-#   statik  colcon build (swarm_vehicle); px4_adapter ve rota rclpy olmadan yüklenir; tek komut yolu taraması (MAVSDK yalnız px4_adapter.py'de)
+#   statik  colcon build (swarm_vehicle); ilk doğru yönü birim testi; px4_adapter ve rota rclpy olmadan yüklenir; tek komut yolu taraması (MAVSDK yalnız px4_adapter.py'de)
 #   rota    rota_uret.py iki kez bayt bayt aynı; doğrulayıcı kabul; örnekle değerce aynı; --check güncel (+) / bozuk (-)
 #   tek     tek araç koşusu: kimlik koruması (yanlış kimlik, yüklenmemiş görev) ve araç 1 tam görev (kanıt: Gazebo model pozu)
 #   uc      üç araç koşusu: üç bağdaştırıcı, üç ayrı mavsdk_server, üç rota yüklenir ve başlatılır; her biri ilk noktaya yaklaşır (Gazebo)
@@ -207,6 +207,9 @@ test_statik() {
             "$PKG_DIR" "$mod" > "$TMP_DIR/ice_$mod.log" 2>&1 || rc=$?
         if [[ "$rc" -eq 0 ]]; then log_ok "statik: swarm_vehicle.$mod rclpy olmadan içe aktarıldı"; else log_fail "statik: swarm_vehicle.$mod içe aktarılamadı"; tail -n 5 "$TMP_DIR/ice_$mod.log"; fi
     done
+    rc=0
+    out="$("$VENV_PY" -I "$PKG_DIR/test/test_rota_yon.py" 2>&1)" || rc=$?
+    if [[ "$rc" -eq 0 ]]; then log_ok "statik: ilk doğru yönü ve yaw birim testleri geçti ($(grep -E '^Ran ' <<< "$out"))"; else log_fail "statik: ilk doğru yönü birim testleri BAŞARISIZ"; tail -n 12 <<< "$out"; fi
     rc=0
     "$VENV_PY" -m py_compile "$PKG_DIR/swarm_vehicle/px4_adapter.py" "$PKG_DIR/swarm_vehicle/rota.py" "$ROTA_URET" "$DENEME" > "$TMP_DIR/pyc.log" 2>&1 || rc=$?
     if [[ "$rc" -eq 0 ]]; then log_ok "statik: py_compile temiz"; else log_fail "statik: py_compile hata"; tail -n 5 "$TMP_DIR/pyc.log"; fi

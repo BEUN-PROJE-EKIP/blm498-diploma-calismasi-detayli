@@ -93,6 +93,7 @@ class Px4Adapter:
         self._kabul_m = float(ham["PX4A_KABUL_YARICAPI_M"])
         self._hb_sn, self._baslat_tol = float(ham["PX4A_HEARTBEAT_SN"]), float(ham["PX4A_BASLAT_TOLERANS_M"])
         self._hazirlik_sn, self._yukseklik_tol = float(ham["PX4A_HAZIRLIK_SN"]), float(ham["PX4A_IRTIFA_TOLERANS_M"])
+        self._yon_esik, self._yon_hiz_esik, self._yon_sn = float(ham["PX4A_YON_ESIK_DERECE"]), float(ham["PX4A_YON_HIZ_ESIK_MS"]), float(ham["PX4A_YON_SN"])
         self._cb = son_nokta_geri_cagrisi
 
         self.komut_sayaci = 0                 # PX4'e giden yazma komutu sayısı (yalnız _yaz artırır)
@@ -113,6 +114,7 @@ class Px4Adapter:
         self._origin = None                   # (enlem, boylam): yerel ENU orijini
         self._yuklu = 0                       # PX4'e yüklenip geri indirilerek doğrulanan görev öğesi sayısı
         self._ilk_hedef = None                # rotanın ilk noktası (enlem, boylam)
+        self._ilk_yon = None                  # ilk tarama doğrusunun yönü (kuzeyden saat yönünde derece); rotadan hesaplanır, yoksa None
         self._hazir_tamam = False             # hazırlık: havada ve ilk noktada
         self._ilerleme = (0, 0)
         self._izle_son = False                # görev başlatıldı, son nokta bekleniyor
@@ -321,7 +323,8 @@ class Px4Adapter:
             self._durum.update(
                 px4_zaman_us=int(o.time_usec), alinma_ns=time.monotonic_ns(),
                 konum_ned_m=(n, e, d), konum_enu_m=(x0 + e, y0 + n, z0 - d),
-                yonelim_q_wxyz=(o.q.w, o.q.x, o.q.y, o.q.z))
+                yonelim_q_wxyz=(o.q.w, o.q.x, o.q.y, o.q.z),
+                yatay_hiz_ms=math.hypot(o.velocity_body.x_m_s, o.velocity_body.y_m_s))
 
     def _konum_isle(self, p):
         with self._kilit:
@@ -432,6 +435,7 @@ class Px4Adapter:
                     raise Px4Hatasi(f"görev öğesi {k} uyuşmuyor: yatay sapma {sapma:.3f} m, yükseklik {g['goreli_yukseklik_m']:.2f} m (beklenen {self._irtifa:g})")
             self._yuklu = len(ogeler)
             self._ilk_hedef = hedef[0]
+            self._ilk_yon = _rota.ilk_dogru_yonu_derece(noktalar)
             self._hazir_tamam = False
             sure = time.monotonic() - t0
             self._gunluk("yukleme", oge_sayisi=len(ogeler), en_buyuk_sapma_m=f"{en_buyuk:.4f}", sure_s=f"{sure:.3f}")
@@ -492,10 +496,34 @@ class Px4Adapter:
                 if time.monotonic() > sinir:
                     raise Px4Hatasi(f"ilk noktaya varılamadı ({self._hazirlik_sn:g} sn); son uzaklık {u}")
                 await asyncio.sleep(0.2)
+            t_varis = time.monotonic()
+            await self._ilk_yone_don(zemin_mutlak)
             self._hazir_tamam = True
             t1 = time.monotonic()
-            self._gunluk("hazirlik", kalkis_sure_s=f"{t_kalkis - t0:.2f}", gidis_sure_s=f"{t1 - t_kalkis:.2f}", sure_s=f"{t1 - t0:.2f}")
-            return {"kalkis_sure_s": t_kalkis - t0, "gidis_sure_s": t1 - t_kalkis, "sure_s": t1 - t0}
+            self._gunluk("hazirlik", kalkis_sure_s=f"{t_kalkis - t0:.2f}", gidis_sure_s=f"{t_varis - t_kalkis:.2f}", donus_sure_s=f"{t1 - t_varis:.2f}", sure_s=f"{t1 - t0:.2f}")
+            return {"kalkis_sure_s": t_kalkis - t0, "gidis_sure_s": t_varis - t_kalkis, "donus_sure_s": t1 - t_varis, "sure_s": t1 - t0}
+
+    async def _ilk_yone_don(self, zemin_mutlak):
+        """İlk noktada konum tutarak ilk tarama doğrusunun yönüne döner (görev başlamadan önce, hazırlık evresinde). Yaw, görev öğesine yazılmaz: aynı noktaya yaw'lı bir
+        goto_location (`_yaz` üzerinden) verilir. Yatay hız ve yaw farkı eşiklerin altına inince biter; PX4A_YON_SN aşılırsa hata (görev başlatılmaz)."""
+        if self._ilk_yon is None:
+            self._gunluk("yon_donusu", durum="atlandi", neden="rotada_ilk_bacak_yok")
+            return
+        t0 = time.monotonic()
+        await self._yaz("action.goto_location", self._sys.action.goto_location, self._ilk_hedef[0], self._ilk_hedef[1], zemin_mutlak + self._irtifa, self._ilk_yon)
+        sinir = t0 + self._yon_sn
+        fark = hiz = None
+        while True:
+            with self._kilit:
+                q, hiz = self._durum.get("yonelim_q_wxyz"), self._durum.get("yatay_hiz_ms")
+            if q is not None and hiz is not None:
+                fark = _rota.aci_farki_derece(_rota.yaw_ned_derece(q), self._ilk_yon)
+                if abs(fark) <= self._yon_esik and hiz <= self._yon_hiz_esik:
+                    self._gunluk("yon_donusu", durum="tamam", hedef_derece=f"{self._ilk_yon:.2f}", son_fark_derece=f"{fark:.2f}", yatay_hiz_ms=f"{hiz:.3f}", sure_s=f"{time.monotonic() - t0:.2f}")
+                    return
+            if time.monotonic() > sinir:
+                raise Px4Hatasi(f"ilk doğru yönüne ({self._ilk_yon:.1f}°) {self._yon_sn:g} sn içinde dönülemedi (son yaw farkı {fark}°, yatay hız {hiz} m/s)")
+            await asyncio.sleep(0.1)
 
     async def _gorev_baslat(self):
         async with self._islem:

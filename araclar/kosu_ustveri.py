@@ -58,6 +58,7 @@ def main(a):
             "surum": 1, "tur": "kosu_ustveri", "kosu_kimligi": kimlik, "baslangic": zaman(), "bitis": None,
             "depo": {"commit": git("rev-parse", "HEAD").strip(), "calisma_agaci_temiz": temiz},
             "yapilandirma_sha256": sha256(yap), "ortam_kilidi_sha256": sha256(os.path.join(KOK, "setup", "locks", "sha256sums.txt")),
+            "rota_sha256": sha256(os.path.join(KOK, "config", "bolge_rota.json")),
             "arac_sayisi": int(n), "arac_kimlikleri": [int(x) for x in kimlikler.split()], "mimari_modu": "yok", "sahne_kimligi": None,
             "dunya": dunya, "model": model, "gz_partition": part, "surecler": [], "bitis_durumu": None})
         return 0

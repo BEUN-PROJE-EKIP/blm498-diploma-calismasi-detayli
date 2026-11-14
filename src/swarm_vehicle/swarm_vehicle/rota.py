@@ -144,3 +144,25 @@ def rota_oku(yol, arac_kimligi):
     if rota is None or bolge is None:
         raise KeyError(f"araç {arac_kimligi} için rota ya da bölge yok: {yol}")
     return [(float(x), float(y)) for x, y in rota["noktalar"]], bolge["bolge_kimligi"]
+
+
+def ilk_dogru_yonu_derece(noktalar):
+    """Rotanın ilk bacağının (1. noktadan 2. noktaya) yönü: kuzeyden saat yönünde derece [0, 360) (PX4/MAVSDK yaw çerçevesi, NED). Rota 2 noktadan kısaysa
+    ya da ilk iki nokta aynıysa None (yönelim hedefi yok). Yön rotadan hesaplanır; sabit açı yoktur."""
+    if len(noktalar) < 2:
+        return None
+    dx, dy = noktalar[1][0] - noktalar[0][0], noktalar[1][1] - noktalar[0][1]
+    if math.hypot(dx, dy) < 1e-6:
+        return None
+    return math.degrees(math.atan2(dx, dy)) % 360.0
+
+
+def yaw_ned_derece(q_wxyz):
+    """Gövde (FRD) → yerel NED kuaterniyonundan (w, x, y, z) yaw: kuzeyden saat yönünde derece [0, 360)."""
+    w, x, y, z = q_wxyz
+    return math.degrees(math.atan2(2 * (w * z + x * y), 1 - 2 * (y * y + z * z))) % 360.0
+
+
+def aci_farki_derece(a, b):
+    """a − b açısı, [-180, 180) aralığına sarılmış (derece)."""
+    return (a - b + 180.0) % 360.0 - 180.0
