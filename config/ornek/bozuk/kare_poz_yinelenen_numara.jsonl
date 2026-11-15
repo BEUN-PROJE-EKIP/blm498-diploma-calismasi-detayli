@@ -1,0 +1,2 @@
+{"surum": 1, "tur": "kare_poz", "arac_kimligi": 1, "n": 20, "kare_ns": 10000000000, "gecerli": true, "neden": null, "t1_ns": 9990000000, "t2_ns": 10010000000, "aralik_ms": 20.0, "bekleme_ms": 0.0, "konum_ned_m": [10.0, 5.0, -30.0], "q_wxyz": [1.0, 0.0, 0.0, 0.0]}
+{"surum": 1, "tur": "kare_poz", "arac_kimligi": 1, "n": 20, "kare_ns": 10000000000, "gecerli": true, "neden": null, "t1_ns": 9990000000, "t2_ns": 10010000000, "aralik_ms": 20.0, "bekleme_ms": 1.0, "konum_ned_m": [10.0, 5.0, -30.0], "q_wxyz": [1.0, 0.0, 0.0, 0.0]}

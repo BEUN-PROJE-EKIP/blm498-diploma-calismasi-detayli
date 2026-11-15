@@ -134,6 +134,9 @@ Mevcut anahtarlar (ağ, kimlik/port, kamera, çıkarım, eğitim) değişmedi. E
 | `KARE_NUMARALAMA` | `izgara` | belge/K9 (yedek yol uygulanmaz; başka değer açık hata verir) |
 | `PX4A_HAZIRLIK_SN`, `PX4A_IRTIFA_TOLERANS_M` | 240, 1 | varsayım (hazırlık evresi üst sınırı, gerçek saniye; kalkışta ve ilk noktada irtifa kabul payı, m) |
 | `PX4A_YON_ESIK_DERECE`, `PX4A_YON_HIZ_ESIK_MS`, `PX4A_YON_SN` | 3, 0,3, 30 | varsayım (hazırlığın son adımı: ilk noktada konum tutarak ilk tarama doğrusunun yönüne dönüş; bitiş ölçütü: yaw farkı ≤ eşik derece ve yatay hız ≤ eşik m/s; üst sınır gerçek saniye, aşılırsa hazırlık hatası; yön rotadan hesaplanır) |
+| `POZ_ARALIK_SINIR_MS` | 100 | belge (öngörülen değer; protokolde kilitlenir): kareyi çevreleyen iki telemetri örneği arasındaki en büyük süre, ms; sınıra eşitlik geçerli, aşım → o kare konumsuz |
+| `POZ_BEKLE_SN` | 0,25 | varsayım (kare anı en son örnekten sonraysa sonraki örnek için en çok bekleme, gerçek sn; bekleme ölçüme dahildir) |
+| `POZ_TAMPON_SN` | 60 | varsayım (poz tamponunun saklama penceresi, kaynak sn) |
 | `DURUM_YAYIN_HZ` | 2 | belge (durum 2 Hz) |
 | `KONU_DURUM`, `KONU_TARAMA_BASLAT`, `KONU_TARAMA_BITIS`, `KONU_COMPLETE` | bkz. §9 | varsayım (konu adları) |
 | `ARAC_KAPANIS_BEKLE_SN`, `ARAC_SIM_SAAT_SN` | 3, 30 | varsayım (TAMAMLANDI sonrası durum yayımı sürdürme süresi; gz saatinin ilk gelişi için üst sınır, gerçek saniye) |
@@ -179,6 +182,8 @@ Bir koşunun başlatılması, durdurulması ve kayıt düzeni. Bu bölüm **tasl
   kayit/kamera_alici_<arac>.jsonl kamera alıcısı: görev karesi, kare alınamadı, geç geldi, yok sayılan kare kayıtları (8.3, 10.1; kaynak kamera_alicisi)
   kayit/cikarim_iscisi_<arac>.jsonl çıkarım işçisi: her işlenen kare için `cikarim_basi` ve `cikarim_sonu` (8.3, 10.2; kaynak cikarim_iscisi)
   kayit/kare_sonuc_<arac>.jsonl   araç sürecinin kare sonuçları: her görev numarası için tam bir kayıt (8.6)
+  kayit/telemetri_<arac>.jsonl    px4_adapter'ın aldığı her odometri örneği: kaynak zamanı, konum, yönelim, kabul/ret (8.10; `tur: telemetri`)
+  kayit/kare_poz_<arac>.jsonl     araç sürecinin her görev numarası için kare üretim anındaki enterpolasyonlu PX4 pozu ya da geçersizlik nedeni (8.11; `tur: kare_poz`)
   kayit/isci_kaynak_<arac>.jsonl  çıkarım işçisinin periyodik GPU kullanımı/belleği, ana bellek ve CPU kaydı (8.7)
   kayit/arac_sureci_<arac>.jsonl  araç sürecinin kare sonucu gönderim kaydı: her FrameResult yayımı için `kare_olay` `gonderim` (8.3; kaynak arac_sureci)
   yer_istasyonu.log, yer_istasyonu.out, yer_istasyonu.cikis  yer istasyonu görev koordinatörünün metin günlüğü (ISO saat, monotonik ns, olay, anahtar=değer), standart çıktısı ve çıkış kodu (`kosu.sh bekle` okur)
@@ -186,6 +191,7 @@ Bir koşunun başlatılması, durdurulması ve kayıt düzeni. Bu bölüm **tasl
   kayit/yer_istasyonu_gorev.jsonl yer istasyonu görev olay kaydı: Mission ataması, hazır bildirimleri, eşleşme, t0, tarama bitişleri, son sonuç, t1, TAMAMLANDI, zaman aşımı (8.9; `tur: gorev_olay`)
   kayit/yer_istasyonu_durum.jsonl yer istasyonu izleme kaydı (serbest biçim, şema değildir): araç durum/ilerleme değişimleri, `IZLEME_OZET_SN` özetleri, bayat durum uyarıları
   kayit/yer_istasyonu_durum_ham.jsonl yer istasyonu izleme ham kaydı (serbest biçim): her `VehicleState` iletisinin alım anı (mono), yer istasyonu sim saati ve iletideki sim damgası (DDS canlılık ölçümü)
+  gz_gercek_poz.jsonl             yalnız poz tamponu denemesinde (setup/poz_tamponu_testi.sh tek; araclar/poz_gercek_kayit.py): Gazebo gerçek model pozu ve simülasyon saati; serbest biçim, şema değildir
   tc_ornek.jsonl, sentetik_yuk.jsonl  yalnız doygun hat denemesinde (setup/dds_doygunluk_testi.sh): tc 1:10/bfifo sayaç örnekleri (araclar/tc_izle.py) ve sentetik yük kaydı (araclar/sentetik_yuk.py); serbest biçim
   kayit/yer_istasyonu_komut.jsonl komut yolu iskeleti kaydı (serbest biçim): komut gönderimi ve onay (yalnız test/elle kullanımda yazılır)
   kayit/yer_istasyonu_kare.jsonl  yer istasyonu alıcısının kare sonucu kullanılabilirlik kaydı: her kabul edilen sonuç için `kare_olay` `kullanilabilir` (8.3; kaynak yer_istasyonu; üç araç aynı dosyada, araç kimliği alanıyla ayrılır)
@@ -287,6 +293,16 @@ Yer istasyonu görev koordinatörünün (`/gcs/mission_coordinator`) koşu kayd�
 | `arac_kimligi`, `mission_id`, `n_ilk`, `n_son`, `t_s_ns`, `t_b_ns`, `yayimci`, `t1_eksi_son_bitis_ns`, `neden`, `ayrinti` | İsteğe bağlı/olaya özgü alanlar. `t_s_ns`/`t_b_ns`: ızgara yolunda `ScanFinished` t_s/t_b taşımadığı için `null` (belge: kullanılmayan alanlar 0); araç günlüğündeki `tarama_bitis_yayimlandi` satırı taşır. |
 
 Dosya kuralları: en çok bir `t0` ve bir `t1`; `t1` ancak `t0` ve `son_sonuc` olaylarından sonra yazılabilir (COMPLETE yalnız bütün kare sonuçlarından sonra); `mono_ns` geriye gitmez. Yedek yol (`NUMBERING_FALLBACK`) bu sürümde `hata` (`yedek_yol_desteklenmiyor`) olarak reddedilir (M3/B13).
+
+### 8.10 Telemetri kaydı (`tur: "telemetri"`, JSON Lines, taslak sürüm)
+
+[belge] PX4 konum/yönelim telemetrisi yüksek hızda alınır ve kaynak zamanına göre saklanır; bu kayıt bunun kanıtıdır. `px4_adapter`, `telemetry.odometry()` akışından aldığı HER örneği (kabul edilen ya da reddedilen) `kayit/telemetri_<arac_kimligi>.jsonl` dosyasına yazar. Yazma ayrı bir yazıcı iş parçacığıdır (kuyruk; adapter akışını bloke etmez). PX4'e hiçbir şey yazılmaz (hız komutu yok). Alanlar: `surum`, `tur`, `arac_kimligi`, `kaynak_ns` (PX4 `time_usec` × 1000), `alinma_mono_ns` (`CLOCK_MONOTONIC`), `konum_ned_m` ([kuzey, doğu, aşağı], PX4 yerel NED, orijin: aracın ev konumu), `q_wxyz` (gövde FRD → NED, birim kuaterniyon), `kabul` (tampona eklendi mi), `red_neden` (`null` | `geriye_giden` | `yinelenen` | `gecersiz_deger` | `enjeksiyon` [yalnız test anahtarı]). Sonlu olmayan değerler (NaN/inf) standart dışı JSON olarak yazılmaz: `konum_ned_m`/`q_wxyz` içinde `null` olur ve kayıt `kabul: false`, `red_neden: gecersiz_deger` taşır (yalnız bu durumda null ve birim olmayan kuaterniyon geçerlidir). Yazıcı hataları (açılamama, yazılamama) ve kapanıştan sonra gelen kayıtlar sayılır ve araç/adapter günlüğüne yazılır; sessizce atılmaz. Kabul edilen örneklerde `kaynak_ns` kesin artar. Örnek: `config/ornek/telemetri_ornek.jsonl`.
+
+### 8.11 Kare–poz kaydı (`tur: "kare_poz"`, JSON Lines, taslak sürüm)
+
+[belge] Her görüntü iletisi, karenin üretildiği ana eşlenmiş canlı PX4 poz tahminini taşır; eşleme **kaynak zamanına** göre yapılır: kare üretim anı `t` (ızgara damgası, `n · 10⁹ / CAM_RATE_HZ` ns; PX4 `time_usec` ile aynı eksen kabul edilir, K8) için `t`'yi çevreleyen iki örnek `t1 ≤ t ≤ t2`; konum doğrusal, yönelim küresel (kısa yol, normalize). Tam örnek anında o örnek (`t1 = t2`, `aralik_ms = 0`). `t2 − t1 > POZ_ARALIK_SINIR_MS` ise geçerli poz yoktur (`aralik_asildi`); `t` ilk örnekten önceyse `tampon_disi`; `t` en son örnekten sonraysa sonraki örnek için en çok `POZ_BEKLE_SN` beklenir, dolarsa `bekleme_asildi`. Hiçbir durumda en son örnek ya da 2 Hz durum mesajı yedek olarak kullanılmaz: geçerli poz yokken `konum_ned_m` ve `q_wxyz` `null`'dır. Bekleme süresi her kayıtta `bekleme_ms` olarak yazılır (ölçüm dışında bırakılmaz).
+
+Araç süreci, kare sonucunu ürettiği her görev numarası için (kare alınamadı ve işlem hatası numaraları dahil) **tam bir** kayıt yazar: `kayit/kare_poz_<arac_kimligi>.jsonl`. Alanlar: `surum`, `tur`, `arac_kimligi`, `n`, `kare_ns`, `gecerli`, `neden` (`null` | `aralik_asildi` | `tampon_disi` | `bekleme_asildi`), `t1_ns`, `t2_ns` (`aralik_asildi` ve geçerli pozda dolu, diğerlerinde `null`), `aralik_ms`, `bekleme_ms`, `konum_ned_m`, `q_wxyz`. Bu sürümde poz kare sonucuna girmez (`has_position` false; konum hesabı B14'ün konum hesaplayıcısındadır). Kare işleme iş parçacığı en çok `POZ_BEKLE_SN` bloke olabilir. Doğrulayıcı: `sozlesme_dogrula.py <dosya>.jsonl`. Örnek: `config/ornek/kare_poz_ornek.jsonl`.
 
 ## 9. ROS 2 konuları (taslak)
 

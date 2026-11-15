@@ -8,13 +8,14 @@ import threading
 import time
 
 from . import kare_sonuc as ks
+from . import poz_tamponu as pz
 from .cikarim_yardimci import SinifEsleme
 
 _NS = 10 ** 9
 
 
 class KareIsleyici:
-    def __init__(self, ham, arac_kimligi, istemci, kayit_yol, log, kanca=None):
+    def __init__(self, ham, arac_kimligi, istemci, kayit_yol, log, kanca=None, poz_tamponu=None, poz_yol=None):
         self.arac_kimligi, self.istemci, self.log, self.kanca = int(arac_kimligi), istemci, log, kanca
         self.hz = int(float(ham["CAM_RATE_HZ"]))
         self.esleme = SinifEsleme.yapilandirmadan(ham)
@@ -25,18 +26,24 @@ class KareIsleyici:
         self._bitir_kilit = threading.Lock()    # bir sonucun defter + yazma + kanca adımları bölünmez; kapanış bekleyicisi bunu bekler
         self.sureler_ms = []                    # işlenen karelerin işçi içi (cikarim_sonu − cikarim_basi) süreleri
         self.atilan_toplam = 0
+        self.poz_tamponu = poz_tamponu          # isteğe bağlı: her görev numarası için kare üretim anındaki poz sorgulanır ve kaydedilir (kare sonucuna henüz girmez)
+        self.poz_yazici = pz.SatirYazici(poz_yol, log) if poz_tamponu is not None else None
+        self.poz_bekleme_ms = []
+        self.poz_gecersiz = {}
 
     # --- sonuç üretimi ----------------------------------------------------------------------------------------------------------------------
     def _bitir(self, n, damga_ns, durum, tespitler=(), atilan=0, hata=None):
+        poz = self._poz_sorgula(n, damga_ns)         # bekleme dahil KİLİT DIŞINDA (gz kamera geri çağrısından gelen `kayip` yolu bu kilidi bekler); sonuç yayımından (kanca) önce
         with self._bitir_kilit:
-            return self._bitir_kilitli(n, damga_ns, durum, tespitler, atilan, hata)
+            return self._bitir_kilitli(n, damga_ns, durum, tespitler, atilan, hata, poz)
 
-    def _bitir_kilitli(self, n, damga_ns, durum, tespitler, atilan, hata):
+    def _bitir_kilitli(self, n, damga_ns, durum, tespitler, atilan, hata, poz=None):
         kayit = ks.kayit_olustur(self.arac_kimligi, n, damga_ns, durum, tespitler, atilan, hata, time.monotonic_ns())
         if not self.defter.ekle(kayit):
             self.log("kare_sonuc_cift", n=n, durum=durum, ayrinti="bu numara için zaten sonuç var; ikinci sonuç yazılmadı")
             return False
         self.yazici.yaz(kayit)
+        self._poz_yaz(n, damga_ns, poz)
         if durum != ks.TESPIT_YOK:
             self.log("kare_sonuc", n=n, durum=durum, tespit=len(kayit["tespitler"]), hata=(hata or "-").replace(" ", "_"))
         if self.kanca is not None:
@@ -45,6 +52,26 @@ class KareIsleyici:
             except Exception as e:  # noqa: BLE001
                 self.log("kare_sonuc_kancasi_hatasi", n=n, hata=repr(e))
         return True
+
+    def _poz_sorgula(self, n, damga_ns):
+        """Kare üretim anındaki poz (kaynak-zamanı enterpolasyonu) sorgulanır; en çok POZ_BEKLE_SN bloke olur (bekleme ölçüme dahildir). Numara için zaten sonuç varsa sorgulanmaz.
+        Poz hatası kare sonucunu ETKİLEMEZ. Dönen: `PozSonuc` ya da None."""
+        if self.poz_tamponu is None or self.defter.var_mi(n):
+            return None
+        try:
+            return self.poz_tamponu.sorgula(damga_ns)
+        except Exception as e:  # noqa: BLE001
+            self.log("kare_poz_hatasi", n=n, hata=repr(e))
+            return None
+
+    def _poz_yaz(self, n, damga_ns, s):
+        """Sonuç defterine girmiş numara için tam bir `kare_poz` kaydı yazar (defter reddettiyse çağrılmaz: bir numaraya tek kayıt). Kilit altında yalnız kuyruğa koyar."""
+        if s is None:
+            return
+        self.poz_bekleme_ms.append(s.bekleme_ms)
+        if not s.gecerli:
+            self.poz_gecersiz[s.neden] = self.poz_gecersiz.get(s.neden, 0) + 1
+        self.poz_yazici.ver(pz.kare_poz_kaydi(self.arac_kimligi, n, damga_ns, s))
 
     def goruntu(self, n, damga_ns, mono_ns, veri, w, h):
         """Alıcı kuyruğu tüketicisi (tek iş parçacığı): kareyi işçide işler ve sonucunu yazar. Her çağrı bir numaraya tam bir sonuç üretir."""
@@ -75,4 +102,7 @@ class KareIsleyici:
             for n in self.defter.eksikler(n_ilk, n_son):
                 self._bitir(n, n * _NS // self.hz, ks.ISLEM_HATASI, hata=f"kapanışta işlenemedi (kuyruk {bekle_sn:g} sn içinde boşalmadı)")
                 hatali.append(n)
+        if self.poz_yazici is not None:
+            self.poz_yazici.kapat()
+            self.log("kare_poz_yazici", **self.poz_yazici.ozet())
         return zamaninda, zorla, hatali

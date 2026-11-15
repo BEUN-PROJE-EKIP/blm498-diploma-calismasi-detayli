@@ -72,6 +72,7 @@ class Arac:
         self.kamera = None
         self.kamera_yol = os.path.join(self.klasor, "kayit", f"kamera_alici_{self.arac_kimligi}.jsonl") if self.klasor else None
         self.sonuc_yol = os.path.join(self.klasor, "kayit", f"kare_sonuc_{self.arac_kimligi}.jsonl") if self.klasor else None
+        self.poz_yol = os.path.join(self.klasor, "kayit", f"kare_poz_{self.arac_kimligi}.jsonl") if self.klasor else None
         self.yayinci_yol = os.path.join(self.klasor, "kayit", f"arac_sureci_{self.arac_kimligi}.jsonl") if self.klasor else None
         self.yayinci = None
         self.pub_sonuc = None
@@ -95,6 +96,14 @@ class Arac:
         if len(parca) == 3:
             return (float(parca[1]), float(parca[2])) if int(parca[0]) == arac_kimligi else None
         return float(parca[0]), float(parca[1])
+
+    def _poz_durdur_kurala(self):
+        """YALNIZ test: POZ_TEST_DURDUR=`<başlangıç_sn>:<süre_sn>` (bütün araçlar) ya da `<araç>:<başlangıç_sn>:<süre_sn>`; tarama başından (gerçek sn) itibaren bu pencerede gelen telemetri
+        örnekleri tampona EKLENMEZ (aralık sınırı aşımı enjeksiyonu). Boşsa None (öntanımlı kapalı). Telemetri kaydı yine yazılır (`kabul: false`, `red_neden: enjeksiyon`)."""
+        pencere = self._sus_ayristir(os.environ.get("POZ_TEST_DURDUR", ""), self.arac_kimligi)
+        if pencere is None:
+            return None
+        return lambda: self._tarama_mono is not None and pencere[0] <= time.monotonic() - self._tarama_mono < pencere[0] + pencere[1]
 
     # --- günlük ---------------------------------------------------------------------------------------------------------------------------
     def log(self, olay, **kv):
@@ -320,6 +329,11 @@ class Arac:
                  tespit=s["tespit"], tespit_yok=s["tespit_yok"], islem_hatasi=s["islem_hatasi"], kare_alinamadi=s["kare_alinamadi"], cift_sonuc=self.isleyici.defter.cift_sayisi,
                  zorla_kayip=",".join(map(str, zorla)) or "yok", kapanista_islem_hatasi=",".join(map(str, hatali)) or "yok", mesaj=self.kare_sonucu_mesaj_sayisi,
                  atilan_sinif_disi=self.isleyici.atilan_toplam, kuyruk_maks=self.kamera.kuyruk_maks, isci_baslatma=self.isci.baslatma, isci_yeniden=self.isci.yeniden)
+        pb = sorted(self.isleyici.poz_bekleme_ms)
+        if pb:
+            self.log("poz_ozeti", adet=len(pb), gecersiz=",".join(f"{k}:{v}" for k, v in sorted(self.isleyici.poz_gecersiz.items())) or "yok",
+                     bekleme_medyan_ms=f"{pb[len(pb) // 2]:.2f}", bekleme_p95_ms=f"{pb[min(len(pb) - 1, int(0.95 * len(pb)))]:.2f}", bekleme_en_buyuk_ms=f"{pb[-1]:.2f}",
+                     **{f"tampon_{k}": v for k, v in self.adapter.poz.sayaclar().items()})
         sm = sorted(self.isleyici.sureler_ms)
         if sm:
             self.log("cikarim_sureleri", adet=len(sm), medyan_ms=f"{sm[len(sm) // 2]:.2f}", p99_ms=f"{sm[min(len(sm) - 1, int(0.99 * len(sm)))]:.2f}", en_buyuk_ms=f"{sm[-1]:.2f}")
@@ -342,12 +356,13 @@ class Arac:
         self.sm = DurumMakinesi(gunluk=lambda s: self.log("durum_makinesi", ayrinti=s))
         self.saat_baslat()
         self.isci = IsciIstemcisi(self.ham, self.arac_no, self.arac_kimligi, self.klasor, self.log)
-        self.isleyici = KareIsleyici(self.ham, self.arac_kimligi, self.isci, self.sonuc_yol, self.log, self._kare_sonucu_uret)
+        self.adapter = px4_adapter.Px4Adapter(self.arac_no, deney_env=self.ham, son_nokta_geri_cagrisi=self._son_nokta_geri_cagrisi)
+        self.adapter.poz_durdur = self._poz_durdur_kurala()            # YALNIZ test (POZ_TEST_DURDUR); öntanımlı None
+        self.isleyici = KareIsleyici(self.ham, self.arac_kimligi, self.isci, self.sonuc_yol, self.log, self._kare_sonucu_uret, poz_tamponu=self.adapter.poz, poz_yol=self.poz_yol)
         self.kamera = KameraAliciGz(self.ham, self.arac_no, self.arac_kimligi, self.kamera_yol, self.log, tuketici=self.isleyici.goruntu, kayip_ver=self.isleyici.kayip)
         self.log("isci_enjeksiyon_durumu", durum=self.isci.enj.ozet())
         self.isci.baslat()                                             # alt süreç: model yükleme ve ısınma hazırlık evresiyle paralel sürer
         self.kamera.baslat()
-        self.adapter = px4_adapter.Px4Adapter(self.arac_no, deney_env=self.ham, son_nokta_geri_cagrisi=self._son_nokta_geri_cagrisi)
         rclpy.init()
         node = Node("vehicle", namespace=self.ad_alani)
         qos_durum = QoSProfile(history=HistoryPolicy.KEEP_LAST, depth=10, reliability=ReliabilityPolicy.RELIABLE, durability=DurabilityPolicy.VOLATILE)

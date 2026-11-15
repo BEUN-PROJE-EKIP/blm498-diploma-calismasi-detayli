@@ -91,3 +91,14 @@ sayac_kaydi_d_tutarsiz.json | t1 - t0 gönderilmiş bayt farkı olmalı
 sayac_kaydi_sayac_geriye.json | sayaç geriye gidemez
 sayac_kaydi_complete_tutarsiz.json | complete_sonrasi - t1 gönderilmiş bayt farkı olmalı
 sayac_kaydi_sinif_yanlis.json | '1:10' olmalı
+telemetri_kaynak_geriye.jsonl | kabul edilen örneklerde kesin artmalı
+telemetri_kabul_neden_var.jsonl | kabul edilen örnekte null olmalı
+telemetri_q_birim_degil.jsonl | birim kuaterniyon olmalı
+kare_poz_gecerli_aralik_asimi.jsonl | geçerli pozda POZ_ARALIK_SINIR_MS
+kare_poz_gecersiz_konumlu.jsonl | geçerli poz yokken null olmalı
+kare_poz_neden_gecersiz.jsonl | geçersiz pozda
+kare_poz_yinelenen_numara.jsonl | ikinci kayıt
+kare_poz_bekleme_yok.jsonl | bekleme_ms
+kare_poz_aralik_asildi_sinir_alti.jsonl | 'aralik_asildi' için POZ_ARALIK_SINIR_MS
+kare_poz_kare_ns_uyumsuz.jsonl | n · 10⁹ / CAM_RATE_HZ olmalı
+telemetri_nan_degeri.jsonl | üç sayı (m) olmalı

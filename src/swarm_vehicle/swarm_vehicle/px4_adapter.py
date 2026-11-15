@@ -29,6 +29,7 @@ from mavsdk import System  # noqa: E402
 from mavsdk.mission import MissionItem, MissionPlan  # noqa: E402
 
 from . import komut_yolu as _komut  # noqa: E402
+from . import poz_tamponu as _poz  # noqa: E402
 from . import rota as _rota  # noqa: E402
 
 # WGS84
@@ -96,6 +97,10 @@ class Px4Adapter:
         self._hazirlik_sn, self._yukseklik_tol = float(ham["PX4A_HAZIRLIK_SN"]), float(ham["PX4A_IRTIFA_TOLERANS_M"])
         self._yon_esik, self._yon_hiz_esik, self._yon_sn = float(ham["PX4A_YON_ESIK_DERECE"]), float(ham["PX4A_YON_HIZ_ESIK_MS"]), float(ham["PX4A_YON_SN"])
         self._cb = son_nokta_geri_cagrisi
+        # poz tamponu: her odometri örneği kaynak zamanına göre saklanır (yalnız okuma; PX4'e hiçbir şey yazılmaz). Araç süreci `poz` üzerinden sorgular.
+        self.poz = _poz.PozTamponu(float(ham["POZ_ARALIK_SINIR_MS"]) * 1e6, float(ham["POZ_BEKLE_SN"]), float(ham["POZ_TAMPON_SN"]))
+        self.poz_durdur = None                # YALNIZ test: callable() -> True iken gelen örnek tampona EKLENMEZ (hata enjeksiyonu); telemetri kaydına `enjeksiyon` nedeniyle yazılır
+        self._telemetri_yazici = None
 
         self.komut_sayaci = 0                 # PX4'e giden yazma komutu sayısı (yalnız _yaz artırır)
         self.sunucu_pid = None
@@ -131,6 +136,9 @@ class Px4Adapter:
                     gunluk_dizini = os.path.join(_rota.KOK, ".generated", "kosular", f.read().strip())
         if gunluk_dizini and os.path.isdir(gunluk_dizini):
             self._gunluk_yol = os.path.join(gunluk_dizini, f"px4_adapter_{self.arac_kimligi}.log")
+            kayit_dizini = os.path.join(gunluk_dizini, "kayit")
+            if os.path.isdir(kayit_dizini):
+                self._telemetri_yazici = _poz.SatirYazici(os.path.join(kayit_dizini, f"telemetri_{self.arac_kimligi}.jsonl"), self._gunluk)
 
     # --- günlük ---------------------------------------------------------------------------------------------------------------------------
     def _gunluk(self, olay, **kv):
@@ -215,6 +223,10 @@ class Px4Adapter:
             self._thread.join(10)
         if self._loop is not None and not self._loop.is_running():
             self._loop.close()
+        if self._telemetri_yazici is not None:
+            self._telemetri_yazici.kapat()
+            self._gunluk("telemetri_yazici", **self._telemetri_yazici.ozet())
+        self._gunluk("poz_tamponu", **self.poz.sayaclar())
         kod = self._sunucuyu_kapat()
         self._gunluk("kapanis", sunucu_pid=self.sunucu_pid, sunucu_cikis=kod, komut_sayaci=self.komut_sayaci)
 
@@ -327,6 +339,13 @@ class Px4Adapter:
                 konum_ned_m=(n, e, d), konum_enu_m=(x0 + e, y0 + n, z0 - d),
                 yonelim_q_wxyz=(o.q.w, o.q.x, o.q.y, o.q.z),
                 yatay_hiz_ms=math.hypot(o.velocity_body.x_m_s, o.velocity_body.y_m_s))
+        alinma, kaynak_ns, q = time.monotonic_ns(), int(o.time_usec) * 1000, (o.q.w, o.q.x, o.q.y, o.q.z)
+        if self.poz_durdur is not None and self.poz_durdur():
+            kabul, red = False, "enjeksiyon"
+        else:
+            kabul, red = self.poz.ekle(kaynak_ns, (n, e, d), q)
+        if self._telemetri_yazici is not None:           # kuyruğa koyar, bloke etmez
+            self._telemetri_yazici.ver(_poz.telemetri_kaydi(self.arac_kimligi, kaynak_ns, alinma, (n, e, d), q, kabul, red))
 
     def _konum_isle(self, p):
         with self._kilit:

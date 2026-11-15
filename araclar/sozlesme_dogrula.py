@@ -5,7 +5,7 @@ Kullanım:
   sozlesme_dogrula.py [--yapilandirma config/deney.env] <dosya.json> [--sahne sahne.json]
   sozlesme_dogrula.py [--yapilandirma ...] --hedef-listesi-uret <sahne.json>
 Dosya türü dosyadaki "tur" alanından anlaşılır (sahne | bolge_rota | kamera_kalibrasyon | hedef_listesi | kosu_ustveri | nihai_rapor | kosu_olcum | sayac_kaydi).
-Uzantısı .jsonl olan dosya JSON Lines'tır (satır başına bir JSON nesnesi): tur: kare_olay (öntanımlı), arac_durum_kaydi, kare_sonuc, isci_kaynak ya da gorev_olay (ilk dolu satırdan anlaşılır).
+Uzantısı .jsonl olan dosya JSON Lines'tır (satır başına bir JSON nesnesi): tur: kare_olay (öntanımlı), arac_durum_kaydi, kare_sonuc, isci_kaynak, gorev_olay, telemetri ya da kare_poz (ilk dolu satırdan anlaşılır).
 --sahne yalnız hedef_listesi için: listenin verilen sahnedeki hedeflerle birebir aynı olduğu da denetlenir.
 Çıkış: 0 geçerli, 1 geçersiz (Türkçe, alan yoluyla "nokta nokta" hata listesi), 2 kullanım/okuma hatası.
 Yalnız standart kitaplık kullanılır. Eşikler ve aralıklar config/deney.env'den okunur (tek kaynak); biçimler planlama/sozlesmeler.md'dedir.
@@ -39,7 +39,7 @@ class Yapilandirma:
         "SAHNE_BOLUMLER SAHNE_SINIFLAR SAHNE_TEST_INSAN SAHNE_TEST_ENKAZ SAHNE_MERKEZ_MESAFE_TEST_M SAHNE_MERKEZ_MESAFE_DIGER_M SAHNE_DIGER_HEDEF_MAKS "
         "SAHNE_INSAN_VARYANTLARI SAHNE_ENKAZ_VARYANTLARI SAHNE_TEST_OZEL_INSAN SAHNE_TEST_OZEL_ENKAZ SAHNE_ZEMIN_VARYANTLARI "
         "SAHNE_GUNES_YUKSEKLIK_MIN_DERECE SAHNE_GUNES_YUKSEKLIK_MAKS_DERECE KAL_KAMERA_KONUM_Z_M CAM_WIDTH CAM_HEIGHT CAM_HFOV_DEG CAM_HFOV_RAD UAV_SYS_IDS "
-        "CAM_RATE_HZ KOSU_MIMARILER MODEL_SINIFLAR INF_CONF INF_MAX_DET BIRLESTIRME_ARALIK_M"
+        "CAM_RATE_HZ KOSU_MIMARILER MODEL_SINIFLAR INF_CONF INF_MAX_DET BIRLESTIRME_ARALIK_M POZ_ARALIK_SINIR_MS"
     ).split()
 
     def __init__(self, ham):
@@ -71,6 +71,7 @@ class Yapilandirma:
         self.model_siniflari = ham["MODEL_SINIFLAR"].split()
         self.guven_esigi, self.max_det = f(ham["INF_CONF"]), int(ham["INF_MAX_DET"])
         self.birlestirme_aralik = f(ham["BIRLESTIRME_ARALIK_M"])
+        self.poz_aralik_sinir_ms = f(ham["POZ_ARALIK_SINIR_MS"])
 
     @property
     def x_aralik(self):
@@ -887,6 +888,175 @@ def dogrula_isci_kaynak_dosyasi(c, satirlar):
     return hatalar
 
 
+POZ_RED_NEDENLERI = ("geriye_giden", "yinelenen", "gecersiz_deger", "enjeksiyon")
+POZ_GECERSIZ_NEDENLERI = ("aralik_asildi", "tampon_disi", "bekleme_asildi")
+
+
+def _vektor_mu(v, n):
+    return isinstance(v, list) and len(v) == n and all(sayi_mi(x) for x in v)
+
+
+def dogrula_telemetri(c, d):
+    """Tek bir telemetri kaydı (planlama/sozlesmeler.md §8.10): px4_adapter'ın aldığı her odometri örneği (kabul edilen ya da reddedilen)."""
+    h = Hatalar()
+    if not alan_denetle(h, "", d, ["surum", "tur", "arac_kimligi", "kaynak_ns", "alinma_mono_ns", "konum_ned_m", "q_wxyz", "kabul", "red_neden"]):
+        return h.liste
+    ust_alanlar(h, d, "telemetri")
+    if not tam_sayi_mi(d.get("arac_kimligi")) or d.get("arac_kimligi") not in c.arac_kimlikleri:
+        h.ekle("arac_kimligi", f"UAV_SYS_IDS değerlerinden biri olmalı ({c.arac_kimlikleri}; bulunan: {d.get('arac_kimligi')!r})")
+    if not (tam_sayi_mi(d.get("kaynak_ns")) and d["kaynak_ns"] >= 0):
+        h.ekle("kaynak_ns", "negatif olmayan tam sayı (PX4 time_usec → ns) olmalı")
+    if not (tam_sayi_mi(d.get("alinma_mono_ns")) and d["alinma_mono_ns"] > 0):
+        h.ekle("alinma_mono_ns", "pozitif tam sayı (CLOCK_MONOTONIC, ns) olmalı")
+    gecersiz_deger = d.get("kabul") is False and d.get("red_neden") == "gecersiz_deger"   # sonlu olmayan değerler null yazılır; birim norm denetlenmez
+    sayi_ya_da_null = lambda v, n: isinstance(v, list) and len(v) == n and all(x is None or sayi_mi(x) for x in v)  # noqa: E731
+    if not (sayi_ya_da_null(d.get("konum_ned_m"), 3) if gecersiz_deger else _vektor_mu(d.get("konum_ned_m"), 3)):
+        h.ekle("konum_ned_m", "[kuzey, doğu, aşağı] üç sayı (m) olmalı (yalnız 'gecersiz_deger' reddinde sonlu olmayan değer null olabilir)")
+    q = d.get("q_wxyz")
+    if not (sayi_ya_da_null(q, 4) if gecersiz_deger else _vektor_mu(q, 4)):
+        h.ekle("q_wxyz", "[w, x, y, z] dört sayı olmalı (yalnız 'gecersiz_deger' reddinde sonlu olmayan değer null olabilir)")
+    elif not gecersiz_deger and abs(math.sqrt(sum(v * v for v in q)) - 1.0) > 1e-3:
+        h.ekle("q_wxyz", f"birim kuaterniyon olmalı (norm {math.sqrt(sum(v * v for v in q)):.6f})")
+    kabul, red = d.get("kabul"), d.get("red_neden")
+    if not isinstance(kabul, bool):
+        h.ekle("kabul", "true/false olmalı")
+    elif kabul and red is not None:
+        h.ekle("red_neden", "kabul edilen örnekte null olmalı")
+    elif not kabul and red not in POZ_RED_NEDENLERI:
+        h.ekle("red_neden", f"reddedilen örnekte {list(POZ_RED_NEDENLERI)} değerlerinden biri olmalı (bulunan: {red!r})")
+    return h.liste
+
+
+def dogrula_telemetri_dosyasi(c, satirlar):
+    """Telemetri dosyası: tek yazar araç, alınma zamanı geriye gitmez, KABUL edilen örneklerin kaynak zamanı kesin artar, boş satır yok."""
+    hatalar = []
+    yazar = son_alinma = son_kaynak = None
+    dolu = 0
+    for no, ham in enumerate(satirlar, 1):
+        if not ham.strip():
+            hatalar.append(f"satır {no}: boş satır olamaz")
+            continue
+        try:
+            d = json.loads(ham)
+        except json.JSONDecodeError as e:
+            hatalar.append(f"satır {no}: JSON geçersiz: {e}")
+            continue
+        dolu += 1
+        hs = dogrula_telemetri(c, d)
+        hatalar.extend(f"satır {no}: {x}" for x in hs)
+        if hs:
+            continue
+        if yazar is None:
+            yazar = d["arac_kimligi"]
+        elif d["arac_kimligi"] != yazar:
+            hatalar.append(f"satır {no}: arac_kimligi: dosyadaki kayıtların yazarı aynı olmalı ({yazar} ile {d['arac_kimligi']} karışık)")
+        if son_alinma is not None and d["alinma_mono_ns"] < son_alinma:
+            hatalar.append(f"satır {no}: alinma_mono_ns: geriye gidiyor ({d['alinma_mono_ns']} < {son_alinma})")
+        son_alinma = d["alinma_mono_ns"]
+        if d["kabul"]:
+            if son_kaynak is not None and d["kaynak_ns"] <= son_kaynak:
+                hatalar.append(f"satır {no}: kaynak_ns: kabul edilen örneklerde kesin artmalı ({d['kaynak_ns']} <= {son_kaynak})")
+            son_kaynak = d["kaynak_ns"]
+    if dolu == 0 and not hatalar:
+        hatalar.append("dosya boş: en az bir kayıt olmalı")
+    return hatalar
+
+
+def dogrula_kare_poz(c, d):
+    """Tek bir kare–poz kaydı (§8.11): kare üretim anındaki enterpolasyonlu PX4 pozu ya da geçersizlik nedeni. Geçerli poz yokken konum/yönelim null'dır (yedek poz yoktur)."""
+    h = Hatalar()
+    zor = ["surum", "tur", "arac_kimligi", "n", "kare_ns", "gecerli", "neden", "t1_ns", "t2_ns", "aralik_ms", "bekleme_ms", "konum_ned_m", "q_wxyz"]
+    if not alan_denetle(h, "", d, zor):
+        return h.liste
+    ust_alanlar(h, d, "kare_poz")
+    if not tam_sayi_mi(d.get("arac_kimligi")) or d.get("arac_kimligi") not in c.arac_kimlikleri:
+        h.ekle("arac_kimligi", f"UAV_SYS_IDS değerlerinden biri olmalı ({c.arac_kimlikleri}; bulunan: {d.get('arac_kimligi')!r})")
+    n, kare = d.get("n"), d.get("kare_ns")
+    hz = c.kamera_hz
+    if not (tam_sayi_mi(n) and n >= 0):
+        h.ekle("n", "negatif olmayan tam sayı olmalı")
+    if not (tam_sayi_mi(kare) and kare >= 0):
+        h.ekle("kare_ns", "negatif olmayan tam sayı (ns) olmalı")
+    elif tam_sayi_mi(n) and hz == int(hz) and kare * int(hz) != n * 1_000_000_000:
+        h.ekle("kare_ns", f"n · 10⁹ / CAM_RATE_HZ olmalı (n={n}, bulunan: {kare})")
+    bek = d.get("bekleme_ms")
+    if not (sayi_mi(bek) and bek >= 0):
+        h.ekle("bekleme_ms", "negatif olmayan sayı (ms) olmalı (bekleme ölçüme dahildir; her kayıtta yazılır)")
+    gecerli, neden = d.get("gecerli"), d.get("neden")
+    t1, t2, ar = d.get("t1_ns"), d.get("t2_ns"), d.get("aralik_ms")
+    konum, q = d.get("konum_ned_m"), d.get("q_wxyz")
+    if not isinstance(gecerli, bool):
+        h.ekle("gecerli", "true/false olmalı")
+        return h.liste
+    if gecerli:
+        if neden is not None:
+            h.ekle("neden", "geçerli poz kaydında null olmalı")
+        if not (tam_sayi_mi(t1) and tam_sayi_mi(t2) and t1 <= t2):
+            h.ekle("t1_ns", "geçerli pozda t1_ns <= t2_ns tam sayı çifti olmalı")
+        elif tam_sayi_mi(kare) and not (t1 <= kare <= t2):
+            h.ekle("t1_ns", f"t1 <= kare_ns <= t2 olmalı (t1={t1}, kare_ns={kare}, t2={t2})")
+        if tam_sayi_mi(t1) and tam_sayi_mi(t2):
+            if not (sayi_mi(ar) and abs(ar - (t2 - t1) / 1e6) < 1e-6):
+                h.ekle("aralik_ms", f"(t2 - t1) / 10⁶ olmalı (bulunan: {ar!r})")
+            elif ar > c.poz_aralik_sinir_ms:
+                h.ekle("aralik_ms", f"geçerli pozda POZ_ARALIK_SINIR_MS ({c.poz_aralik_sinir_ms:g}) değerini aşamaz (bulunan: {ar:g})")
+        if not _vektor_mu(konum, 3):
+            h.ekle("konum_ned_m", "geçerli pozda üç sayı olmalı")
+        if not _vektor_mu(q, 4):
+            h.ekle("q_wxyz", "geçerli pozda dört sayı olmalı")
+        elif abs(math.sqrt(sum(v * v for v in q)) - 1.0) > 1e-3:
+            h.ekle("q_wxyz", "birim kuaterniyon olmalı")
+        return h.liste
+    if neden not in POZ_GECERSIZ_NEDENLERI:
+        h.ekle("neden", f"geçersiz pozda {list(POZ_GECERSIZ_NEDENLERI)} değerlerinden biri olmalı (bulunan: {neden!r})")
+    if konum is not None:
+        h.ekle("konum_ned_m", "geçerli poz yokken null olmalı (son örnek ya da durum mesajı yedek olarak kullanılmaz)")
+    if q is not None:
+        h.ekle("q_wxyz", "geçerli poz yokken null olmalı")
+    if neden == "aralik_asildi":
+        if not (tam_sayi_mi(t1) and tam_sayi_mi(t2) and t1 < t2 and sayi_mi(ar) and abs(ar - (t2 - t1) / 1e6) < 1e-6):
+            h.ekle("t1_ns", "'aralik_asildi' için t1_ns < t2_ns ve aralik_ms = (t2 - t1) / 10⁶ olmalı")
+        elif ar <= c.poz_aralik_sinir_ms:
+            h.ekle("aralik_ms", f"'aralik_asildi' için POZ_ARALIK_SINIR_MS ({c.poz_aralik_sinir_ms:g}) değerini aşmalı (bulunan: {ar:g})")
+    elif neden in POZ_GECERSIZ_NEDENLERI:
+        if t1 is not None or t2 is not None or ar is not None:
+            h.ekle("t1_ns", f"'{neden}' için t1_ns, t2_ns ve aralik_ms null olmalı")
+    return h.liste
+
+
+def dogrula_kare_poz_dosyasi(c, satirlar):
+    """Kare–poz dosyası: tek yazar araç, her görev numarası için TAM BİR kayıt, boş satır yok."""
+    hatalar = []
+    yazar = None
+    gorulen = {}
+    dolu = 0
+    for no, ham in enumerate(satirlar, 1):
+        if not ham.strip():
+            hatalar.append(f"satır {no}: boş satır olamaz")
+            continue
+        try:
+            d = json.loads(ham)
+        except json.JSONDecodeError as e:
+            hatalar.append(f"satır {no}: JSON geçersiz: {e}")
+            continue
+        dolu += 1
+        hs = dogrula_kare_poz(c, d)
+        hatalar.extend(f"satır {no}: {x}" for x in hs)
+        if hs:
+            continue
+        if yazar is None:
+            yazar = d["arac_kimligi"]
+        elif d["arac_kimligi"] != yazar:
+            hatalar.append(f"satır {no}: arac_kimligi: dosyadaki kayıtların yazarı aynı olmalı ({yazar} ile {d['arac_kimligi']} karışık)")
+        if d["n"] in gorulen:
+            hatalar.append(f"satır {no}: n: {d['n']} numaralı kare için ikinci kayıt (ilki satır {gorulen[d['n']]}); her görev numarası için tam bir kayıt olmalı")
+        else:
+            gorulen[d["n"]] = no
+    if dolu == 0 and not hatalar:
+        hatalar.append("dosya boş: en az bir kayıt olmalı")
+    return hatalar
+
+
 GOREV_OLAYLARI = ("gorev_atandi", "hazir", "eslesme", "t0", "tarama_bitisi", "son_sonuc", "t1", "tamamlandi", "zaman_asimi", "birlestirme_yok", "yok_sayildi", "hata")
 GOREV_ARAC_ZORUNLU = ("gorev_atandi", "hazir", "tarama_bitisi", "tamamlandi")
 GOREV_MISSION_ZORUNLU = ("gorev_atandi", "t0", "t1")
@@ -1247,7 +1417,8 @@ TURLER = {"sahne": dogrula_sahne, "bolge_rota": dogrula_bolge_rota, "kamera_kali
           "kosu_ustveri": dogrula_kosu_ustveri, "nihai_rapor": dogrula_nihai_rapor, "kosu_olcum": dogrula_kosu_olcum, "sayac_kaydi": dogrula_sayac_kaydi}
 
 
-JSONL_TURLERI = {"arac_durum_kaydi": dogrula_arac_durum_dosyasi, "kare_sonuc": dogrula_kare_sonuc_dosyasi, "isci_kaynak": dogrula_isci_kaynak_dosyasi, "gorev_olay": dogrula_gorev_olay_dosyasi}
+JSONL_TURLERI = {"arac_durum_kaydi": dogrula_arac_durum_dosyasi, "kare_sonuc": dogrula_kare_sonuc_dosyasi, "isci_kaynak": dogrula_isci_kaynak_dosyasi, "gorev_olay": dogrula_gorev_olay_dosyasi,
+                "telemetri": dogrula_telemetri_dosyasi, "kare_poz": dogrula_kare_poz_dosyasi}
 
 
 def json_oku(yol):

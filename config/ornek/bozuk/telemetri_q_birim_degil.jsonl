@@ -1,0 +1,5 @@
+{"surum": 1, "tur": "telemetri", "arac_kimligi": 1, "kaynak_ns": 10000000000, "alinma_mono_ns": 50000000000, "konum_ned_m": [0.0, 0.0, -30.0], "q_wxyz": [1.0, 0.0, 0.0, 0.0], "kabul": true, "red_neden": null}
+{"surum": 1, "tur": "telemetri", "arac_kimligi": 1, "kaynak_ns": 10020000000, "alinma_mono_ns": 50020500000, "konum_ned_m": [0.1, 0.0, -30.0], "q_wxyz": [2.0, 0.0, 0.0, 0.0], "kabul": true, "red_neden": null}
+{"surum": 1, "tur": "telemetri", "arac_kimligi": 1, "kaynak_ns": 10040000000, "alinma_mono_ns": 50040100000, "konum_ned_m": [0.2, 0.0, -30.0], "q_wxyz": [1.0, 0.0, 0.0, 0.0], "kabul": true, "red_neden": null}
+{"surum": 1, "tur": "telemetri", "arac_kimligi": 1, "kaynak_ns": 10040000000, "alinma_mono_ns": 50040300000, "konum_ned_m": [9, 9, 9], "q_wxyz": [1.0, 0.0, 0.0, 0.0], "kabul": false, "red_neden": "yinelenen"}
+{"surum": 1, "tur": "telemetri", "arac_kimligi": 1, "kaynak_ns": 10060000000, "alinma_mono_ns": 50060200000, "konum_ned_m": [0.3, 0.0, -30.0], "q_wxyz": [1.0, 0.0, 0.0, 0.0], "kabul": true, "red_neden": null}
