@@ -20,7 +20,7 @@ _NS = 10 ** 9
 
 
 class SonucAlici:
-    def __init__(self, dugum, ham, arac_kimlikleri, kayit_yol=None, log=None):
+    def __init__(self, dugum, ham, arac_kimlikleri, kayit_yol=None, log=None, dds_sonuc=True):
         from rclpy.qos import DurabilityPolicy, HistoryPolicy, QoSProfile, ReliabilityPolicy
         from swarm_msgs.msg import FrameResult, ScanFinished
         self._FR = FrameResult
@@ -36,11 +36,13 @@ class SonucAlici:
         self._yazici = None
         self.son_sonuc_mono_ns = None                    # kabul edilen son sonucun alım anı
         self.kabul_sayisi = 0
+        self._sayac_kilit = threading.Lock()
         qa = _rota.kare_sonuc_qos_ayar(ham)
         qos = QoSProfile(history=HistoryPolicy.KEEP_LAST if qa["gecmis"] == "keep_last" else HistoryPolicy.KEEP_ALL, depth=qa["derinlik"], reliability=ReliabilityPolicy.RELIABLE,
                          durability=DurabilityPolicy.TRANSIENT_LOCAL if qa["dayaniklilik"] == "transient_local" else DurabilityPolicy.VOLATILE)
         kontrol = QoSProfile(history=HistoryPolicy.KEEP_LAST, depth=10, reliability=ReliabilityPolicy.RELIABLE, durability=DurabilityPolicy.TRANSIENT_LOCAL)
-        self._abone = dugum.create_subscription(FrameResult, ham["KONU_KARE_SONUC"], self._sonuc_geldi, qos)
+        # dds_sonuc=False (merkezi mod): kare sonuçları DDS'ten gelmez; merkezde üretilir ve `sonuc_ver` ile teslim edilir. Tarama bitişi aboneliği her iki modda aynıdır.
+        self._abone = dugum.create_subscription(FrameResult, ham["KONU_KARE_SONUC"], self._sonuc_geldi, qos) if dds_sonuc else None
         self._bitis_abone = dugum.create_subscription(ScanFinished, ham["KONU_TARAMA_BITIS"], self._bitis_geldi, kontrol)
         self._durum_ad = {FrameResult.STATUS_DETECTIONS: ("tespit", "sonuc"), FrameResult.STATUS_NO_DETECTION: ("tespit_yok", "tespit_yok"),
                           FrameResult.STATUS_PROCESSING_ERROR: ("islem_hatasi", "islem_hatasi"), FrameResult.STATUS_FRAME_NOT_RECEIVED: ("kare_alinamadi", "kare_alinamadi")}
@@ -56,7 +58,21 @@ class SonucAlici:
             self.log("sonuc_gecersiz", arac=int(m.vehicle_id), n=int(m.frame_number), durum=int(m.status), numaralandirma=int(m.numbering_mode))
             return
         durum, sonuc_durumu = self._durum_ad[m.status]
-        arac, n = int(m.vehicle_id), int(m.frame_number)
+        self._kabul(int(m.vehicle_id), int(m.frame_number), durum, sonuc_durumu, m.sim_stamp.sec * _NS + m.sim_stamp.nanosec, mono)
+
+    def sonuc_ver(self, arac, n, durum, sim_damga_ns):
+        """Merkezi mod: merkezde üretilen kare sonucunu (durum: tespit | tespit_yok | islem_hatasi | kare_alinamadi) uçta moddaki ile AYNI yoldan (defter + `kullanilabilir` kaydı) teslim eder.
+        Kullanılabilirlik anı = sonucun yer istasyonunda oluştuğu an."""
+        mono = time.monotonic_ns()
+        sonuc_durumu = {"tespit": "sonuc", "tespit_yok": "tespit_yok", "islem_hatasi": "islem_hatasi", "kare_alinamadi": "kare_alinamadi"}[durum]
+        self._kabul(int(arac), int(n), durum, sonuc_durumu, int(sim_damga_ns), mono)
+
+    def olay_ekle(self, kayit):
+        """Yer istasyonu kare olay kaydını (ör. merkezi modda `alim`) `kullanilabilir` kayıtlarıyla aynı dosyaya yazar (tek yazıcı)."""
+        if self.kayit_yol:
+            self._q.put(kayit)
+
+    def _kabul(self, arac, n, durum, sonuc_durumu, sim_damga_ns, mono):
         sonuc = self.defter.ekle(arac, n, durum, mono)
         if sonuc != "kabul" and sonuc != "aralik_disi":
             self.log("sonuc_" + sonuc, arac=arac, n=n, durum=durum)
@@ -64,9 +80,10 @@ class SonucAlici:
         if sonuc == "aralik_disi":
             self.log("sonuc_aralik_disi", arac=arac, n=n, durum=durum)
             return
-        self.kabul_sayisi += 1
-        self.son_sonuc_mono_ns = mono
-        self._q.put({"surum": 1, "tur": "kare_olay", "kaynak": "yer_istasyonu", "arac_kimligi": arac, "n": n, "sim_damga_ns": m.sim_stamp.sec * _NS + m.sim_stamp.nanosec,
+        with self._sayac_kilit:                          # merkezi modda araç başına işleme iş parçacıkları aynı anda çağırır
+            self.kabul_sayisi += 1
+            self.son_sonuc_mono_ns = mono
+        self._q.put({"surum": 1, "tur": "kare_olay", "kaynak": "yer_istasyonu", "arac_kimligi": arac, "n": n, "sim_damga_ns": sim_damga_ns,
                      "olay": "kullanilabilir", "mono_ns": mono, "sonuc_durumu": sonuc_durumu})
 
     def _bitis_geldi(self, m):
@@ -77,7 +94,7 @@ class SonucAlici:
     # --- eşleşme --------------------------------------------------------------------------------------------------------------------------------
     def eslesen_yayinci(self):
         """Abonenin eşleştiği yayımcı sayısı; her artış `eslesme_anlari`'na (mono_ns, sayı) olarak girer."""
-        n = self._abone.get_publisher_count()
+        n = self._abone.get_publisher_count() if self._abone is not None else 0
         if not self.eslesme_anlari or self.eslesme_anlari[-1][1] != n:
             self.eslesme_anlari.append((time.monotonic_ns(), n))
             self.log("eslesme_degisti", yayimci=n)

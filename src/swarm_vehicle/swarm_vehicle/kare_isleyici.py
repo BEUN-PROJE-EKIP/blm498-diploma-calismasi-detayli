@@ -32,13 +32,13 @@ class KareIsleyici:
         self.poz_gecersiz = {}
 
     # --- sonuç üretimi ----------------------------------------------------------------------------------------------------------------------
-    def _bitir(self, n, damga_ns, durum, tespitler=(), atilan=0, hata=None):
+    def _bitir(self, n, damga_ns, durum, tespitler=(), atilan=0, hata=None, merkez_poz=None):
         poz = self._poz_sorgula(n, damga_ns)         # bekleme dahil KİLİT DIŞINDA (gz kamera geri çağrısından gelen `kayip` yolu bu kilidi bekler); sonuç yayımından (kanca) önce
         with self._bitir_kilit:
-            return self._bitir_kilitli(n, damga_ns, durum, tespitler, atilan, hata, poz)
+            return self._bitir_kilitli(n, damga_ns, durum, tespitler, atilan, hata, poz, merkez_poz)
 
-    def _bitir_kilitli(self, n, damga_ns, durum, tespitler, atilan, hata, poz=None):
-        kayit = ks.kayit_olustur(self.arac_kimligi, n, damga_ns, durum, tespitler, atilan, hata, time.monotonic_ns())
+    def _bitir_kilitli(self, n, damga_ns, durum, tespitler, atilan, hata, poz=None, merkez_poz=None):
+        kayit = ks.kayit_olustur(self.arac_kimligi, n, damga_ns, durum, tespitler, atilan, hata, time.monotonic_ns(), merkez_poz.sozluk() if merkez_poz is not None else None)
         if not self.defter.ekle(kayit):
             self.log("kare_sonuc_cift", n=n, durum=durum, ayrinti="bu numara için zaten sonuç var; ikinci sonuç yazılmadı")
             return False
@@ -73,7 +73,7 @@ class KareIsleyici:
             self.poz_gecersiz[s.neden] = self.poz_gecersiz.get(s.neden, 0) + 1
         self.poz_yazici.ver(pz.kare_poz_kaydi(self.arac_kimligi, n, damga_ns, s))
 
-    def goruntu(self, n, damga_ns, mono_ns, veri, w, h):
+    def goruntu(self, n, damga_ns, mono_ns, veri, w, h, merkez_poz=None):
         """Alıcı kuyruğu tüketicisi (tek iş parçacığı): kareyi işçide işler ve sonucunu yazar. Her çağrı bir numaraya tam bir sonuç üretir."""
         if self.kapaniyor and self.defter.var_mi(n):
             return
@@ -82,11 +82,11 @@ class KareIsleyici:
         if yanit.get("basi_ns") and yanit.get("sonu_ns"):
             self.sureler_ms.append((yanit["sonu_ns"] - yanit["basi_ns"]) / 1e6)
         self.atilan_toplam += atilan
-        self._bitir(n, damga_ns, durum, tespitler, atilan, hata)
+        self._bitir(n, damga_ns, durum, tespitler, atilan, hata, merkez_poz)
 
-    def kayip(self, n, mono_ns):
+    def kayip(self, n, mono_ns, merkez_poz=None):
         """Alıcı bu numara için "kare alınamadı" kaydı yazdı: tespit taşımayan kare sonucu."""
-        self._bitir(n, n * _NS // self.hz, ks.KARE_ALINAMADI)
+        self._bitir(n, n * _NS // self.hz, ks.KARE_ALINAMADI, merkez_poz=merkez_poz)
 
     # --- kapanış ----------------------------------------------------------------------------------------------------------------------------
     def kapanis_tamamla(self, n_ilk, n_son, bekle_sn, alici_kapat_zorla):

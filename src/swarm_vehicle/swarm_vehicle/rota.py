@@ -57,6 +57,20 @@ def deney_env_oku(yol=None):
     return veri
 
 
+def kalibrasyon_kimligi_oku(yol=None):
+    """`config/kamera_kalibrasyon.json` içindeki `kalibrasyon_kimligi` (merkezi mod görüntü iletisi bunu taşır). Dosya ya da alan yoksa RuntimeError."""
+    import json
+    yol = yol or os.path.join(KOK, "config", "kamera_kalibrasyon.json")
+    try:
+        with open(yol, encoding="utf-8") as f:
+            kimlik = json.load(f).get("kalibrasyon_kimligi")
+    except (OSError, ValueError) as e:
+        raise RuntimeError(f"kamera kalibrasyon dosyası okunamadı ({yol}): {e}") from None
+    if not isinstance(kimlik, str) or not kimlik:
+        raise RuntimeError(f"kalibrasyon_kimligi yok ya da geçersiz ({yol})")
+    return kimlik
+
+
 def sayi(metin):
     """Yapılandırma sayısı: tam sayıysa int, değilse float (çıktı JSON'unda `300` ile `300.0` ayrımı korunur)."""
     f = float(metin)

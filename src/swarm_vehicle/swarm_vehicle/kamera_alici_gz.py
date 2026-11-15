@@ -17,7 +17,7 @@ from .kamera_alici import Enjeksiyon, KameraAlici
 
 
 class KameraAliciGz:
-    def __init__(self, ham, arac_no, arac_kimligi, kayit_yol, log, enjeksiyon_metni=None, tuketici=None, kayip_ver=None):
+    def __init__(self, ham, arac_no, arac_kimligi, kayit_yol, log, enjeksiyon_metni=None, tuketici=None, kayip_ver=None, kayip_sirali=False):
         self.ham, self.arac_no, self.arac_kimligi, self.log = ham, arac_no, arac_kimligi, log
         self.hz = int(float(ham["CAM_RATE_HZ"]))
         self.w, self.h = int(ham["CAM_WIDTH"]), int(ham["CAM_HEIGHT"])
@@ -27,7 +27,8 @@ class KameraAliciGz:
         self._dosya_kilit = threading.Lock()
         self._k = threading.RLock()
         self.enj = Enjeksiyon(enjeksiyon_metni if enjeksiyon_metni is not None else os.environ.get("KAMERA_ENJEKSIYON", ""))
-        self.alici = KameraAlici(arac_kimligi, self.hz, self._yaz, self._kuyruga, ham.get("KARE_NUMARALAMA", "izgara"), kayip_ver)
+        self._kayip_tuketici = kayip_ver if kayip_sirali else None     # merkezi mod: 'kare alınamadı' da görüntülerle AYNI kuyruktan, sırasını koruyarak tüketilir
+        self.alici = KameraAlici(arac_kimligi, self.hz, self._yaz, self._kuyruga, ham.get("KARE_NUMARALAMA", "izgara"), self._kayip_kuyruga if kayip_sirali else kayip_ver)
         self.tuketici = tuketici
         self._q = queue.SimpleQueue()
         self._veri = collections.OrderedDict()           # damga_ns → (genişlik, yükseklik, bayt): son kareler (kuyruğa verilirken görüntüyü bulmak için)
@@ -40,6 +41,7 @@ class KameraAliciGz:
         self._ipler = []
         self._node = None
         self.ilk_damga_ns = None
+        self.ilk_alim_mono_ns = self.son_alim_mono_ns = None     # gz geri çağrılarının ilk/son alım anı (gerçek üretim hızı için)
 
     # --- kayıt ve kuyruk ----------------------------------------------------------------------------------------------------------------------
     def _yaz(self, d):
@@ -52,13 +54,22 @@ class KameraAliciGz:
         self._q.put((n, damga_ns, mono_ns, veri, w, h))
         self.kuyruk_maks = max(self.kuyruk_maks, self._q.qsize())
 
+    def _kayip_kuyruga(self, n, mono_ns):
+        self._q.put((n, n * 10 ** 9 // self.hz, mono_ns, None, 0, 0))       # veri None: 'kare alınamadı' işareti
+        self.kuyruk_maks = max(self.kuyruk_maks, self._q.qsize())
+
     def _tuket(self):
         while not self._dur.is_set() or not self._q.empty():
             try:
                 n, damga, mono, veri, w, h = self._q.get(timeout=0.2)
             except queue.Empty:
                 continue
-            if self.tuketici is not None:
+            if veri is None:
+                try:
+                    self._kayip_tuketici(n, mono)
+                except Exception as e:  # noqa: BLE001
+                    self.log("tuketici_hatasi", n=n, hata=repr(e))
+            elif self.tuketici is not None:
                 derinlik = self._q.qsize()
                 if derinlik >= 1:
                     self.log("kuyruk_derinligi", n=n, bekleyen=derinlik)
@@ -88,6 +99,9 @@ class KameraAliciGz:
         mono = time.monotonic_ns()                        # alım anı: geri çağrının girişi
         damga = m.header.stamp.sec * 10 ** 9 + m.header.stamp.nsec
         self.alinan += 1
+        if self.ilk_alim_mono_ns is None:
+            self.ilk_alim_mono_ns = mono
+        self.son_alim_mono_ns = mono
         self._veri[damga] = (m.width, m.height, m.data)
         while len(self._veri) > 16:
             self._veri.popitem(last=False)

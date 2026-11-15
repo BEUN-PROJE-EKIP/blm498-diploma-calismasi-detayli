@@ -102,3 +102,11 @@ kare_poz_bekleme_yok.jsonl | bekleme_ms
 kare_poz_aralik_asildi_sinir_alti.jsonl | 'aralik_asildi' için POZ_ARALIK_SINIR_MS
 kare_poz_kare_ns_uyumsuz.jsonl | n · 10⁹ / CAM_RATE_HZ olmalı
 telemetri_nan_degeri.jsonl | üç sayı (m) olmalı
+kuyruk_durumu_gonderilen_geriye.jsonl | geriye gidiyor
+kuyruk_durumu_ileti_tutarsiz.jsonl | giren − gönderilen olmalı
+kuyruk_durumu_mono_geriye.jsonl | geriye gidiyor
+isleme_kuyrugu_ileti_tutarsiz.jsonl | giren − işlenen olmalı
+isleme_kuyrugu_islenen_geriye.jsonl | geriye gidiyor
+olay_alim_yanlis_kaynak.jsonl | 'alim' kaydını yalnız yer istasyonu yazar
+olay_gonderim_kuyrugu_yanlis_kaynak.jsonl | 'gonderim_kuyrugu' kaydını yalnız araç süreci yazar
+kare_sonuc_poz_gecersiz_konumlu.jsonl | poz.konum_ned_m: geçerli poz yokken null olmalı

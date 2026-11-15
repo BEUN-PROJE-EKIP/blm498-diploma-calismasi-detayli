@@ -5,7 +5,7 @@ Kullanım:
   sozlesme_dogrula.py [--yapilandirma config/deney.env] <dosya.json> [--sahne sahne.json]
   sozlesme_dogrula.py [--yapilandirma ...] --hedef-listesi-uret <sahne.json>
 Dosya türü dosyadaki "tur" alanından anlaşılır (sahne | bolge_rota | kamera_kalibrasyon | hedef_listesi | kosu_ustveri | nihai_rapor | kosu_olcum | sayac_kaydi).
-Uzantısı .jsonl olan dosya JSON Lines'tır (satır başına bir JSON nesnesi): tur: kare_olay (öntanımlı), arac_durum_kaydi, kare_sonuc, isci_kaynak, gorev_olay, telemetri ya da kare_poz (ilk dolu satırdan anlaşılır).
+Uzantısı .jsonl olan dosya JSON Lines'tır (satır başına bir JSON nesnesi): tur: kare_olay (öntanımlı), arac_durum_kaydi, kare_sonuc, isci_kaynak, gorev_olay, telemetri, kare_poz, kuyruk_durumu ya da isleme_kuyrugu (ilk dolu satırdan anlaşılır).
 --sahne yalnız hedef_listesi için: listenin verilen sahnedeki hedeflerle birebir aynı olduğu da denetlenir.
 Çıkış: 0 geçerli, 1 geçersiz (Türkçe, alan yoluyla "nokta nokta" hata listesi), 2 kullanım/okuma hatası.
 Yalnız standart kitaplık kullanılır. Eşikler ve aralıklar config/deney.env'den okunur (tek kaynak); biçimler planlama/sozlesmeler.md'dedir.
@@ -473,7 +473,7 @@ def dogrula_kalibrasyon(c, d):
 # Koşu kaydı: koşu üst verisi (kosu.json) ve kare olay kaydı (JSON Lines)
 # ---------------------------------------------------------------------------------------------------------------------------------
 BITIS_DURUMLARI = ("tamamlandi", "zorla_kapatildi", "yarida_kaldi")
-OLAY_TURLERI = ("uretim", "kuyruga_giris", "aktarim_tamam", "cikarim_basi", "cikarim_sonu", "kullanilabilir", "gonderim", "kayip_tespit", "gec_geldi", "yok_sayildi")
+OLAY_TURLERI = ("uretim", "kuyruga_giris", "aktarim_tamam", "cikarim_basi", "cikarim_sonu", "kullanilabilir", "gonderim", "kayip_tespit", "gec_geldi", "yok_sayildi", "gonderim_kuyrugu", "alim")
 YEREL_OLAYLAR = ("kayip_tespit", "gec_geldi", "yok_sayildi")   # kamera alıcısının YEREL kayıtları (zaman aşaması değil): kayıp tespiti (yer istasyonundaki "kullanılabilir" kaydı değildir), geç gelen kare, görev girdisi olmayan kare
 YOK_SAYILMA_NEDENLERI = ("gorev_oncesi", "kapanis_sonrasi", "izgara_disi", "tekrar")
 UYGULANMAZ_OLABILEN = ("kuyruga_giris", "aktarim_tamam")   # [belge] yalnız aktarım aşamaları "uygulanmaz" olabilir
@@ -638,8 +638,10 @@ def dogrula_kare_olay(c, d):
             h.ekle("neden", "'izgara_disi' nedeni ile n = 'izgara_disi' birlikte olmalı")
     elif "neden" in d:
         h.ekle("neden", "yalnız 'yok_sayildi' olayında bulunabilir")
-    if olay == "gonderim" and d.get("kaynak") != "arac_sureci":
-        h.ekle("kaynak", f"'gonderim' kaydını yalnız araç süreci yazar (kaynak: 'arac_sureci'; bulunan: {d.get('kaynak')!r})")
+    if olay in ("gonderim", "gonderim_kuyrugu") and d.get("kaynak") != "arac_sureci":
+        h.ekle("kaynak", f"'{olay}' kaydını yalnız araç süreci yazar (kaynak: 'arac_sureci'; bulunan: {d.get('kaynak')!r})")
+    if olay == "alim" and d.get("kaynak") != "yer_istasyonu":
+        h.ekle("kaynak", f"'alim' kaydını yalnız yer istasyonu yazar (kaynak: 'yer_istasyonu'; bulunan: {d.get('kaynak')!r})")
     if olay in YEREL_OLAYLAR and d.get("kaynak") != "kamera_alicisi":
         h.ekle("kaynak", f"'{olay}' yerel kaydını yalnız kamera alıcısı yazar (kaynak: 'kamera_alicisi'; bulunan: {d.get('kaynak')!r})")
     return h.liste
@@ -738,9 +740,15 @@ def dogrula_kare_sonuc(c, d):
     """Tek bir kare sonucu kaydı (JSON Lines'ın bir satırı): dört durum ayrıdır ve karışmaz [belge]."""
     h = Hatalar()
     zor = ["surum", "tur", "arac_kimligi", "n", "sim_damga_ns", "durum", "tespit_sayisi", "tespitler", "atilan_sinif_disi", "hata", "mono_ns"]
-    if not alan_denetle(h, "", d, zor):
+    if not alan_denetle(h, "", d, zor, ["poz"]):
         return h.liste
     ust_alanlar(h, d, "kare_sonuc")
+    if "poz" in d:     # yalnız merkezi mod: iletiden alınan kare–poz (kare_poz kaydındaki alanlarla aynı kurallar)
+        if not isinstance(d["poz"], dict):
+            h.ekle("poz", "nesne olmalı (merkezi modda iletiden alınan kare–poz)")
+        else:
+            sahte = {"surum": 1, "tur": "kare_poz", "arac_kimligi": d.get("arac_kimligi"), "n": d.get("n"), "kare_ns": d.get("sim_damga_ns"), "bekleme_ms": 0, **d["poz"]}
+            h.liste.extend(f"poz.{x}" for x in dogrula_kare_poz(c, sahte))
     if not tam_sayi_mi(d.get("arac_kimligi")) or d.get("arac_kimligi") not in c.arac_kimlikleri:
         h.ekle("arac_kimligi", f"UAV_SYS_IDS değerlerinden biri olmalı ({c.arac_kimlikleri}; bulunan: {d.get('arac_kimligi')!r})")
     hz = c.kamera_hz
@@ -1052,6 +1060,62 @@ def dogrula_kare_poz_dosyasi(c, satirlar):
             hatalar.append(f"satır {no}: n: {d['n']} numaralı kare için ikinci kayıt (ilki satır {gorulen[d['n']]}); her görev numarası için tam bir kayıt olmalı")
         else:
             gorulen[d["n"]] = no
+    if dolu == 0 and not hatalar:
+        hatalar.append("dosya boş: en az bir kayıt olmalı")
+    return hatalar
+
+
+def dogrula_kuyruk_durumu(c, d, tur="kuyruk_durumu"):
+    """Tek bir kuyruk durum kaydı (merkezi mod; §8.12): `kuyruk_durumu` = aracın TCP görüntü kanalı gönderim kuyruğu; `isleme_kuyrugu` = yer istasyonunun araç başına işleme kuyruğu (bayt alanı yok, `islenen_ileti` var)."""
+    h = Hatalar()
+    isleme = tur == "isleme_kuyrugu"
+    cikan = "islenen_ileti" if isleme else "gonderilen_ileti"
+    sayaclar = ("ileti", "giren_ileti", cikan) if isleme else ("ileti", "bayt", "giren_ileti", "gonderilen_ileti", "gonderilen_bayt")
+    zor = ["surum", "tur", "arac_kimligi", "mono_ns", *sayaclar]
+    if not alan_denetle(h, "", d, zor):
+        return h.liste
+    ust_alanlar(h, d, tur)
+    if not tam_sayi_mi(d.get("arac_kimligi")) or d.get("arac_kimligi") not in c.arac_kimlikleri:
+        h.ekle("arac_kimligi", f"UAV_SYS_IDS değerlerinden biri olmalı ({c.arac_kimlikleri}; bulunan: {d.get('arac_kimligi')!r})")
+    if not (tam_sayi_mi(d.get("mono_ns")) and d["mono_ns"] > 0):
+        h.ekle("mono_ns", "pozitif tam sayı (CLOCK_MONOTONIC, ns) olmalı")
+    for alan in sayaclar:
+        if not (tam_sayi_mi(d.get(alan)) and d[alan] >= 0):
+            h.ekle(alan, "negatif olmayan tam sayı olmalı")
+    if all(tam_sayi_mi(d.get(a)) for a in ("ileti", "giren_ileti", cikan)) and d["ileti"] != d["giren_ileti"] - d[cikan]:
+        h.ekle("ileti", f"kuyruktaki ileti sayısı giren − {'işlenen' if isleme else 'gönderilen'} olmalı")
+    return h.liste
+
+
+def dogrula_kuyruk_durumu_dosyasi(c, satirlar, tur="kuyruk_durumu"):
+    """Kuyruk durumu dosyası: tek yazar araç, zaman ve toplam sayaçlar geriye gitmez, boş satır yok."""
+    toplamlar = ("mono_ns", "giren_ileti", "islenen_ileti") if tur == "isleme_kuyrugu" else ("mono_ns", "giren_ileti", "gonderilen_ileti", "gonderilen_bayt")
+    hatalar = []
+    yazar = son = None
+    dolu = 0
+    for no, ham in enumerate(satirlar, 1):
+        if not ham.strip():
+            hatalar.append(f"satır {no}: boş satır olamaz")
+            continue
+        try:
+            d = json.loads(ham)
+        except json.JSONDecodeError as e:
+            hatalar.append(f"satır {no}: JSON geçersiz: {e}")
+            continue
+        dolu += 1
+        hs = dogrula_kuyruk_durumu(c, d, tur)
+        hatalar.extend(f"satır {no}: {x}" for x in hs)
+        if hs:
+            continue
+        if yazar is None:
+            yazar = d["arac_kimligi"]
+        elif d["arac_kimligi"] != yazar:
+            hatalar.append(f"satır {no}: arac_kimligi: dosyadaki kayıtların yazarı aynı olmalı ({yazar} ile {d['arac_kimligi']} karışık)")
+        if son is not None:
+            for alan in toplamlar:
+                if d[alan] < son[alan]:
+                    hatalar.append(f"satır {no}: {alan}: geriye gidiyor ({d[alan]} < {son[alan]})")
+        son = d
     if dolu == 0 and not hatalar:
         hatalar.append("dosya boş: en az bir kayıt olmalı")
     return hatalar
@@ -1418,7 +1482,8 @@ TURLER = {"sahne": dogrula_sahne, "bolge_rota": dogrula_bolge_rota, "kamera_kali
 
 
 JSONL_TURLERI = {"arac_durum_kaydi": dogrula_arac_durum_dosyasi, "kare_sonuc": dogrula_kare_sonuc_dosyasi, "isci_kaynak": dogrula_isci_kaynak_dosyasi, "gorev_olay": dogrula_gorev_olay_dosyasi,
-                "telemetri": dogrula_telemetri_dosyasi, "kare_poz": dogrula_kare_poz_dosyasi}
+                "telemetri": dogrula_telemetri_dosyasi, "kare_poz": dogrula_kare_poz_dosyasi, "kuyruk_durumu": dogrula_kuyruk_durumu_dosyasi,
+                 "isleme_kuyrugu": lambda c, satirlar: dogrula_kuyruk_durumu_dosyasi(c, satirlar, "isleme_kuyrugu")}
 
 
 def json_oku(yol):

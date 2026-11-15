@@ -176,6 +176,11 @@ tam_kosu() {
             sleep 0.5
         done
         adp="$KOSU_DIR/px4_adapter_$komut.log"
+        for ((i = 0; i < 40; i++)); do                    # t0'dan hemen sonra adaptör mission.start yazar; sayım ondan sonra alınır (yoksa yarış)
+            if [[ -f "$adp" ]] && [[ "$(grep -c 'ad=mission.start' "$adp" || true)" -ge 1 ]]; then break; fi
+            sleep 0.5
+        done
+        if [[ "$i" -ge 40 ]]; then log_warn "$ad: 20 sn içinde adaptör günlüğünde mission.start görülmedi; komut öncesi sayım eksik olabilir"; fi
         oncesi="$(awk '$3 == "komut" {n++} END {print n + 0}' "$adp" 2>/dev/null || true)"
         oncesi="${oncesi:-0}"
         for k in 1 2; do

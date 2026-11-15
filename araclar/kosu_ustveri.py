@@ -74,6 +74,11 @@ def main(a):
             "arac_sayisi": int(n), "arac_kimlikleri": [int(x) for x in kimlikler.split()], "mimari_modu": "yok", "sahne_kimligi": None,
             "dunya": dunya, "model": model, "gz_partition": part, "surecler": [], "bitis_durumu": None})
         return 0
+    if len(a) == 3 and a[0] == "mimari":
+        d = oku(a[1])
+        d["mimari_modu"] = a[2]
+        yaz(a[1], d)
+        return 0
     if len(a) == 5 and a[0] == "surec-ekle":
         d = oku(a[1])
         d["surecler"].append({"ad": a[2], "pid": int(a[3]), "grup": int(a[4])})

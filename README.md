@@ -299,6 +299,7 @@ Yazılım bileşenlerini sınar; çoğu başsız Gazebo + PX4 açar ve kendi art
 | `./setup/uc_mod_testi.sh` | Uçta mod: kare sonuçları reliable DDS ile yer istasyonuna (alt kümeler: `birim`, `tek`, `hata`, `uc`, `gecikme`) | ~25 dk | model ağırlıkları |
 | `./setup/yer_istasyonu_testi.sh` | Yer istasyonu görev koordinatörü: görev ataması, bariyer/t0, COMPLETE/t1, izleme (alt kümeler: `birim`, `uc`, `komut`, `mission`, `bayat`) | ~25 dk | model ağırlıkları |
 | `./setup/dds_doygunluk_testi.sh` | Doygun hatta DDS canlılığı **ölçümü** (risk U21; alt kümeler: `birim`, `s0`, `s1`, `s2`). Ölçüm "sorun var" derse bu test hatası değildir | ~45-60 dk | model ağırlıkları |
+| `./setup/merkezi_mod_testi.sh` | Merkezi mod: araç başına TCP görüntü kanalı ve yer istasyonunda çıkarım (tek araç; alt kümeler: `birim`, `tek`, `hata`, `basinc`). `./araclar/kosu.sh baslat --arac 1 --yer-istasyonu var --mimari merkezi` ile elle de çalışır | ~45 dk (tamamı) | model ağırlıkları |
 | `./setup/poz_tamponu_testi.sh` | Telemetri tamponu ve kare–poz enterpolasyonu: telemetri hızı, her görev karesi için poz kaydı, Gazebo gerçek pozuyla karşılaştırma, PX4 − sim zaman farkı (alt kümeler: `birim`, `tek`, `hata`) | ~16 dk (tamamı) | — |
 | `./setup/alan_pilot_testi.sh` | Alan ve rota mini pilotu: üç araç tam rotayı uçar; süre, yönelim, kapsama ölçülür | ~5 dk | model ağırlıkları |
 

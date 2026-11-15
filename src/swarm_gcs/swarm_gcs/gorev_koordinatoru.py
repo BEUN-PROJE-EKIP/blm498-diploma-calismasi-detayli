@@ -9,6 +9,8 @@ aşılırsa COMPLETE yayımlanmaz, açık hata, çıkış 1. Komut gönderilmez 
 Kayıtlar (koşu klasörü): `kayit/yer_istasyonu_gorev.jsonl` (`gorev_olay`, §8.9), `kayit/yer_istasyonu_kare.jsonl` (`kullanilabilir`), `kayit/yer_istasyonu_durum.jsonl` (izleme; serbest biçim: durum değişimleri +
 `IZLEME_OZET_SN` özetleri + bayat uyarıları), `kayit/yer_istasyonu_komut.jsonl` (komut/onay; serbest biçim), `kayit/yer_istasyonu_durum_ham.jsonl` (her durum iletisinin alım anı; serbest biçim), `yer_istasyonu.log` (metin günlüğü).
 Test anahtarı (yalnız test, varsayılan kapalı): ortam değişkeni GOREV_ENJEKSIYON=`sapma=<araç>`: o aracın Mission'ının ilk noktası 1 m kaydırılır (araç yerel dosyayla uyuşmazlık görür, yüklemez).
+Merkezi mod (`MIMARI_MODU=merkezi`; kosu.sh --mimari merkezi): kare sonuçları DDS'ten gelmez. Yer istasyonu araç başına TCP görüntü kanalını dinler (`merkezi_alici.py`), araç başına bir çıkarım işçisi (alt süreç; `IsciIstemcisi`, uçta moddakiyle aynı sınıf,
+model, `INF_*` ve araç–CPU eşlemesi) çalıştırır ve sonuçları AYNI sonuç defterine / `kullanilabilir` kaydına teslim eder (`KareIsleyici` → `SonucAlici.sonuc_ver`). Bariyer: N araç BARIYER_BEKLE VE N kanal bağlı (kaynak adresi doğrulanmış) VE N işçi hazır.
 Çıkış kodları: 0 tamam; 1 zaman aşımı/hata (COMPLETE yayımlanmadı); 2 kullanım/yapılandırma.
 """
 import json
@@ -22,7 +24,7 @@ from swarm_vehicle import gorev as _gorev
 from swarm_vehicle import rota
 
 from .gorev_kayit import GorevKaydi
-from .gorev_mantik import FAZ_HATA, Koordinasyon
+from .gorev_mantik import FAZ_BITTI, FAZ_HATA, Koordinasyon
 from .izleme import DurumIzleyici
 
 
@@ -63,6 +65,12 @@ def ana(argv):
     os.environ["SWARM_BIND_ADDR"] = ham["GCS_ADDR"]
     ust_sn = ust_sn if ust_sn is not None else float(os.environ.get("GCS_UST_SN") or ham["GCS_UST_SN"])      # ortam değişkeni yapılandırmayı yalnız o çağrı için geçersiz kılar (test amaçlı)
 
+    mimari = os.environ.get("MIMARI_MODU", "ucta")
+    if mimari not in ham["KOSU_MIMARILER"].split():
+        print(f"(-) MIMARI_MODU={mimari!r}: {ham['KOSU_MIMARILER'].split()} değerlerinden biri olmalı", file=sys.stderr)
+        return 2
+    merkezi = mimari == "merkezi"
+
     import rclpy
     from geometry_msgs.msg import Point
     from rclpy.node import Node
@@ -94,7 +102,38 @@ def ana(argv):
     izle = DurumIzleyici(kimlikler, ham["IZLEME_BAYAT_SN"], ham["IZLEME_OZET_SN"])
     rclpy.init()
     dugum = Node("mission_coordinator", namespace="/gcs")
-    alici = SonucAlici(dugum, ham, kimlikler, yol(os.path.join("kayit", "yer_istasyonu_kare.jsonl")), log)
+    alici = SonucAlici(dugum, ham, kimlikler, yol(os.path.join("kayit", "yer_istasyonu_kare.jsonl")), log, dds_sonuc=not merkezi)
+    kanal, isciler, isci_hazir, yazicilar = None, {}, {}, []
+    if merkezi:
+        from swarm_vehicle.cikarim_istemci import IsciIstemcisi
+        from swarm_vehicle.kare_isleyici import KareIsleyici
+        from swarm_vehicle.poz_tamponu import SatirYazici
+
+        from .merkezi_alici import MerkeziAlici
+        islemciler = {}
+        for sira, k in enumerate(kimlikler, 1):
+            ist = IsciIstemcisi(ham, sira, k, klasor, log)
+            isciler[k] = ist
+            islemciler[k] = KareIsleyici(ham, k, ist, yol(os.path.join("kayit", f"kare_sonuc_{k}.jsonl")), log,
+                                         lambda kayit, _a=alici: _a.sonuc_ver(kayit["arac_kimligi"], kayit["n"], kayit["durum"], kayit["sim_damga_ns"]))
+        sha_yazicilar = {}
+        if os.environ.get("MERKEZI_SHA") == "1" and klasor:                   # YALNIZ test: alınan görüntü baytlarının SHA-256'sı
+            sha_yazicilar = {k: SatirYazici(os.path.join(klasor, "kayit", f"merkezi_sha_alim_{k}.jsonl"), log) for k in kimlikler}
+            yazicilar += list(sha_yazicilar.values())
+        isleme_yazicilar = {k: SatirYazici(os.path.join(klasor, "kayit", f"isleme_kuyrugu_{k}.jsonl"), log) for k in kimlikler} if klasor else {}
+        yazicilar += list(isleme_yazicilar.values())
+        kanal = MerkeziAlici(ham, kimlikler, log, islemciler, olay_yaz=alici.olay_ekle, sha_yaz=(lambda a, d: sha_yazicilar[a].ver(d)) if sha_yazicilar else None,
+                             enjeksiyon_metni=os.environ.get("MERKEZI_ENJEKSIYON", ""), kalibrasyon_kimligi=rota.kalibrasyon_kimligi_oku(), defter_tamam=alici.defter.arac_tamam,
+                             isleme_yaz=(lambda a, d: isleme_yazicilar[a].ver(d)) if isleme_yazicilar else None)
+        for k, ist in isciler.items():
+            ist.baslat()                                   # model yükleme ve ısınma bariyerden önce, araçlarla paralel sürer
+
+            def _hazir(_k=k, _i=ist):
+                bilgi = _i.hazir_bekle()
+                isci_hazir[_k] = bilgi is not None
+                log("merkezi_isci_hazir" if bilgi is not None else "merkezi_isci_hazir_degil", arac=_k, **({"cpu": ",".join(map(str, bilgi["cpu"])), "yukleme_s": bilgi["yukleme_s"], "isinma_s": bilgi["isinma_s"]} if bilgi else {"neden": str(_i.kalici_hata).replace(" ", "_")}))
+            threading.Thread(target=_hazir, name=f"isci_hazir_{k}", daemon=True).start()
+        kanal.baslat()
     komut = KomutArayuzu(dugum, ham, kimlikler, yol(os.path.join("kayit", "yer_istasyonu_komut.jsonl")))
     _ = komut        # komut arayüzü hazır (abone ve yayımcılar açık); koşu akışında komut gönderilmez
 
@@ -152,7 +191,7 @@ def ana(argv):
             print(f"(-) GOREV_ENJEKSIYON: bilinmeyen anahtar '{anahtar}'", file=sys.stderr)
             return 2
         sapma = int(deger)
-    log("basladi", mission_id=mission_id, arac=n_arac, rota_sha256=_gorev.dosya_sha256(yerel)[:16], enjeksiyon=enj or "kapali", ust_sn=ust_sn)
+    log("basladi", mimari=mimari, mission_id=mission_id, arac=n_arac, rota_sha256=_gorev.dosya_sha256(yerel)[:16], enjeksiyon=enj or "kapali", ust_sn=ust_sn)
     for k in kimlikler:
         d = _gorev.mission_sozlugu(br, k, mission_id)
         ek = {}
@@ -166,6 +205,7 @@ def ana(argv):
 
     # --- ana döngü --------------------------------------------------------------------------------------------------------------------------
     kod = 1
+    kanal_hata_bildirildi = False
     dur = threading.Event()
     signal.signal(signal.SIGTERM, lambda *_: dur.set())
     signal.signal(signal.SIGINT, lambda *_: dur.set())
@@ -173,7 +213,17 @@ def ana(argv):
     try:
         while rclpy.ok() and not dur.is_set():
             rclpy.spin_once(dugum, timeout_sec=0.05)
-            yaz_olaylar(kor.eslesme_guncelle(alici.eslesen_yayinci()))
+            if merkezi:
+                hazir_sayi = sum(1 for k in kimlikler if kanal.bagli_mi(k) and isci_hazir.get(k))     # bariyer: kanal bağlı (kaynak adresi doğrulanmış) VE işçi hazır
+                yaz_olaylar(kor.eslesme_guncelle(hazir_sayi))
+                hatalar = kanal.hata_var()
+                if hatalar and not kanal_hata_bildirildi and kor.faz not in (FAZ_BITTI, FAZ_HATA):
+                    kanal_hata_bildirildi = True                 # bağlantı koparsa yeniden bağlanma yoktur: açık hata, COMPLETE yayımlanmaz, koşu tamamlanamaz
+                    a0 = sorted(hatalar)[0]
+                    kor.faz, kor.hata_nedeni = FAZ_HATA, f"görüntü kanalı hatası (araç {a0}): {hatalar[a0]}"
+                    yaz_olaylar([{"olay": "hata", "neden": "kanal_hatasi", "arac_kimligi": a0, "ayrinti": hatalar[a0]}])
+            else:
+                yaz_olaylar(kor.eslesme_guncelle(alici.eslesen_yayinci()))
             n_dy = durum_abone.get_publisher_count()
             if n_dy != durum_yayimci["sayi"]:
                 durum_yayimci["sayi"] = n_dy
@@ -218,6 +268,14 @@ def ana(argv):
                 print(f"(-) KOORDINATOR zaman aşımı: {neden}", file=sys.stderr, flush=True)
                 break
     finally:
+        if kanal is not None:
+            kanal.kapat()
+            from swarm_vehicle.goruntu_kanali import rss_zirve_mib
+            log("merkezi_ozet", rss_zirve_mib=rss_zirve_mib(), **{f"arac{a}": json.dumps(o, ensure_ascii=False).replace(" ", "") for a, o in kanal.ozet().items()})
+            for k, ist in isciler.items():
+                ist.kapat()
+        for y in yazicilar:
+            y.kapat()
         alici.kapat()
         dugum.destroy_node()
         if rclpy.ok():

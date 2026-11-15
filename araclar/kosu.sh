@@ -1,12 +1,14 @@
 #!/usr/bin/env bash
 # kosu.sh — koşu başlat / durdur / durum / temizle: başsız Gazebo sunucusu + N PX4 SITL örneği, koşu klasörü ve koşu üst verisi.
-# Kullanım: araclar/kosu.sh [--dry-run] baslat [--arac N] [--yer-istasyonu var|yok] | durdur | durum | temizle | bekle [--sure-sn S]
+# Kullanım: araclar/kosu.sh [--dry-run] baslat [--arac N] [--yer-istasyonu var|yok] [--mimari ucta|merkezi] | durdur | durum | temizle | bekle [--sure-sn S]
 #   baslat    yeni koşu klasörü (.generated/kosular/<koşu kimliği>/) açar; Gazebo sunucusunu, sonra N PX4 örneğini ayrı süreç gruplarında
 #             (setsid) başlatır; hazır olmazsa başlattığını geri alır. Koşu başarıyla başlayınca arka planda yaşar.
 #             Başka gz sim/ruby/px4/mavsdk_server süreci ya da bitmemiş koşu varsa REDDEDER.
 #             --yer-istasyonu verilmezse YALNIZ Gazebo + PX4 başlar (bağdaştırıcılarını kendisi bağlayan testler için). --yer-istasyonu var: ardından yer istasyonu görev koordinatörü
 #             (yer_istasyonu, python -m swarm_gcs.gorev_koordinatoru) ve N araç süreci (arac_<k>, python -m swarm_vehicle.arac k) başlar (setup/env.sh, GZ_IP=127.0.0.1, kendi SWARM_BIND_ADDR'leri);
 #             --yer-istasyonu yok: araç süreçleri başlar, koordinatör başlamaz (deneme koordinatörüyle yapılan olumsuz testler için). Günlükler koşu klasöründe (yer_istasyonu.out, arac_<k>.out).
+#             --mimari (öntanımlı ucta; değerler KOSU_MIMARILER): koşu düzeyinde mod; kosu.json `mimari_modu` alanına yazılır, araç süreçlerine ve yer istasyonuna MIMARI_MODU ile verilir. merkezi: araçta çıkarım işçisi başlamaz,
+#             araç başına TCP görüntü kanalı yer istasyonuna gider ve çıkarım yer istasyonunda yapılır (yalnız --yer-istasyonu var ile).
 #   durdur    önce araç süreçlerini ve yer istasyonunu, sonra MAVSDK_GRPC_PORTS üzerinde dinleyen yetim mavsdk_server süreçlerini (bağdaştırıcı kapatmadıysa), sonra PX4'leri ve en son Gazebo'yu SIGTERM ile
 #             bekleyerek kapatır; KOSU_KAPANIS_SN dolarsa SIGKILL ve kosu.json'a "zorla_kapatildi" yazılır.
 #             Yetim sunucular kosu.json süreç listesine "mavsdk_server_<gRPC portu>" adıyla yazılır (adı kaynağını gösterir).
@@ -22,11 +24,12 @@ source "$(dirname "${BASH_SOURCE[0]}")/../setup/lib/common.sh"
 # shellcheck source=../setup/lib/derleme.sh
 source "$SETUP_DIR/lib/derleme.sh"
 
-usage() { sed -n '2,23p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'; }
+usage() { sed -n '2,25p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'; }
 
 ALT=""
 ARAC_ARG=""
 YER_IST=""
+MIMARI_ARG=""
 BEKLE_SN=""
 # shellcheck disable=SC2034  # common.sh (component_done) okur
 MODE="install"
@@ -36,6 +39,7 @@ while [[ $# -gt 0 ]]; do
         baslat|durdur|durum|temizle|bekle) [[ -z "$ALT" ]] || { echo "Yalnız bir alt komut verilebilir" >&2; exit 2; }; ALT="$1" ;;
         --arac) [[ $# -ge 2 && "$2" =~ ^[0-9]+$ ]] || { echo "--arac için sayı gerekli" >&2; exit 2; }; ARAC_ARG="$2"; shift ;;
         --yer-istasyonu) [[ $# -ge 2 && "$2" =~ ^(var|yok)$ ]] || { echo "--yer-istasyonu için var|yok gerekli" >&2; exit 2; }; YER_IST="$2"; shift ;;
+        --mimari) [[ $# -ge 2 && "$2" =~ ^[a-z]+$ ]] || { echo "--mimari için ucta|merkezi gerekli" >&2; exit 2; }; MIMARI_ARG="$2"; shift ;;
         --sure-sn) [[ $# -ge 2 && "$2" =~ ^[0-9]+$ ]] || { echo "--sure-sn için sayı gerekli" >&2; exit 2; }; BEKLE_SN="$2"; shift ;;
         --dry-run) DRY_RUN=1 ;;
         -h|--help) usage; exit 0 ;;
@@ -46,6 +50,7 @@ done
 [[ -n "$ALT" ]] || { usage >&2; exit 2; }
 [[ -z "$ARAC_ARG" || "$ALT" == baslat ]] || { echo "--arac yalnız baslat ile kullanılır" >&2; exit 2; }
 [[ -z "$YER_IST" || "$ALT" == baslat ]] || { echo "--yer-istasyonu yalnız baslat ile kullanılır" >&2; exit 2; }
+[[ -z "$MIMARI_ARG" || "$ALT" == baslat ]] || { echo "--mimari yalnız baslat ile kullanılır" >&2; exit 2; }
 [[ -z "$BEKLE_SN" || "$ALT" == bekle ]] || { echo "--sure-sn yalnız bekle ile kullanılır" >&2; exit 2; }
 COMPONENT_NAME="Koşu: $ALT"
 require_not_root
@@ -91,6 +96,11 @@ read -r -a GRPC_PORTS <<< "$MAVSDK_GRPC_PORTS"
 N_MAKS="${#SYS_IDS[@]}"
 [[ "${#POSES[@]}" -eq "$N_MAKS" ]] || fail_stop "UAV_START_POSES ile UAV_SYS_IDS aynı uzunlukta olmalı"
 N_ARAC="${ARAC_ARG:-$KOSU_ARAC_SAYISI}"
+MIMARI="${MIMARI_ARG:-ucta}"
+if [[ "$ALT" == baslat ]]; then
+    [[ " $KOSU_MIMARILER " == *" $MIMARI "* ]] || fail_stop "Mimari '$MIMARI' geçersiz; KOSU_MIMARILER: $KOSU_MIMARILER"
+    [[ "$MIMARI" != merkezi || "$YER_IST" == var ]] || fail_stop "--mimari merkezi yalnız --yer-istasyonu var ile kullanılır (çıkarım yer istasyonunda yapılır)"
+fi
 if [[ "$ALT" == baslat ]]; then
     [[ "$N_ARAC" -ge 1 && "$N_ARAC" -le "$N_MAKS" ]] || fail_stop "Araç sayısı 1..$N_MAKS olmalı (verilen: $N_ARAC)"
 fi
@@ -212,6 +222,7 @@ komut_baslat() {
         if [[ -n "$YER_IST" ]]; then
             if [[ "$YER_IST" == var ]]; then log_info "[dry-run] sıra: gz_sunucu → px4_0..px4_$((N_ARAC - 1)) → yer_istasyonu (python -m swarm_gcs.gorev_koordinatoru --arac $N_ARAC; yer_istasyonu.out; çıkış kodu yer_istasyonu.cikis; hazır: 'KOORDINATOR hazir') → arac_1..arac_$N_ARAC (python -m swarm_vehicle.arac k; arac_k.out; hazır: arac günlüğü 'basladi')"
             else log_info "[dry-run] sıra: gz_sunucu → px4_0..px4_$((N_ARAC - 1)) → arac_1..arac_$N_ARAC (yer istasyonu BAŞLATILMAZ: deneme koordinatörü için); araç süreçleri kendi Mission'larını bekler"; fi
+            log_info "[dry-run] mimari: $MIMARI (kosu.json mimari_modu; araç ve yer istasyonu süreçlerine MIMARI_MODU ortam değişkeni)"
             log_info "[dry-run] ortam: setup/env.sh + install/setup.bash, GZ_PARTITION koşu kimliği, GZ_IP=127.0.0.1; durdur sırası: araç süreçleri → yer istasyonu → (yetim mavsdk_server) → PX4'ler → gz_sunucu"
         else
             log_info "[dry-run] --yer-istasyonu verilmedi: yalnız gz_sunucu ve PX4 örnekleri başlar (araç süreci ve yer istasyonu yok)"
@@ -279,6 +290,7 @@ komut_baslat() {
     BASLAT_BASLADI=1
     python3 -I "$HELPER" baslangic "$KOSU_DIR/kosu.json" "$id" "$N_ARAC" "${SYS_IDS[*]:0:$N_ARAC}" "$part" "$SIM_WORLD" "$SIM_MODEL" "$DENEY_ENV" \
         || fail_stop "kosu.json yazılamadı"
+    python3 -I "$HELPER" mimari "$KOSU_DIR/kosu.json" "$MIMARI" || fail_stop "kosu.json mimari_modu yazılamadı"
     printf '%s\n' "$id" > "$AKTIF"
     log_info "Koşu $id (GZ_PARTITION=$part), $N_ARAC araç; klasör ${KOSU_DIR#"$ROOT_DIR"/}"
     damga_derle "$YAYIM_SRC" "$YAYIM_BUILD" "$GENERATED_DIR/yayim_damga" || exit 1
@@ -325,7 +337,7 @@ komut_baslat() {
         if [[ "$YER_IST" == var ]]; then
             # yer istasyonu: çıkış kodu yer_istasyonu.cikis dosyasına yazılır (bekle alt komutu okur)
             # shellcheck disable=SC2016  # tek tırnak bilerek: $1.. alt kabukta açılır
-            start_group yer_istasyonu "$KOSU_DIR/yer_istasyonu.out" env -u VIRTUAL_ENV LC_NUMERIC=C GZ_PARTITION="$part" GZ_IP=127.0.0.1 \
+            start_group yer_istasyonu "$KOSU_DIR/yer_istasyonu.out" env -u VIRTUAL_ENV LC_NUMERIC=C GZ_PARTITION="$part" GZ_IP=127.0.0.1 MIMARI_MODU="$MIMARI" \
                 bash -c 'source "$1" >/dev/null 2>&1; source "$2/install/setup.bash"; cd "$2"; python -m swarm_gcs.gorev_koordinatoru --arac "$4"; rc=$?; echo "$rc" > "$3/yer_istasyonu.cikis"; exit "$rc"' _ \
                 "$ENV_SH" "$ROOT_DIR" "$KOSU_DIR" "$N_ARAC" || exit 1
             pg="$LAST_PG"
@@ -336,7 +348,7 @@ komut_baslat() {
         fi
         for ((i = 1; i <= N_ARAC; i++)); do
             # shellcheck disable=SC2016  # tek tırnak bilerek: $1.. alt kabukta açılır
-            start_group "arac_$i" "$KOSU_DIR/arac_$i.out" env -u VIRTUAL_ENV LC_NUMERIC=C GZ_PARTITION="$part" GZ_IP=127.0.0.1 \
+            start_group "arac_$i" "$KOSU_DIR/arac_$i.out" env -u VIRTUAL_ENV LC_NUMERIC=C GZ_PARTITION="$part" GZ_IP=127.0.0.1 MIMARI_MODU="$MIMARI" \
                 bash -c 'source "$1" >/dev/null 2>&1; source "$2/install/setup.bash"; cd "$2"; python -m swarm_vehicle.arac "$3"; rc=$?; echo "$rc" > "$4/arac_$3.cikis"; exit "$rc"' _ "$ENV_SH" "$ROOT_DIR" "$i" "$KOSU_DIR" || exit 1
             pg="$LAST_PG"
             if ! wait_for_log "$KOSU_DIR/arac_${SYS_IDS[$((i - 1))]}.log" ' basladi ' 90 "$pg"; then

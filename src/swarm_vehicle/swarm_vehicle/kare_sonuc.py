@@ -40,8 +40,8 @@ def durum_belirle(isci_yaniti, esleme):
     return (TESPIT if tespitler else TESPIT_YOK), tespitler, atilan, None
 
 
-def kayit_olustur(arac_kimligi, n, sim_damga_ns, durum, tespitler=(), atilan=0, hata=None, mono_ns=0):
-    """`kare_sonuc` kaydı (sözlük). Durum ile içerik tutarsızsa ValueError."""
+def kayit_olustur(arac_kimligi, n, sim_damga_ns, durum, tespitler=(), atilan=0, hata=None, mono_ns=0, poz=None):
+    """`kare_sonuc` kaydı (sözlük). Durum ile içerik tutarsızsa ValueError. `poz` (yalnız merkezi mod): iletiden alınan kare–poz sözlüğü; verilirse kayda `poz` alanı eklenir (uçta modda alan yoktur)."""
     if durum not in DURUMLAR:
         raise ValueError(f"bilinmeyen kare sonucu durumu: {durum!r}")
     tespitler = list(tespitler)
@@ -49,8 +49,11 @@ def kayit_olustur(arac_kimligi, n, sim_damga_ns, durum, tespitler=(), atilan=0, 
         raise ValueError(f"durum '{durum}' ile tespit sayısı ({len(tespitler)}) tutarsız")
     if (durum == ISLEM_HATASI) != bool(hata):
         raise ValueError("işlem hatası durumunda hata metni zorunlu, diğer durumlarda yasak")
-    return {"surum": 1, "tur": "kare_sonuc", "arac_kimligi": int(arac_kimligi), "n": int(n), "sim_damga_ns": int(sim_damga_ns), "durum": durum,
-            "tespit_sayisi": len(tespitler), "tespitler": tespitler, "atilan_sinif_disi": int(atilan), "hata": hata, "mono_ns": int(mono_ns)}
+    k = {"surum": 1, "tur": "kare_sonuc", "arac_kimligi": int(arac_kimligi), "n": int(n), "sim_damga_ns": int(sim_damga_ns), "durum": durum,
+         "tespit_sayisi": len(tespitler), "tespitler": tespitler, "atilan_sinif_disi": int(atilan), "hata": hata, "mono_ns": int(mono_ns)}
+    if poz is not None:
+        k["poz"] = poz
+    return k
 
 
 def mesaj_olustur(kayit, FrameResult, Detection, zaman_olustur):

@@ -9,6 +9,9 @@ akış iş parçacığı (engelleyen bağdaştırıcı çağrıları); gz-transp
 Çıkış kodları: 0 TAMAMLANDI; 1 beklenmeyen hata; 2 yapılandırma/kullanım; 3 kimlik doğrulanamadı (HAZIR'a geçilmez); 4 Mission yerel dosyayla uyuşmuyor (yükleme yok); 5 Mission zamanında gelmedi; 143 SIGTERM.
 Çıkarım işçisi bu sürecin ALT SÜRECİDİR (cikarim_istemci.py; IP kullanmayan AF_UNIX kanal); kabul edilen her görev karesi işçiye gider, her görev numarası için tam bir kare sonucu
 (`swarm_msgs/FrameResult`) üretilir, yerel kayda (`kayit/kare_sonuc_<araç>.jsonl`) yazılır, `kare_sonucu_kancasi`na verilir ve uçta modda ortak konudan (`KONU_KARE_SONUC`, reliable) yer istasyonuna yayımlanır (`sonuc_yayin.py`; yayım kare işleme iş parçacığını bloke etmez; kapanışta bütün iletilerin onayı beklenir).
+Merkezi mod (`MIMARI_MODU=merkezi`, kosu.sh --mimari merkezi): araçta çıkarım işçisi BAŞLATILMAZ ve `FrameResult` yayımlanmaz; kamera alıcısının görev kareleri ve "kare alınamadı" kayıtları aynı sırayla poz sorgusundan geçip
+(`goruntu_kanali.IletiHazirlayici`) araç başına TCP görüntü kanalının gönderim kuyruğuna girer (`goruntu_kanali.Gonderici`; kaynak adres `UAVn_ADDR`, hedef `GCS_ADDR:MERKEZI_TCP_PORT_TABAN+k-1`). Kanal bariyerden ÖNCE kurulur
+(hazırlıktan sonra bağlı değilse süreç açık hata ile çıkar); TAMAMLANDI'dan sonra kuyruk boşalır ve kanal kapanır.
 Simülasyon zamanı gz-transport'tan doğrudan okunur (ros_gz_bridge yok); gz-transport `GZ_IP=127.0.0.1` ile kilitlenir (başka değer verilmişse süreç açık hata ile çıkar). 2 Hz durum yayımı duvar saati zamanlayıcısıyla yapılır [varsayım: RTF ≈ 1]; her durum geçişinde ayrıca bir ek ileti yayımlanır (2 Hz'lik akış yarım saniyeden kısa süren durumu — ör. en son bitiren aracın WAIT'i — kaçırmasın).
 """
 import json
@@ -76,6 +79,13 @@ class Arac:
         self.yayinci_yol = os.path.join(self.klasor, "kayit", f"arac_sureci_{self.arac_kimligi}.jsonl") if self.klasor else None
         self.yayinci = None
         self.pub_sonuc = None
+        self.mimari = os.environ.get("MIMARI_MODU", "ucta")
+        self.merkezi = self.mimari == "merkezi"
+        self.kanal_olay_yol = self.yayinci_yol                           # merkezi mod: `gonderim_kuyrugu` ve `gonderim` kare olayları (kaynak arac_sureci)
+        self.kuyruk_yol = os.path.join(self.klasor, "kayit", f"gonderim_kuyrugu_{self.arac_kimligi}.jsonl") if self.klasor else None
+        self.sha_yol = os.path.join(self.klasor, "kayit", f"merkezi_sha_{self.arac_kimligi}.jsonl") if self.klasor and os.environ.get("MERKEZI_SHA") == "1" else None   # YALNIZ test: gönderilen görüntü baytlarının SHA-256'sı
+        self.kanal = self.hazirlayici = self.kuyruk = None
+        self._yazicilar = []
         self.atanan_gorev = None                      # alınan ve doğrulanan Mission sözlüğü (gorev.py)
         self.mission_olayi = threading.Event()
         self.pub_onay = None
@@ -188,9 +198,10 @@ class Arac:
         if ok:
             self._tarama_mono = time.monotonic()
         if ok:
-            self.isci.n_ilk = n_ilk_hesapla(t_s, self.kamera.hz)   # işçi enjeksiyonu belirteçleri (+k) için; kareler kuyruğa girmeden önce
-            if self.yayinci is not None:
-                self.yayinci.n_ilk = self.isci.n_ilk            # yayım enjeksiyonu belirteçleri (+k) için
+            if self.isci is not None:
+                self.isci.n_ilk = n_ilk_hesapla(t_s, self.kamera.hz)   # işçi enjeksiyonu belirteçleri (+k) için; kareler kuyruğa girmeden önce
+                if self.yayinci is not None:
+                    self.yayinci.n_ilk = self.isci.n_ilk            # yayım enjeksiyonu belirteçleri (+k) için
             self.kamera.tarama_basladi(t_s)           # görev karesi kabulü t_s'den başlar
             self.log("tarama_baslat_alindi", mission_id=m.mission_id, t_s_ns=t_s)
             self._yayinla()                           # geçiş anında ek yayım (TARAMA)
@@ -245,6 +256,8 @@ class Arac:
         while not olay.wait(0.2):
             if self.dur_olayi.is_set():
                 raise InterruptedError(f"{ne} beklenirken durduruldu")
+            if self.merkezi and self.kanal.durdu_mu():                  # merkezi mod: kanal hatayla (ya da bilerek) durduysa COMPLETE hiç gelmez; açık hata
+                raise RuntimeError(f"{ne} beklenirken görüntü kanalı durdu (hata: {self.kanal.hata or 'yok'}); koşu tamamlanamaz")
 
     def _akis(self):
         from swarm_msgs.msg import ScanFinished
@@ -276,13 +289,20 @@ class Arac:
             self.log("durum", durum=AD[STATE_HAZIR])
             h = self.adapter.hazirlik()
             self.log("hazirlik_bitti", kalkis_sure_s=f"{h['kalkis_sure_s']:.1f}", gidis_sure_s=f"{h['gidis_sure_s']:.1f}", donus_sure_s=f"{h['donus_sure_s']:.1f}", sure_s=f"{h['sure_s']:.1f}")
-            t_isci = time.monotonic()
-            bilgi = self.isci.hazir_bekle()                         # model yükleme + ısınma hazırlık evresindedir; işçi hazır olmadan BARIYER_BEKLE'ye geçilmez
-            if bilgi is None:
-                self.log("hata", neden=f"çıkarım işçisi hazır olamadı: {self.isci.kalici_hata}")
-                self.cikis_kodu = 1
-                return
-            self.log("isci_hazir_bekleme_bitti", ek_bekleme_s=f"{time.monotonic() - t_isci:.1f}", isinma_s=bilgi["isinma_s"], yukleme_s=bilgi["yukleme_s"], rclpy_yuklu=bilgi["rclpy_yuklu"])
+            if self.merkezi:
+                if not self.kanal.bagli_bekle(float(self.ham["MERKEZI_BAGLAN_SN"])):          # kanal bariyerden ÖNCE bağlı olmalı
+                    self.log("hata", neden=f"görüntü kanalı bağlı değil: {self.kanal.hata}")
+                    self.cikis_kodu = 1
+                    return
+                self.log("goruntu_kanali_hazir", baglanti_mono_ns=self.kanal.baglanti_mono_ns)
+            else:
+                t_isci = time.monotonic()
+                bilgi = self.isci.hazir_bekle()                         # model yükleme + ısınma hazırlık evresindedir; işçi hazır olmadan BARIYER_BEKLE'ye geçilmez
+                if bilgi is None:
+                    self.log("hata", neden=f"çıkarım işçisi hazır olamadı: {self.isci.kalici_hata}")
+                    self.cikis_kodu = 1
+                    return
+                self.log("isci_hazir_bekleme_bitti", ek_bekleme_s=f"{time.monotonic() - t_isci:.1f}", isinma_s=bilgi["isinma_s"], yukleme_s=bilgi["yukleme_s"], rclpy_yuklu=bilgi["rclpy_yuklu"])
             with self.kilit:
                 self.sm.hazir()
             self.log("durum", durum=AD[STATE_BARIYER_BEKLE])
@@ -307,8 +327,11 @@ class Arac:
             self.log("durum", durum=AD[STATE_WAIT])
             self._bekle(self.complete_olayi, "COMPLETE")
             self.log("durum", durum=AD[STATE_TAMAMLANDI])
-            self._sonuclari_tamamla(aralik)                                # her görev numarası için tam bir kare sonucu
-            self.yayinci.kapat(float(self.ham["KARE_SONUC_ACK_SN"]))       # yayım kuyruğu boşalır; bütün FrameResult iletileri abonelerce onaylanana dek (üst sınır) beklenir
+            if self.merkezi:
+                self._kanali_bosalt(aralik)                                # COMPLETE yalnız merkezdeki son sonuçtan sonra gelir; yine de kuyruk ve kanal kapanmadan önce boşalır
+            else:
+                self._sonuclari_tamamla(aralik)                            # her görev numarası için tam bir kare sonucu
+                self.yayinci.kapat(float(self.ham["KARE_SONUC_ACK_SN"]))   # yayım kuyruğu boşalır; bütün FrameResult iletileri abonelerce onaylanana dek (üst sınır) beklenir
             self.dur_olayi.wait(float(self.ham["ARAC_KAPANIS_BEKLE_SN"]))   # dinleyiciler son durumu alsın
         except InterruptedError as e:
             self.log("durduruldu", ayrinti=str(e))
@@ -318,6 +341,42 @@ class Arac:
             self.cikis_kodu = 1
         finally:
             self.dur_olayi.set()
+
+    def _kanali_bosalt(self, aralik):
+        """Merkezi mod kapanışı: kamera iç kuyruğu ve gönderim kuyruğu boşalır, kanal kapanır; her koşunun gerçek üretim hızı, kare sayısı ve kuyruk durumu günlüğe yazılır."""
+        from .goruntu_kanali import rss_zirve_mib
+        n_ilk, n_son = aralik
+        t0 = time.monotonic()
+        zamaninda, zorla, _ = self.isleyici_beklenen_tamamla(n_ilk, n_son)
+        bos = self.kanal.bosalt_ve_kapat(float(self.ham["MERKEZI_BOSALT_SN"]))
+        u = self.hazirlayici
+        pb = sorted(u.poz_bekleme_ms)
+        self.log("merkezi_ozet", beklenen=n_son - n_ilk + 1, goruntu=u.goruntu_sayisi, kare_alinamadi=u.kayip_sayisi, uretilen=u.goruntu_sayisi + u.kayip_sayisi, gonderilen=self.kanal.gonderilen,
+                 kuyruk_bosaldi=bos, bekleme_s=f"{time.monotonic() - t0:.1f}", zorla_kayip=",".join(map(str, zorla)) or "yok", kamera_kuyruk_maks=self.kamera.kuyruk_maks,
+                 gercek_uretim_hz=f"{self._uretim_hizi():.3f}", kuyruk_maks_ileti=self.kuyruk.maks_ileti, kuyruk_maks_bayt=self.kuyruk.maks_bayt, rss_zirve_mib=rss_zirve_mib())
+        if pb:
+            self.log("poz_ozeti", adet=len(pb), gecersiz=",".join(f"{k}:{v}" for k, v in sorted(u.poz_gecersiz.items())) or "yok", bekleme_medyan_ms=f"{pb[len(pb) // 2]:.2f}",
+                     bekleme_p95_ms=f"{pb[min(len(pb) - 1, int(0.95 * len(pb)))]:.2f}", bekleme_en_buyuk_ms=f"{pb[-1]:.2f}", **{f"tampon_{k}": v for k, v in self.adapter.poz.sayaclar().items()})
+        for y in self._yazicilar:
+            y.kapat()
+            self.log("satir_yazici_ozet", yol=os.path.basename(y.yol or "-"), **y.ozet())
+        if not bos:
+            raise RuntimeError(f"gönderim kuyruğu boşalmadı: {self.kuyruk.derinlik()} (kanal hatası: {self.kanal.hata})")
+
+    def isleyici_beklenen_tamamla(self, n_ilk, n_son):
+        """Kamera alıcısı kapanış karesi gelmediyse sondaki kayıpları şimdi yazdırır ve iç kuyruğun boşalmasını (kısa) bekler. Dönen: (zamanında, zorla kayıp numaraları, None)."""
+        zorla = list(self.kamera.kapanis_kapat_zorla() or [])
+        sinir = time.monotonic() + float(self.ham["MERKEZI_BOSALT_SN"])
+        while self.kamera.tuketilen_son < n_son and time.monotonic() < sinir:
+            time.sleep(0.05)
+        return self.kamera.tuketilen_son >= n_son, zorla, None
+
+    def _uretim_hizi(self):
+        """Gerçek (duvar saati) üretim hızı: gz kamera geri çağrılarının (alınan − 1) / (son − ilk alım anı) değeri, kare/sn (RTF ≈ 1 ise CAM_RATE_HZ'ye yakın)."""
+        k = self.kamera
+        if k.ilk_alim_mono_ns is None or k.son_alim_mono_ns <= k.ilk_alim_mono_ns or k.alinan < 2:
+            return 0.0
+        return (k.alinan - 1) * 1e9 / (k.son_alim_mono_ns - k.ilk_alim_mono_ns)
 
     def _sonuclari_tamamla(self, aralik):
         """COMPLETE sonrası: kuyruk boşalıp [n_ilk, n_son] için bütün kare sonuçları gelene dek bekler (ISCI_KAPANIS_BEKLE_SN); süre dolarsa kalan numaralar için kayıp/işlem hatası yazar."""
@@ -338,6 +397,37 @@ class Arac:
         if sm:
             self.log("cikarim_sureleri", adet=len(sm), medyan_ms=f"{sm[len(sm) // 2]:.2f}", p99_ms=f"{sm[min(len(sm) - 1, int(0.99 * len(sm)))]:.2f}", en_buyuk_ms=f"{sm[-1]:.2f}")
 
+    @staticmethod
+    def _temiz_kapat_n():
+        """YALNIZ test: MERKEZI_ARAC_ENJEKSIYON=`kanal_kapat=<n>` → n numaralı iletinin gönderiminden sonra kanal bilerek temiz kapatılır (yer istasyonu açık hata vermeli). Varsayılan kapalı."""
+        m = os.environ.get("MERKEZI_ARAC_ENJEKSIYON", "").strip()
+        if not m:
+            return None
+        anahtar, _, deger = m.partition("=")
+        if anahtar != "kanal_kapat":
+            raise ValueError(f"MERKEZI_ARAC_ENJEKSIYON: bilinmeyen anahtar '{anahtar}'")
+        return int(deger)
+
+    def _merkezi_kur(self):
+        """Merkezi mod bileşenleri: gönderim kuyruğu, göndericisi, ileti hazırlayıcısı ve kamera alıcısı (tüketici = ileti hazırlayıcısı; kare alınamadı da aynı kuyruktan, sırasıyla)."""
+        from .goruntu_kanali import GonderimKuyrugu, Gonderici, IletiHazirlayici
+        from .poz_tamponu import SatirYazici
+        h = self.ham
+        kal = _rota.kalibrasyon_kimligi_oku()
+        yaz = lambda yol: SatirYazici(yol, self.log) if yol else None  # noqa: E731
+        olay_y, kuyruk_y, poz_y, sha_y = yaz(self.kanal_olay_yol), yaz(self.kuyruk_yol), yaz(self.poz_yol), yaz(self.sha_yol)
+        self._yazicilar = [y for y in (olay_y, kuyruk_y, poz_y, sha_y) if y is not None]
+        self.kuyruk = GonderimKuyrugu()
+        hz = int(float(h["CAM_RATE_HZ"]))
+        self.kanal = Gonderici(self.arac_kimligi, hz, self.adres, (h["GCS_ADDR"], int(h["MERKEZI_TCP_PORT_TABAN"]) + self.arac_no - 1), self.kuyruk, self.log,
+                               olay_yaz=olay_y.ver if olay_y else None, kuyruk_yaz=kuyruk_y.ver if kuyruk_y else None, kuyruk_kayit_sn=float(h["MERKEZI_KUYRUK_KAYIT_SN"]),
+                               temiz_kapat_n=self._temiz_kapat_n())
+        self.hazirlayici = IletiHazirlayici(self.arac_kimligi, hz, self.adapter.poz, kal, self.kuyruk, self.log, olay_yaz=olay_y.ver if olay_y else None,
+                                    poz_yaz=poz_y.ver if poz_y else None, sha_yaz=sha_y.ver if sha_y else None,
+                                    hata_bildir=self.kanal.hata_ver)
+        self.kamera = KameraAliciGz(h, self.arac_no, self.arac_kimligi, self.kamera_yol, self.log, tuketici=self.hazirlayici.goruntu, kayip_ver=self.hazirlayici.kayip, kayip_sirali=True)
+        self.log("merkezi_mod", kalibrasyon_kimligi=kal, hedef=f"{h['GCS_ADDR']}:{int(h['MERKEZI_TCP_PORT_TABAN']) + self.arac_no - 1}", kaynak=self.adres, sha_kaydi=bool(self.sha_yol))
+
     # --- giriş -----------------------------------------------------------------------------------------------------------------------------
     def calistir(self):
         if not os.environ.get("FASTRTPS_DEFAULT_PROFILES_FILE"):
@@ -355,14 +445,20 @@ class Arac:
         self._FrameResult, self._Detection = FrameResult, Detection
         self.sm = DurumMakinesi(gunluk=lambda s: self.log("durum_makinesi", ayrinti=s))
         self.saat_baslat()
-        self.isci = IsciIstemcisi(self.ham, self.arac_no, self.arac_kimligi, self.klasor, self.log)
+        if not self.merkezi:
+            self.isci = IsciIstemcisi(self.ham, self.arac_no, self.arac_kimligi, self.klasor, self.log)
         self.adapter = px4_adapter.Px4Adapter(self.arac_no, deney_env=self.ham, son_nokta_geri_cagrisi=self._son_nokta_geri_cagrisi)
         self.adapter.poz_durdur = self._poz_durdur_kurala()            # YALNIZ test (POZ_TEST_DURDUR); öntanımlı None
-        self.isleyici = KareIsleyici(self.ham, self.arac_kimligi, self.isci, self.sonuc_yol, self.log, self._kare_sonucu_uret, poz_tamponu=self.adapter.poz, poz_yol=self.poz_yol)
-        self.kamera = KameraAliciGz(self.ham, self.arac_no, self.arac_kimligi, self.kamera_yol, self.log, tuketici=self.isleyici.goruntu, kayip_ver=self.isleyici.kayip)
-        self.log("isci_enjeksiyon_durumu", durum=self.isci.enj.ozet())
-        self.isci.baslat()                                             # alt süreç: model yükleme ve ısınma hazırlık evresiyle paralel sürer
+        if self.merkezi:
+            self._merkezi_kur()
+        else:
+            self.isleyici = KareIsleyici(self.ham, self.arac_kimligi, self.isci, self.sonuc_yol, self.log, self._kare_sonucu_uret, poz_tamponu=self.adapter.poz, poz_yol=self.poz_yol)
+            self.kamera = KameraAliciGz(self.ham, self.arac_no, self.arac_kimligi, self.kamera_yol, self.log, tuketici=self.isleyici.goruntu, kayip_ver=self.isleyici.kayip)
+            self.log("isci_enjeksiyon_durumu", durum=self.isci.enj.ozet())
+            self.isci.baslat()                                         # alt süreç: model yükleme ve ısınma hazırlık evresiyle paralel sürer
         self.kamera.baslat()
+        if self.merkezi:
+            self.kanal.baslat(float(self.ham["MERKEZI_BAGLAN_SN"]))     # bağlanma hazırlık evresiyle paralel sürer; bariyerden önce bağlı olmalı
         rclpy.init()
         node = Node("vehicle", namespace=self.ad_alani)
         qos_durum = QoSProfile(history=HistoryPolicy.KEEP_LAST, depth=10, reliability=ReliabilityPolicy.RELIABLE, durability=DurabilityPolicy.VOLATILE)
@@ -372,14 +468,15 @@ class Arac:
         h = self.ham
         self.pub_durum = node.create_publisher(VehicleState, h["KONU_DURUM"], qos_durum)
         self.pub_bitis = node.create_publisher(ScanFinished, h["KONU_TARAMA_BITIS"], kontrol(10))
-        qa = _rota.kare_sonuc_qos_ayar(h)
-        qos_sonuc = QoSProfile(history=HistoryPolicy.KEEP_LAST if qa["gecmis"] == "keep_last" else HistoryPolicy.KEEP_ALL, depth=qa["derinlik"], reliability=ReliabilityPolicy.RELIABLE,
-                               durability=DurabilityPolicy.TRANSIENT_LOCAL if qa["dayaniklilik"] == "transient_local" else DurabilityPolicy.VOLATILE)
-        self.pub_sonuc = node.create_publisher(FrameResult, h["KONU_KARE_SONUC"], qos_sonuc)
-        from rclpy.duration import Duration
-        self.yayinci = SonucYayinci(self.arac_kimligi, self.kamera.hz, self.pub_sonuc.publish, self.yayinci_yol, self.log,
-                                    onay_bekle=lambda sn: self.pub_sonuc.wait_for_all_acked(Duration(seconds=sn)))
-        self.yayinci.baslat()
+        if not self.merkezi:
+            qa = _rota.kare_sonuc_qos_ayar(h)
+            qos_sonuc = QoSProfile(history=HistoryPolicy.KEEP_LAST if qa["gecmis"] == "keep_last" else HistoryPolicy.KEEP_ALL, depth=qa["derinlik"], reliability=ReliabilityPolicy.RELIABLE,
+                                   durability=DurabilityPolicy.TRANSIENT_LOCAL if qa["dayaniklilik"] == "transient_local" else DurabilityPolicy.VOLATILE)
+            self.pub_sonuc = node.create_publisher(FrameResult, h["KONU_KARE_SONUC"], qos_sonuc)
+            from rclpy.duration import Duration
+            self.yayinci = SonucYayinci(self.arac_kimligi, self.kamera.hz, self.pub_sonuc.publish, self.yayinci_yol, self.log,
+                                        onay_bekle=lambda sn: self.pub_sonuc.wait_for_all_acked(Duration(seconds=sn)))
+            self.yayinci.baslat()
         qos_gorev = QoSProfile(history=HistoryPolicy.KEEP_LAST, depth=10, reliability=ReliabilityPolicy.RELIABLE, durability=DurabilityPolicy.TRANSIENT_LOCAL)
         qos_komut = QoSProfile(history=HistoryPolicy.KEEP_LAST, depth=10, reliability=ReliabilityPolicy.RELIABLE, durability=DurabilityPolicy.VOLATILE)
         qos_onay = QoSProfile(history=HistoryPolicy.KEEP_LAST, depth=20, reliability=ReliabilityPolicy.RELIABLE, durability=DurabilityPolicy.TRANSIENT_LOCAL)
@@ -395,6 +492,8 @@ class Arac:
         def eslesme_izle():
             """Yayımcıların eşleşmiş abone sayısı: her değişim günlüğe yazılır (eşleşme kaybı/yeniden eşleşme gözlemi)."""
             for ad, pub in (("durum", self.pub_durum), ("kare_sonuc", self.pub_sonuc), ("tarama_bitis", self.pub_bitis)):
+                if pub is None:
+                    continue
                 n = pub.get_subscription_count()
                 if self._es_son.get(ad) != n:
                     self._es_son[ad] = n
@@ -407,7 +506,7 @@ class Arac:
             self.dur_olayi.set()
         signal.signal(signal.SIGTERM, durdur)
         signal.signal(signal.SIGINT, durdur)
-        self.log("basladi", arac_kimligi=self.arac_kimligi, ad_alani=self.ad_alani, adres=self.adres, dunya=self.dunya, gz_ip=os.environ.get("GZ_IP"), isci_enjeksiyon=self.isci.enj.ozet())
+        self.log("basladi", arac_kimligi=self.arac_kimligi, ad_alani=self.ad_alani, adres=self.adres, dunya=self.dunya, gz_ip=os.environ.get("GZ_IP"), mimari=self.mimari, isci_enjeksiyon=self.isci.enj.ozet() if self.isci is not None else "yok")
         akis = threading.Thread(target=self._akis, name="arac_akis", daemon=True)
         akis.start()
         try:
@@ -418,7 +517,10 @@ class Arac:
             akis.join(10)
             self.adapter.kapat()
             self.kamera.kapat()
-            self.isci.kapat()
+            if self.isci is not None:
+                self.isci.kapat()
+            if self.kanal is not None and self.cikis_kodu != 0:
+                self.kanal.bosalt_ve_kapat(0.1)                          # hata/sinyal çıkışında kanal açık kalmasın
             node.destroy_node()
             rclpy.shutdown()
             self.log("kapandi", cikis_kodu=self.cikis_kodu)
@@ -436,6 +538,10 @@ def main(argv=None):
         arac_no = int(a[0])
         if not 1 <= arac_no <= len(ham["UAV_SYS_IDS"].split()):
             print(f"(-) araç sırası 1..{len(ham['UAV_SYS_IDS'].split())} olmalı", file=sys.stderr)
+            return 2
+        mimari = os.environ.get("MIMARI_MODU", "ucta")
+        if mimari not in ham["KOSU_MIMARILER"].split():
+            print(f"(-) MIMARI_MODU={mimari!r}: {ham['KOSU_MIMARILER'].split()} değerlerinden biri olmalı", file=sys.stderr)
             return 2
         return Arac(arac_no, ham).calistir()
     except (OSError, KeyError, ValueError, RuntimeError) as e:
