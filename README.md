@@ -11,13 +11,13 @@ Bu bir **simülasyon deneyidir**; gerçek uçuş ya da gömülü donanım doğru
 Kendi işlerin için: kilometre taşında adının yazdığı satırlar; sıradaki iş, bitmemiş en üstteki maddedir. Ayrıntı ve bitti ölçütleri: `planlama/gelistirme_agaci.md`.
 
 <!-- ILERLEME:BASLA -->
-**Genel tamamlanma: %25,9** (28 / 80 madde; kod ve makine işi dahil)
+**Genel tamamlanma: %27,6** (29 / 80 madde; kod ve makine işi dahil)
 
-`█████░░░░░░░░░░░░░░░` %25,9
+`██████░░░░░░░░░░░░░░` %27,6
 
-**Geliştirme oranı: %40,4** (28 / 55 geliştirme maddesi; yalnız kod ve altyapı işi)
+**Geliştirme oranı: %43,0** (29 / 55 geliştirme maddesi; yalnız kod ve altyapı işi)
 
-`████████░░░░░░░░░░░░` %40,4
+`█████████░░░░░░░░░░░` %43,0
 
 Kilometre taşları (✔ bitti, ◐ sürüyor, ☐ başlamadı). Maddeler iş sırasıyla dizilidir: sıradaki iş, bitmemiş en üstteki maddedir. Biten kilometre taşları kapalıdır, başlığına tıklayınca açılır.
 
@@ -74,11 +74,11 @@ Kilometre taşları (✔ bitti, ◐ sürüyor, ☐ başlamadı). Maddeler iş s�
 </details>
 
 <details open>
-<summary>☐ <b>M3 - Merkezi mod ve izleme</b> [Ömer Faruk GÜNER, %0,0]</summary>
+<summary>◐ <b>M3 - Merkezi mod ve izleme</b> [Ömer Faruk GÜNER, %30,0]</summary>
 
 Bekler: yok, başlayabilir
 
-- ☐ B12 - Merkezi mod
+- ✔ B12 - Merkezi mod
 - ☐ B13 - Disk kuyrukları ve aşama damgaları
 - ☐ B14 - Poz enterpolasyonu ve konum hesabı
 - ☐ B15 - Hedef birleştirme
