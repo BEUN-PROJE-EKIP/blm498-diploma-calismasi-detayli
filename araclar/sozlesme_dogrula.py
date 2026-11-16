@@ -33,6 +33,10 @@ def yapilandirma_yukle(yol):
     return veri
 
 
+class YapilandirmaTutarsiz(ValueError):
+    """Yapılandırma okundu ama anahtarlar birbiriyle ya da makine ayarıyla çelişiyor (HFOV derece/radyan, geçici port aralığı)."""
+
+
 class Yapilandirma:
     GEREKLI = (
         "ALAN_MERKEZ_X_M ALAN_MERKEZ_Y_M ALAN_GENISLIK_M ALAN_YUKSEKLIK_M ALAN_KENAR_PAYI_M ALAN_BOLGE_SAYISI ROTA_IRTIFA_M ROTA_ORTUSME_MIN_M ROTA_HIZ_MS "
@@ -65,6 +69,9 @@ class Yapilandirma:
         self.kal_z = f(ham["KAL_KAMERA_KONUM_Z_M"])
         self.w_px, self.h_px = int(ham["CAM_WIDTH"]), int(ham["CAM_HEIGHT"])
         self.hfov_deg, self.hfov_rad = f(ham["CAM_HFOV_DEG"]), f(ham["CAM_HFOV_RAD"])
+        self._sabit_port_denetimi(ham)
+        if abs(math.radians(self.hfov_deg) - self.hfov_rad) > 1e-6:   # iki anahtar aynı HFOV'u anlatmalı (rota/kalibrasyon RAD, doğrulayıcı DEG kullanır)
+            raise YapilandirmaTutarsiz(f"CAM_HFOV_DEG={ham['CAM_HFOV_DEG']} ({math.radians(self.hfov_deg):.7f} rad) ile CAM_HFOV_RAD={ham['CAM_HFOV_RAD']} tutarsız (|fark| > 1e-6)")
         self.arac_kimlikleri = [int(x) for x in ham["UAV_SYS_IDS"].split()]
         self.kamera_hz = f(ham["CAM_RATE_HZ"])
         self.mimariler = ham["KOSU_MIMARILER"].split()
@@ -72,6 +79,25 @@ class Yapilandirma:
         self.guven_esigi, self.max_det = f(ham["INF_CONF"]), int(ham["INF_MAX_DET"])
         self.birlestirme_aralik = f(ham["BIRLESTIRME_ARALIK_M"])
         self.poz_aralik_sinir_ms = f(ham["POZ_ARALIK_SINIR_MS"])
+
+    @staticmethod
+    def _sabit_port_denetimi(ham):
+        """Sabit portlar (gRPC, PX4 MAVLink, merkezi mod ve sentetik yük dinleme portları) Linux geçici port aralığının dışında olmalı; aralık makinenin ayarıdır ve
+        çalışma anında okunur (sabit yazılmaz; okunamıyorsa denetlenemez ve geçer)."""
+        try:
+            with open("/proc/sys/net/ipv4/ip_local_port_range", encoding="ascii") as f:
+                alt, ust = (int(x) for x in f.read().split())
+        except (OSError, ValueError):
+            return
+        n = len(ham["UAV_SYS_IDS"].split())
+        portlar = [("MAVSDK_GRPC_PORTS", int(p)) for p in ham.get("MAVSDK_GRPC_PORTS", "").split()]
+        portlar += [("PX4_MAVLINK_PORTS", int(p)) for p in ham.get("PX4_MAVLINK_PORTS", "").split()]
+        for anahtar in ("MERKEZI_TCP_PORT_TABAN", "SENTETIK_YUK_PORT_TABAN"):
+            if anahtar in ham:
+                portlar += [(anahtar, int(ham[anahtar]) + i) for i in range(n)]
+        icinde = [f"{ad}={p}" for ad, p in portlar if alt <= p <= ust]
+        if icinde:
+            raise YapilandirmaTutarsiz(f"sabit port(lar) Linux geçici port aralığının ({alt}–{ust}) içinde: {', '.join(icinde)}; başka sürecin giden bağlantısı portu alıp dinlemeyi engelleyebilir")
 
     @property
     def x_aralik(self):
@@ -1518,6 +1544,9 @@ def ana(argv):
         yap_yolu = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "config", "deney.env")
     try:
         c = Yapilandirma(yapilandirma_yukle(yap_yolu))
+    except YapilandirmaTutarsiz as e:
+        print(f"Yapılandırma tutarsız ({yap_yolu}): {e}", file=sys.stderr)
+        return 2
     except (OSError, ValueError) as e:
         print(f"Yapılandırma okunamadı ({yap_yolu}): {e}", file=sys.stderr)
         return 2

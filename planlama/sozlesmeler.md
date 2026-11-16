@@ -103,7 +103,7 @@ Etiket ve değerlendirme girdisi: sahne dosyasındaki hedeflerden **türetilen d
 
 ## 6. Yapılandırma anahtarları (B21: tek dosya `config/deney.env`)
 
-Mevcut anahtarlar (ağ, kimlik/port, kamera, çıkarım, eğitim) değişmedi. Eklenenler:
+Mevcut anahtarlar (ağ, kimlik/port, kamera, çıkarım, eğitim) değişmedi; tek istisna: `MAVSDK_GRPC_PORTS` 50051–50053 → 20051–20053 (2026-11-16, `planlama/kararlar.md`: belgelenmiş sapma) ve `MERKEZI_TCP_PORT_TABAN` 47200 → 27200 (Linux geçici port aralığının dışına). Eklenenler:
 
 | Anahtar | Değer | Kaynak |
 |---|---|---|
@@ -137,7 +137,8 @@ Mevcut anahtarlar (ağ, kimlik/port, kamera, çıkarım, eğitim) değişmedi. E
 | `POZ_ARALIK_SINIR_MS` | 100 | belge (öngörülen değer; protokolde kilitlenir): kareyi çevreleyen iki telemetri örneği arasındaki en büyük süre, ms; sınıra eşitlik geçerli, aşım → o kare konumsuz |
 | `POZ_BEKLE_SN` | 0,25 | varsayım (kare anı en son örnekten sonraysa sonraki örnek için en çok bekleme, gerçek sn; bekleme ölçüme dahildir) |
 | `POZ_TAMPON_SN` | 60 | varsayım (poz tamponunun saklama penceresi, kaynak sn) |
-| `MERKEZI_TCP_PORT_TABAN` | 47200 | varsayım (merkezi mod: araç sırası k için yer istasyonunun `GCS_ADDR` üzerindeki dinleme portu = taban + k − 1) |
+| `MERKEZI_TCP_PORT_TABAN` | 27200 | varsayım (merkezi mod: araç sırası k için yer istasyonunun `GCS_ADDR` üzerindeki dinleme portu = taban + k − 1) |
+| `SENTETIK_YUK_PORT_TABAN` | 27100 | varsayım (yalnız test aracı: `dds_doygunluk_testi.sh` sentetik yük dinleme portu, araç sırası k için taban + k − 1; deneyin kendisinde kullanılmaz) |
 | `MERKEZI_BAGLAN_SN`, `MERKEZI_BOSALT_SN` | 60, 60 | varsayım (araç kanalının bağlanma denemesi üst sınırı; TAMAMLANDI sonrası gönderim kuyruğunun boşalması için üst sınır; gerçek sn) |
 | `MERKEZI_KUYRUK_KAYIT_SN` | 1 | varsayım (gönderim kuyruğu derinliği kaydı aralığı, gerçek sn) |
 | `MERKEZI_YUK_MAKS_BAYT` | 16777216 | varsayım (alıcının kabul ettiği en büyük yük uzunluğu; 640 × 480 × 3 = 921 600 bayt) |
@@ -151,6 +152,8 @@ Mevcut anahtarlar (ağ, kimlik/port, kamera, çıkarım, eğitim) değişmedi. E
 | `ISCI_ISINMA_KARE`, `ISCI_HAZIR_SN`, `ISCI_KARE_ZAMAN_ASIMI_SN` | 5, 300, 30 | varsayım (ısınma çıkarımı sayısı; işçinin hazır olması için üst sınır, gerçek sn; tek kare için işçi zaman aşımı, gerçek sn) |
 | `ISCI_YENIDEN_BASLAT_MAKS`, `ISCI_KAPANIS_BEKLE_SN`, `ISCI_KAYNAK_SN` | 3, 60, 1 | varsayım (işçi ölümü/zaman aşımında yeniden başlatma üst sınırı; COMPLETE sonrası kare sonuçlarının tamamlanması için üst sınır; işçi kaynak örnekleme aralığı, gerçek sn) |
 | `MODEL_ESLEME_COCO` | `person=insan` | varsayım (COCO ön eğitimli ağırlıkla yalnız M1 boru hattı sınaması; proje modeli iki sınıflı olacak ve birebir eşlenir) |
+
+Sabit portlar Linux geçici port aralığının (`/proc/sys/net/ipv4/ip_local_port_range`, öntanımlı 32768–60999) dışında olmalıdır; `sozlesme_dogrula.py` ve portu açan bileşenler aralığı çalışma anında okuyup denetler. DDS portları `ROS_DOMAIN_ID`'ye bağlıdır (7400 + 250 × alan kimliği, 250 port); öntanımlı 42'de 17900–18149 aralığındadır ve sabit portlarla çakışmaz; alan kimliği değiştirilirse çakışma olabilir (kod değişmez).
 
 Betikler ve doğrulayıcı bu anahtarları yalnızca bu dosyadan okur; mevcut test ve ölçüm betikleri `source` ile okumaya devam eder (yeni anahtarlar eski betikleri etkilemez).
 
@@ -295,7 +298,7 @@ Yer istasyonu görev koordinatörünün (`/gcs/mission_coordinator`) koşu kayd�
 | Alan | Açıklama |
 |---|---|
 | `surum`, `tur` | `1`, `"gorev_olay"` |
-| `olay` | `gorev_atandi` (araç, mission_id: Mission yayımlandı), `hazir` (araç: ilk BARIYER_BEKLE alındı), `eslesme` (`yayimci`: kare sonucu konusunda eşleşmiş yayımcı sayısı arttı), `t0` (ScanStart yayımlandı; `mission_id`), `tarama_bitisi` (araç, `n_ilk`, `n_son`), `son_sonuc` (bütün bitişler ve bütün kare sonuçları tamam: COMPLETE koşulu sağlandı), `t1` (Complete yayımlandı; `mission_id`, `t1_eksi_son_bitis_ns`), `tamamlandi` (araç: TAMAMLANDI alındı), `zaman_asimi` (üst süre doldu; COMPLETE yayımlanmadı), `birlestirme_yok` (hedef birleştirme M3'tedir), `yok_sayildi` (erken/yinelenen/yanlış kimlikli olay; `neden`), `hata` (açık hata; `neden`). |
+| `olay` | `gorev_atandi` (araç, mission_id: Mission yayımlandı), `hazir` (araç: ilk BARIYER_BEKLE alındı), `eslesme` (`yayimci`: sayı her DEĞİŞTİĞİNDE yazılır, artış ve azalış dahil; uçta modda kare sonucu konusunda eşleşmiş yayımcı sayısı, merkezi modda kanalı bağlı (kaynak adresi doğrulanmış) ve çıkarım işçisi hazır araç sayısı), `t0` (ScanStart yayımlandı; `mission_id`), `tarama_bitisi` (araç, `n_ilk`, `n_son`), `son_sonuc` (bütün bitişler ve bütün kare sonuçları tamam: COMPLETE koşulu sağlandı), `t1` (Complete yayımlandı; `mission_id`, `t1_eksi_son_bitis_ns`), `tamamlandi` (araç: TAMAMLANDI alındı), `zaman_asimi` (üst süre doldu; COMPLETE yayımlanmadı), `birlestirme_yok` (hedef birleştirme M3'tedir), `yok_sayildi` (erken/yinelenen/yanlış kimlikli olay; `neden`), `hata` (açık hata; `neden`). |
 | `mono_ns` | `CLOCK_MONOTONIC` ns, pozitif tam sayı; kayıt sırası monotoniktir (olay, yazıldığı andan itibaren). `t0` ve `t1` için yayımlama anıdır (T = t1 − t0). |
 | `sim_ns` | Yer istasyonunun gz-transport saatinden simülasyon saati (ns) ya da `null` (saat henüz/hiç alınmadıysa). T = t1 − t0 hem `mono_ns` hem `sim_ns` farkıyla hesaplanır. |
 | `arac_kimligi`, `mission_id`, `n_ilk`, `n_son`, `t_s_ns`, `t_b_ns`, `yayimci`, `t1_eksi_son_bitis_ns`, `neden`, `ayrinti` | İsteğe bağlı/olaya özgü alanlar. `t_s_ns`/`t_b_ns`: ızgara yolunda `ScanFinished` t_s/t_b taşımadığı için `null` (belge: kullanılmayan alanlar 0); araç günlüğündeki `tarama_bitis_yayimlandi` satırı taşır. |

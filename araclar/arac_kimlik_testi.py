@@ -28,6 +28,11 @@ def sonuc(gecti, ad, ayrinti):
     print(f"SONUC {'gecti' if gecti else 'kaldi'} {ad} | {ayrinti}", flush=True)
 
 
+def olcum(ad, ayrinti):
+    """Ölçüm/bilgi satırı: geçti/kaldı sayılmaz (test betikleri bilgi olarak yazar)."""
+    print(f"OLCUM {ad} | {ayrinti}", flush=True)
+
+
 def yapilandirma():
     def ints(k):
         return [int(x) for x in os.environ[k].split()]
@@ -102,7 +107,7 @@ async def tek():
         sonuc(kk.gonderilen == 0, "tek_yanlis_kimlik_reddi", f"reddedildi: {e}; gönderilen komut sayısı={kk.gonderilen}")
     h = await ilk(s.telemetry.health())
     p = await ilk(s.telemetry.position())
-    sonuc(True, "tek_akis", f"health global={h.is_global_position_ok} local={h.is_local_position_ok} home={h.is_home_position_ok}; "
+    olcum("tek_akis", f"health global={h.is_global_position_ok} local={h.is_local_position_ok} home={h.is_home_position_ok}; "
           f"konum lat={p.latitude_deg:.6f} lon={p.longitude_deg:.6f} yuk={p.absolute_altitude_m:.1f}")
 
 
@@ -133,7 +138,7 @@ async def uc():
     konumlar = set()
     for i, h, p in sonuclar:
         konumlar.add((round(p.latitude_deg, 6), round(p.longitude_deg, 6)))
-        sonuc(True, f"uc_akis_{i + 1}", f"/{c['ns'][i]} MAV_SYS_ID={c['sys_ids'][i]} health global={h.is_global_position_ok} local={h.is_local_position_ok} "
+        olcum(f"uc_akis_{i + 1}", f"/{c['ns'][i]} MAV_SYS_ID={c['sys_ids'][i]} health global={h.is_global_position_ok} local={h.is_local_position_ok} "
               f"konum lat={p.latitude_deg:.6f} lon={p.longitude_deg:.6f}")
     sonuc(len(konumlar) == n, "uc_ayri_konum", f"{len(konumlar)}/{n} farklı başlangıç konumu")
 
@@ -212,7 +217,7 @@ async def zaman():
     sec = list(zip(ornek, fark, fark_k))
     for o, f, fk in sec[:5] + sec[-3:]:
         print(f"ZAMAN_HAM  {o['wall']:7.2f} {o['sim']:9.3f} {o['imu']:9.3f} {f:+9.4f} {fk:+9.4f} {o['yas_sim'] * 1000:6.0f} {o['yas_imu'] * 1000:6.0f}", flush=True)
-    sonuc(True, "zaman_olcum",
+    olcum("zaman_olcum",
           f"n={len(ornek)} aralik={aralik}s sure={wall[-1]:.0f}sn | {ozet('ham', fark)} | {ozet('yas_duzeltmeli', fark_k)} | "
           f"sim_RTF={rtf:.4f} px4_imu_hizi={px4_hiz:.4f} en_buyuk_okuma_yasi={yas * 1000:.0f}ms")
     u = [(o["unix"] + o["yas_unix"], o["sys"] + o["yas_sim"], o["sim"]) for o in ornek if o["unix"] and o["sys"]]

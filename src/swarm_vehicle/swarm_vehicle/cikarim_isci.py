@@ -100,6 +100,7 @@ class GpuArkaUc:
         self.uc_uca = {}
 
     def _tahmin(self, bgr):
+        # device=0: tek GPU varsayımı (her üç makinede tek GPU; planlama/mimari.md [varsayım]); çok GPU'lu makinede cihaz yapılandırmaya taşınmalı
         r = self.model.predict(bgr, imgsz=self.imgsz, conf=self.conf, max_det=self.max_det, batch=1, nms=False, half=False, device=0, verbose=False)
         self.torch.cuda.synchronize()
         return r[0]

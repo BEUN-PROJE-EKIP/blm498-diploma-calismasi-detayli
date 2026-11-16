@@ -96,6 +96,35 @@ for f in "$BOZUK"/*.json "$BOZUK"/*.jsonl; do
     if ! grep -qE "^[[:space:]]*$(basename "$f")[[:space:]]*\|" "$BEKLENEN"; then log_fail "beklenen.txt'de karşılığı olmayan bozuk örnek: $(basename "$f")"; fi
 done
 
+# 2b) yapılandırma tutarlılığı: CAM_HFOV_DEG ile CAM_HFOV_RAD aynı açıyı anlatmalı (|radyan(DEG) − RAD| ≤ 1e-6); tutarsız yapılandırma reddedilir
+hfov_tmp="$(mktemp -d)"
+sed 's/^CAM_HFOV_RAD=.*/CAM_HFOV_RAD="1.2"/' "$ROOT_DIR/config/deney.env" > "$hfov_tmp/deney_hfov_tutarsiz.env"
+rc=0
+out="$(dogrula --yapilandirma "$hfov_tmp/deney_hfov_tutarsiz.env" "$ORNEK/bolge_rota_ornek.json" 2>&1)" || rc=$?
+if [[ "$rc" -ne 0 && "$out" == *"Yapılandırma tutarsız"* && "$out" != *"okunamadı"* && "$out" == *"CAM_HFOV_RAD"*"tutarsız"* ]]; then
+    log_ok "Tutarsız HFOV yapılandırması (CAM_HFOV_DEG=65, CAM_HFOV_RAD=1.2) reddedildi (çıkış $rc): $(head -n 1 <<< "$out")"
+else
+    log_fail "Tutarsız HFOV yapılandırması reddedilmedi (çıkış $rc): $out"
+fi
+rm -rf "$hfov_tmp"
+
+# 2c) sabit portlar Linux geçici port aralığının dışında olmalı (aralık çalışma anında okunur); aralık içindeki port reddedilir
+port_tmp="$(mktemp -d)"
+gecici_alt="$(awk '{print $1}' /proc/sys/net/ipv4/ip_local_port_range 2>/dev/null || true)"
+if [[ "$gecici_alt" =~ ^[0-9]+$ ]]; then
+    sed "s/^MAVSDK_GRPC_PORTS=.*/MAVSDK_GRPC_PORTS=\"$((gecici_alt + 10)) $((gecici_alt + 11)) $((gecici_alt + 12))\"/" "$ROOT_DIR/config/deney.env" > "$port_tmp/deney_port_icinde.env"
+    rc=0
+    out="$(dogrula --yapilandirma "$port_tmp/deney_port_icinde.env" "$ORNEK/bolge_rota_ornek.json" 2>&1)" || rc=$?
+    if [[ "$rc" -ne 0 && "$out" == *"Yapılandırma tutarsız"* && "$out" != *"okunamadı"* && "$out" == *"geçici port aralığının"*"MAVSDK_GRPC_PORTS=$((gecici_alt + 10))"* ]]; then
+        log_ok "Geçici port aralığındaki sabit port reddedildi (aralık ${gecici_alt}…; çıkış $rc)"
+    else
+        log_fail "Geçici port aralığındaki sabit port reddedilmedi (çıkış $rc): $out"
+    fi
+else
+    log_warn "Geçici port aralığı okunamadı (/proc/sys/net/ipv4/ip_local_port_range); aralık denetimi olumsuz örneği atlandı"
+fi
+rm -rf "$port_tmp"
+
 # 3) hedef listesi örneği = sahneden türetilen
 uretilen="$(dogrula --hedef-listesi-uret "$sahne" 2>/dev/null || true)"
 if python3 -I -c 'import json, sys; sys.exit(0 if json.loads(sys.argv[1]) == json.load(open(sys.argv[2], encoding="utf-8")) else 1)' "$uretilen" "$ORNEK/hedef_listesi_ornek.json" 2>/dev/null; then

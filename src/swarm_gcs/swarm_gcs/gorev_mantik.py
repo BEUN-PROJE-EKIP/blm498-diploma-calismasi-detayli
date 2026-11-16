@@ -51,7 +51,7 @@ class Koordinasyon:
         return []
 
     def eslesme_guncelle(self, sayi):
-        """Kare sonucu konusunda eşleşmiş yayımcı sayısı; artarsa `eslesme` olayı döner."""
+        """Eşleşen sayısı (uçta mod: kare sonucu konusunda eşleşmiş yayımcı; merkezi mod: kanalı bağlı ve işçisi hazır araç); değişirse (artış ya da azalış) `eslesme` olayı döner."""
         sayi = int(sayi)
         if sayi == self.eslesen:
             return []

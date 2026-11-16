@@ -22,6 +22,11 @@ def sonuc(gecti, ad, ayrinti):
     print(f"SONUC {'gecti' if gecti else 'kaldi'} {ad} | {ayrinti}", flush=True)
 
 
+def olcum(ad, ayrinti):
+    """Ölçüm/bilgi satırı: geçti/kaldı sayılmaz (test betikleri bilgi olarak yazar)."""
+    print(f"OLCUM {ad} | {ayrinti}", flush=True)
+
+
 def jsonl(yol):
     with open(yol, encoding="utf-8") as f:
         return [json.loads(s) for s in f if s.strip()]
@@ -154,8 +159,8 @@ def ana(argv):
             sonuc(abs(hz_sim - hedef) <= 0.1 * hedef, f"yayim_hizi_{k}", f"durum yayım hızı {hz_sim:.3f} Hz (sim zamanı, {len(d)} ileti, {sim_aralik:.0f} sim sn); duvar saatine göre {hz_duvar:.3f} Hz (hedef {hedef:g} ± %10)")
         # süreler
         hz_ = alog["hazirlik_bitti"][0]
-        sonuc(True, f"sureler_{k}", f"hazırlık {hz_['sure_s']} sn (kalkış {hz_['kalkis_sure_s']}, gidiş {hz_['gidis_sure_s']}; gerçek, T'ye girmez); tarama süresi {(tb - ts) / NS:.1f} sim sn "
-              f"(t_s→t_b); t0→ScanFinished {(b['sim_ns'] - t0['sim_ns']) / NS:.1f} sim sn" if b else "")
+        olcum(f"sureler_{k}", f"hazırlık {hz_['sure_s']} sn (kalkış {hz_['kalkis_sure_s']}, gidiş {hz_['gidis_sure_s']}; gerçek, T'ye girmez); tarama süresi {(tb - ts) / NS:.1f} sim sn (t_s→t_b)"
+              + (f"; t0→ScanFinished {(b['sim_ns'] - t0['sim_ns']) / NS:.1f} sim sn" if b else "; ScanFinished yok"))
         # bağdaştırıcı günlüğü: başlatma t0'dan sonra
         adlog = log_oku(os.path.join(klasor, f"px4_adapter_{k}.log"))
         baslat = [x for x in adlog.get("komut", []) if x.get("ad") == "mission.start"]
@@ -180,7 +185,7 @@ def ana(argv):
         sonuc(yalniz_wait and sure >= 5.0 and len(arada) >= len(kimlikler) * 5, "yanlis_complete_wait", f"yanlış kimlikli COMPLETE'ten doğrusuna {sure:.1f} sn boyunca ({len(arada)} durum iletisi) bütün araçlar WAIT'te kaldı")
         sonra = [x for x in olaylar("durum") if x["mono_ns"] > t1["t1_mono_ns"]]
         sonuc(all(any(x["arac"] == k and x["durum"] == "TAMAMLANDI" for x in sonra) for k in kimlikler), "dogru_complete_tamamlandi", "doğru COMPLETE'ten sonra bütün araçlar TAMAMLANDI yayımladı")
-    sonuc(True, "genel_sureler", f"t0→COMPLETE (t1) {(t1['sim_ns'] - t0['sim_ns']) / NS:.1f} sim sn ({(t1['t1_mono_ns'] - t0['t0_mono_ns']) / 1e9:.1f} gerçek sn)")
+    olcum("genel_sureler", f"t0→COMPLETE (t1) {(t1['sim_ns'] - t0['sim_ns']) / NS:.1f} sim sn ({(t1['t1_mono_ns'] - t0['t0_mono_ns']) / 1e9:.1f} gerçek sn)")
     # diğer araçların durum kayıtları
     if len(kimlikler) > 1:
         for yazar in kimlikler:

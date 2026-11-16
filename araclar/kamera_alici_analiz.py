@@ -23,6 +23,11 @@ def sonuc(gecti, ad, ayrinti):
     print(f"SONUC {'gecti' if gecti else 'kaldi'} {ad} | {ayrinti}", flush=True)
 
 
+def olcum(ad, ayrinti):
+    """Ölçüm/bilgi satırı: geçti/kaldı sayılmaz (test betikleri bilgi olarak yazar)."""
+    print(f"OLCUM {ad} | {ayrinti}", flush=True)
+
+
 def jsonl(yol):
     with open(yol, encoding="utf-8") as f:
         return [json.loads(s) for s in f if s.strip()]
@@ -148,7 +153,7 @@ def ana(argv):
         if gecikme and not enj:
             sonuc(min(gecikme) > -50, f"uretim_alim_gecikmesi_{k}", f"üretim → alım gecikmesi (ms, {len(gecikme)} kare): ortanca {yuzde(gecikme, 50):.2f}, p99 {yuzde(gecikme, 99):.2f}, en çok {max(gecikme):.2f}, en az {min(gecikme):.2f}")
         ilk_d = dm[0]
-        sonuc(True, f"ilk_kare_{k}", f"oturumun (damga bileşeninin gördüğü) ilk karesi: n={ilk_d['n']}, damga {ilk_d['sim_damga_ns'] / NS:.3f} sim sn ({'ızgarada' if isinstance(ilk_d['n'], int) else 'ızgara dışı'}); ızgara dışı kare sayısı {sum(1 for r in dm if not isinstance(r['n'], int))}")
+        olcum(f"ilk_kare_{k}", f"oturumun (damga bileşeninin gördüğü) ilk karesi: n={ilk_d['n']}, damga {ilk_d['sim_damga_ns'] / NS:.3f} sim sn ({'ızgarada' if isinstance(ilk_d['n'], int) else 'ızgara dışı'}); ızgara dışı kare sayısı {sum(1 for r in dm if not isinstance(r['n'], int))}")
         # --- kare üretim hızı (sim zamanı ve duvar saati) ------------------------------------------------------------------------------------
         iz = [r for r in dm if isinstance(r["n"], int)]
         if len(iz) > 2:

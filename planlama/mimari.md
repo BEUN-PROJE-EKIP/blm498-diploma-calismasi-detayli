@@ -31,7 +31,7 @@ flowchart LR
 
   GZ -.->|"gz-transport"| CAM
   PX <-.->|"MAVLink/UDP 14540-14542"| MS
-  MS <-.->|"gRPC 50051-50053"| ADP
+  MS <-.->|"gRPC 20051-20053"| ADP
   CAM -.->|"IP'siz yerel kanal"| WU
   WU -.-> DM
   DM ==>|"DDS UDPv4: durum, görev, kare sonucu"| LIM
@@ -54,6 +54,8 @@ Notlar:
 ## 2. Uçta mod ve merkezi mod
 
 İki mod arasında yalnız **ağdan geçen veri, çıkarımın yapıldığı yer ve kare sonucunun oluştuğu yer** değişir; sahne, rota, tohumlar, kamera, model ağırlıkları, GPU ve çıkarım ayarları aynıdır. Çıkarım iki modda da aynı GPU'da (FP32, batch=1, nms=False, güven eşiği 0,25) yapılır.
+
+**[varsayım]** Her üç geliştirme makinesinde tek GPU vardır; çıkarım işçileri (`cikarim_isci.py`, `device=0`) aynı GPU'yu paylaşır. Birden çok GPU'lu bir makinede cihaz seçimi yapılandırmaya taşınmalıdır.
 
 **Uçta mod:** görüntü ağa çıkmaz, yalnız kare sonuçları, durum ve görev mesajları gider.
 
@@ -155,11 +157,11 @@ Ortak COMPLETE için üç koşul gerekir: (1) bütün tarama bitiş bildirimleri
 
 | İHA | PX4 `MAV_SYS_ID` | MAVSDK UDP dinleme | Yerel gRPC | ROS 2 ad alanı | Ağ adresi |
 |---|---|---|---|---|---|
-| İHA 1 | 1 | 14540 | 50051 | `/uav_1` | 10.10.0.1 |
-| İHA 2 | 2 | 14541 | 50052 | `/uav_2` | 10.10.0.2 |
-| İHA 3 | 3 | 14542 | 50053 | `/uav_3` | 10.10.0.3 |
+| İHA 1 | 1 | 14540 | 20051 | `/uav_1` | 10.10.0.1 |
+| İHA 2 | 2 | 14541 | 20052 | `/uav_2` | 10.10.0.2 |
+| İHA 3 | 3 | 14542 | 20053 | `/uav_3` | 10.10.0.3 |
 | Yer istasyonu | — | — | — | `/gcs` | 10.10.0.10 |
 
-Portlar, kimlikler ve adresler tek deney yapılandırma dosyasında (`config/deney.env`) tanımlıdır ve bütün başlatma dosyaları buradan okur. Bütün süreçler aynı ağ ad alanında çalıştığı için her aracın portları farklıdır. Beklenen sistem kimliği doğrulanmadan PX4'e komut verilmez.
+Portlar, kimlikler ve adresler tek deney yapılandırma dosyasında (`config/deney.env`) tanımlıdır ve bütün başlatma dosyaları buradan okur. Bütün süreçler aynı ağ ad alanında çalıştığı için her aracın portları farklıdır. Beklenen sistem kimliği doğrulanmadan PX4'e komut verilmez. Yerel gRPC portları (20051–20053) Linux geçici port aralığının (32768–60999) dışındadır: aralıktaki sabit bir port, başka sürecin giden bağlantısına kaynak port olarak atanırsa dinleme başlayamaz.
 
 **Ağ emülasyonu:** loopback üzerinde `10.10.0.0/24`; tek ortak `tc` (htb) sınıfı, 25 Mbit/s birincil profil (deneysel varsayım, sonuçlara bakılarak değiştirilmez) ve bayt cinsinden sınırlı tek FIFO kuyruk (öngörülen 4 MiB, kesin değer ayar pilotunda kilitlenir); sabit ek gecikme ve kasıtlı paket kaybı yok; çoklu yayın yok. **DDS:** tek Fast DDS XML profili (yalnız UDPv4; SHM, data-sharing ve intraprocess kapalı; sabit tek yayın keşif), `rmw_fastrtps_cpp`.

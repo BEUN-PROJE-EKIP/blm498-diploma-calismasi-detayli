@@ -5,7 +5,7 @@
 #   --dry-run     hiçbir süreç başlatmaz; ne çalıştıracağını yazar
 #   --verify      hafif önkoşul denetimi (ikililer, yapılandırma tutarlılığı); süreç başlatmaz
 # Testler (Python tarafı: araclar/arac_kimlik_testi.py):
-#   tek    PX4 örneği 0 (MAV_SYS_ID=1, UDP 14540) + mavsdk_server (gRPC 50051): sistem kimliği doğrulanır; yanlış beklenen kimlikle komut reddedilir
+#   tek    PX4 örneği 0 (MAV_SYS_ID=1, UDP 14540) + mavsdk_server (gRPC 20051): sistem kimliği doğrulanır; yanlış beklenen kimlikle komut reddedilir
 #   uc     3 PX4 örneği aynı Gazebo dünyasında, 3 mavsdk_server: her araç kendi kimliğiyle eşleşir, çapraz bağlanma reddedilir, aynı anda akış
 #   zaman  tek araç: gz /world/<dünya>/clock (sim saati) ile PX4 IMU zamanı ≥ ZAMAN_SURE_SN boyunca karşılaştırılır (fark, eğim, RTF)
 # Kimlik, port, ad alanı ve konumlar config/deney.env'den okunur (betikte sabit yok). Arm/kalkış YOK. sudo gerekmez.
@@ -223,6 +223,7 @@ run_py() {
         case "$line" in
             "SONUC gecti "*) log_ok "${line#SONUC gecti }" ;;
             "SONUC kaldi "*) log_fail "${line#SONUC kaldi }" ;;
+            "OLCUM "*) log_info "${line#OLCUM }" ;;
             ZAMAN_*) log_info "$line" ;;
         esac
     done < "$d/py_$mod.log"

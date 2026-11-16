@@ -50,7 +50,7 @@ class Sahte:
 def kur(beklenen_kaynak="127.0.0.1", enj="", islemci=None, **ek):
     ham = dict(rota.deney_env_oku(), GCS_ADDR="127.0.0.1", UAV1_ADDR=beklenen_kaynak, MERKEZI_TCP_PORT_TABAN=str(bos_port()))
     sahte, olaylar, loglar = islemci or Sahte(), [], []
-    a = MerkeziAlici(ham, [1], lambda o, **kv: loglar.append((o, kv)), {1: sahte}, olay_yaz=olaylar.append, enjeksiyon_metni=enj, kalibrasyon_kimligi=KAL, **ek)
+    a = MerkeziAlici(ham, [1], lambda o, **kv: loglar.append((o, kv)), {1: sahte}, olay_yaz=olaylar.append, enjeksiyon_metni=enj, kalibrasyon_kimligi=KAL, port_denetimi=False, **ek)
     a.baslat()
     return a, sahte, olaylar, loglar, int(ham["MERKEZI_TCP_PORT_TABAN"])
 
@@ -257,7 +257,7 @@ class SonucZinciri(unittest.TestCase):
             kayitlar.append(k)
             defter.ekle(k["arac_kimligi"], k["n"], k["durum"], time.monotonic_ns())
         isl = ki.KareIsleyici(ham, 1, SahteIstemci(), None, lambda *a, **k: None, kanca)
-        a = MerkeziAlici(ham, [1], lambda *x, **k: None, {1: isl}, kalibrasyon_kimligi=KAL)
+        a = MerkeziAlici(ham, [1], lambda *x, **k: None, {1: isl}, kalibrasyon_kimligi=KAL, port_denetimi=False)
         a.baslat()
         self.addCleanup(a.kapat)
         c = baglan(a.durum[1].port)
@@ -275,6 +275,25 @@ class SonucZinciri(unittest.TestCase):
         self.assertTrue(all(t["konum"] is None and t["aday"] is False for k in kayitlar for t in k["tespitler"]))   # has_position bu sürümde false
         self.assertEqual(isl.istemci.n_ilk, 20)                                  # işçi enjeksiyonu için n_ilk = ilk ileti
         c.close()
+
+
+class PortAraligi(unittest.TestCase):
+    def test_aralik_ici_dinleme_portu_acik_hata_soket_acilmaz(self):
+        from swarm_vehicle import port_denetimi
+        aralik = port_denetimi.gecici_aralik()
+        if aralik is None:
+            self.skipTest("geçici port aralığı okunamıyor")
+        ham = dict(rota.deney_env_oku(), GCS_ADDR="127.0.0.1", UAV1_ADDR="127.0.0.1", MERKEZI_TCP_PORT_TABAN=str(aralik[0] + 10))
+        a = MerkeziAlici(ham, [1], lambda *x, **k: None, {1: Sahte()}, kalibrasyon_kimligi=KAL)       # port_denetimi öntanımlı açık
+        with self.assertRaises(port_denetimi.PortAraligiHatasi):
+            a.baslat()
+        self.assertEqual(a._dinle, {})                                  # hiçbir dinleme soketi açılmadı
+
+    def test_yapilandirmadaki_taban_aralik_disinda_ve_denetim_gecer(self):
+        ham = dict(rota.deney_env_oku(), GCS_ADDR="127.0.0.1", UAV1_ADDR="127.0.0.1")
+        a = MerkeziAlici(ham, [1], lambda *x, **k: None, {1: Sahte()}, kalibrasyon_kimligi=KAL)
+        from swarm_vehicle import port_denetimi
+        port_denetimi.denetle(a.durum[1].port, "merkezi mod")
 
 
 if __name__ == "__main__":

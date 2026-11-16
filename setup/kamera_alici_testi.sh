@@ -229,6 +229,7 @@ analiz() { # analiz <ad> <analiz argümanları...> : SONUC satırlarını (+)/(-
         case "$line" in
             "SONUC gecti "*) log_ok "$ad: ${line#SONUC gecti }" ;;
             "SONUC kaldi "*) log_fail "$ad: ${line#SONUC kaldi }" ;;
+            "OLCUM "*) log_info "$ad: ${line#OLCUM }" ;;
             Traceback*|*Error*) log_fail "$ad: analiz hatası: $line" ;;
         esac
     done < "$TMP_DIR/$ad.analiz.log"

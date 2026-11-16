@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # arac_sureci_testi.sh — araç süreci ve görev durum makinesi kabul testleri (başsız Gazebo + PX4 SITL + ROS 2 araç süreçleri + deneme koordinatörü).
-# Kullanım: ./arac_sureci_testi.sh [--dry-run | --verify | -h] [birim] [tek] [uc]
+# Kullanım: ./arac_sureci_testi.sh [--dry-run | --verify | -h] [birim] [tek] [uc] [erken]
 #   (argümansız)  hepsini çalıştırır; adlar verilirse yalnız onlar.
 #   --dry-run     hiçbir süreç başlatmaz, hiçbir şey derlemez; ne çalıştıracağını yazar
 #   --verify      hafif önkoşul denetimi (araçlar, betikler, kurulu paketler); süreç başlatmaz
@@ -8,6 +8,7 @@
 #   birim   durum makinesi birim testleri (ROS'suz), colcon build (swarm_msgs, swarm_vehicle), rclpy/mavsdk'sız içe aktarma, tek komut yolu taraması
 #   tek     --arac 1: araç süreci + deneme koordinatörü (erken tarama başlatma, erken COMPLETE, yanlış kimlikli COMPLETE senaryolarıyla); durum dizisi,
 #           t0 ilişkileri, Gazebo pozu, kare aralığı, 2 Hz yayım
+#   erken   --arac 3, araç 2'nin gRPC portu önceden tutulur (araç süreci kurulumda çıkar): koşu açık hatayla sonlanır, bütün süreç grupları toplanır, artık süreç yok
 #   uc      --arac 3: üç araç süreci (üç ad alanı, kendi sürü adresleri) + koordinatör; diğer araçların durum kayıtları, hazırlıkta çarpışma yok,
 #           DDS trafiği sürü ağından (tc sayacı artar, soketler 10.10.0.x)
 # Araç süreçleri ve koordinatör `setsid` ile ayrı süreç gruplarında, günlükleri koşu klasöründe başlatılır; her çıkışta (hata, Ctrl-C dahil) bu betik
@@ -22,12 +23,12 @@ TESTS=()
 ARGS=()
 for a in "$@"; do
     case "$a" in
-        birim|tek|uc) TESTS+=("$a") ;;
+        birim|tek|uc|erken) TESTS+=("$a") ;;
         *) ARGS+=("$a") ;;
     esac
 done
 parse_common_args "${ARGS[@]+"${ARGS[@]}"}"
-[[ "${#TESTS[@]}" -gt 0 ]] || TESTS=(birim tek uc)
+[[ "${#TESTS[@]}" -gt 0 ]] || TESTS=(birim tek uc erken)
 COMPONENT_NAME="Araç süreci ve görev durum makinesi"
 require_not_root
 load_versions
@@ -43,6 +44,7 @@ KOORD="$ROOT_DIR/araclar/koordinator_deneme.py"
 ANALIZ="$ROOT_DIR/araclar/arac_sureci_analiz.py"
 BIRIM_TEST="$ROOT_DIR/src/swarm_vehicle/test/test_durum_makinesi.py"
 BIRIM_TEST_KAPANIS="$ROOT_DIR/src/swarm_vehicle/test/test_arac_kapanis.py"
+BIRIM_TEST_PORT="$ROOT_DIR/src/swarm_vehicle/test/test_port_denetimi.py"
 PKG_DIR="$ROOT_DIR/src/swarm_vehicle"
 VENV_PY="$ROOT_DIR/.venv/bin/python"
 ENV_SH="$SETUP_DIR/env.sh"
@@ -51,6 +53,10 @@ ROS_SETUP="/opt/ros/$ROS_DISTRO/setup.bash"
 KOK="$GENERATED_DIR/kosular"
 TMP_DIR=""
 PGIDS=()
+ERKEN_BEKLENEN=0   # 1: bir aracın t0'dan önce çıkması beklenen (erken alt kümesi)
+ERKEN_SONUC=0      # t0'dan önce çıkan araç numarası (0: yok)
+ERKEN_DIGER_CANLI=""   # erken çıkış anında yaşayan diğer araçlar (numaralar; boşsa hiçbiri)
+TUTUCU_PID=""      # erken alt kümesinin gRPC portunu tutan yardımcı süreç (PID ile kapatılır)
 
 fail_stop() { log_fail "$1"; component_failed "$COMPONENT_NAME"; exit 1; }
 
@@ -66,6 +72,7 @@ exit_hook() {
     local i
     for ((i = ${#PGIDS[@]} - 1; i >= 0; i--)); do grup_oldur "${PGIDS[$i]}"; done
     PGIDS=()
+    if [[ -n "$TUTUCU_PID" ]]; then kill "$TUTUCU_PID" 2>/dev/null || true; TUTUCU_PID=""; fi
     if [[ -f "$KOK/aktif" ]]; then "$KOSU" temizle >/dev/null 2>&1 || true; fi
     if [[ -n "$TMP_DIR" && -d "$TMP_DIR" ]]; then rm -rf "$TMP_DIR"; fi
     TMP_DIR=""
@@ -91,7 +98,7 @@ check_prereqs() {
     check "venv Python (.venv)" test -x "$VENV_PY"
     check "setup/env.sh" test -f "$ENV_SH"
     check "ROS 2 setup.bash" test -f "$ROS_SETUP"
-    for f in "$KOSU" "$KOORD" "$ANALIZ" "$BIRIM_TEST" "$BIRIM_TEST_KAPANIS" "$PKG_DIR/swarm_vehicle/arac.py" "$PKG_DIR/swarm_vehicle/durum_makinesi.py" "$PKG_DIR/swarm_vehicle/px4_adapter.py"; do
+    for f in "$KOSU" "$KOORD" "$ANALIZ" "$BIRIM_TEST" "$BIRIM_TEST_KAPANIS" "$BIRIM_TEST_PORT" "$PKG_DIR/swarm_vehicle/arac.py" "$PKG_DIR/swarm_vehicle/durum_makinesi.py" "$PKG_DIR/swarm_vehicle/px4_adapter.py"; do
         check "Dosya: ${f#"$ROOT_DIR"/}" test -f "$f"
     done
     check "Yapılandırılmış sürü ağı (lo üzerinde htb)" bash -c '[[ "$(tc qdisc show dev lo)" == *htb* ]]'
@@ -102,6 +109,7 @@ print_plan() {
     log_info "[dry-run] birim: durum makinesi birim testleri (ROS'suz); colcon build --base-paths src --packages-select swarm_msgs swarm_vehicle (venv dışı); rclpy/mavsdk'sız içe aktarma; tek komut yolu taraması"
     log_info "[dry-run] tek: kosu.sh baslat --arac 1 → koordinatör (--erken-scan-start --erken-complete --yanlis-complete) + araç süreci 1 (python -m swarm_vehicle.arac 1, SWARM_BIND_ADDR=$UAV1_ADDR) → analiz → durdur"
     log_info "[dry-run] uc: kosu.sh baslat --arac 3 → koordinatör + üç araç süreci (SWARM_BIND_ADDR=${UAV_ADDRS[*]}) → tc sayacı ve soket denetimi → analiz → durdur"
+    log_info "[dry-run] erken: kosu.sh baslat --arac 3 → araç 2'nin gRPC portunu tutan yardımcı süreç → koordinatör + üç araç; araç 2 kurulumda çıkar → koşu sonlandırılır, süreç grupları toplanır → temizle (bitiş durumu yarida_kaldi) → artık süreç denetimi"
     log_info "[dry-run] Her testten sonra araç süreci/koordinatör/px4/gz/mavsdk_server artığı, yeni dinleyen port, /dev/shm; sonda ros2 daemon, tc/ip denetimi. Hiçbir süreç başlatılmadı"
 }
 
@@ -190,7 +198,7 @@ tc_bayt() { # sürü sınıfı (1:10) için gönderilen bayt sayısı
 
 # senaryo_calistir <ad> <araç_sayısı> <koordinatör_argümanları...> : araç süreçleri + koordinatör; koordinatör çıkışı beklenir
 senaryo_calistir() {
-    local ad="$1" n="$2" i kpg kmax rc=0 t0=$SECONDS tc0 tc1 soket_yok=1; shift 2
+    local ad="$1" n="$2" i j l pg erken=0 kpg kmax rc=0 t0=$SECONDS tc0 tc1 soket_yok=1; shift 2
     local -a apg=() apid=()
     tc0="$(tc_bayt)"
     ros_baslat "$KOSU_DIR/koordinator.out" timeout -k 5 1200 python "$KOORD" --arac "$n" --zaman-asimi-sn 1100 "$@"
@@ -205,8 +213,30 @@ senaryo_calistir() {
     for ((i = 0; i < 4000; i++)); do
         if grep -q '^KOORDINATOR t0' "$KOSU_DIR/koordinator.out" 2>/dev/null; then break; fi
         kill -0 "$kpg" 2>/dev/null || break
+        for ((j = 0; j < n; j++)); do
+            if ! kill -0 "${apid[$j]}" 2>/dev/null; then erken=$((j + 1)); break; fi
+        done
+        [[ "$erken" -eq 0 ]] || break
         sleep 0.25
     done
+    if [[ "$erken" -gt 0 ]]; then
+        # Bir araç t0'dan önce çıktı: diğerleri bariyerde sonsuza dek beklerdi; koşu açık hatayla sonlandırılır, bütün gruplar toplanır
+        local arc=0; wait "${apid[$((erken - 1))]}" 2>/dev/null || arc=$?
+        if [[ "$ERKEN_BEKLENEN" -eq 1 ]]; then
+            log_ok "$ad: araç $erken süreci t0'dan önce çıktı (çıkış kodu $arc; beklenen): koşu sonlandırılıyor"
+        else
+            log_fail "$ad: araç $erken süreci t0'dan önce çıktı (çıkış kodu $arc): koşu sonlandırılıyor"
+        fi
+        tail -n 6 "$KOSU_DIR/arac_$erken.out" | while IFS= read -r l; do log_info "  | $l"; done
+        ERKEN_DIGER_CANLI=""
+        for ((j = 0; j < n; j++)); do
+            if [[ "$((j + 1))" -ne "$erken" ]] && kill -0 "${apid[$j]}" 2>/dev/null; then ERKEN_DIGER_CANLI+="$((j + 1)) "; fi
+        done
+        for pg in "${apg[@]}" "$kpg"; do grup_oldur "$pg"; done
+        ERKEN_SONUC=$erken
+        PGIDS=()
+        return 0
+    fi
     local dom="${ROS_DOMAIN_ID:-42}" taban
     taban=$((7400 + 250 * dom))
     for ((i = 1; i <= n; i++)); do
@@ -238,6 +268,10 @@ senaryo_calistir() {
     else
         log_fail "$ad: tc sayacı artmadı ($tc0 → $tc1)"
     fi
+    # Hâlâ canlı grup varsa (araç kapanmadı, koordinatör zaman aşımı) bırakılmaz: hata yazılır ve grup toplanır
+    for pg in "${apg[@]}" "$kpg"; do
+        if kill -0 -- "-$pg" 2>/dev/null; then log_fail "$ad: süreç grubu $pg hâlâ canlı; sonlandırılıyor"; grup_oldur "$pg"; fi
+    done
     PGIDS=()
 }
 
@@ -248,6 +282,7 @@ analiz() { # analiz <ad> <analiz argümanları...> : SONUC satırlarını (+)/(-
         case "$line" in
             "SONUC gecti "*) log_ok "$ad: ${line#SONUC gecti }" ;;
             "SONUC kaldi "*) log_fail "$ad: ${line#SONUC kaldi }" ;;
+            "OLCUM "*) log_info "$ad: ${line#OLCUM }" ;;
             Traceback*|*Error*) log_fail "$ad: analiz hatası: $line" ;;
         esac
     done < "$TMP_DIR/$ad.analiz.log"
@@ -274,6 +309,7 @@ test_birim() {
     log_info "== birim: durum makinesi birim testleri, derleme, içe aktarma, tek komut yolu =="
     if out="$("$VENV_PY" -I "$BIRIM_TEST" 2>&1)"; then log_ok "birim: durum makinesi birim testleri geçti ($(grep -E '^Ran ' <<< "$out"))"; else log_fail "birim: durum makinesi birim testleri BAŞARISIZ"; tail -n 15 <<< "$out"; fi
     if out="$("$VENV_PY" -I "$BIRIM_TEST_KAPANIS" 2>&1)"; then log_ok "birim: araç kapanış yolu birim testleri geçti ($(grep -E '^Ran ' <<< "$out"))"; else log_fail "birim: araç kapanış yolu birim testleri BAŞARISIZ"; tail -n 15 <<< "$out"; fi
+    if out="$("$VENV_PY" -I "$BIRIM_TEST_PORT" 2>&1)"; then log_ok "birim: sabit port / geçici port aralığı denetimi birim testleri geçti ($(grep -E '^Ran ' <<< "$out"))"; else log_fail "birim: port aralığı denetimi birim testleri BAŞARISIZ"; tail -n 15 <<< "$out"; fi
     out="$GENERATED_DIR/arac_sureci_derleme.txt"
     if proje_derle "$out"; then
         log_ok "birim: proje derlendi (swarm_msgs + swarm_vehicle + swarm_gcs; ortak yol: setup/lib/derleme.sh)"
@@ -323,6 +359,46 @@ test_uc() {
     kalan_yok "$ad"
 }
 
+test_erken() {
+    local ad=erken port
+    [[ "${#SYS_IDS[@]}" -ge 3 ]] || { log_fail "erken: yapılandırmada 3 araç yok"; return; }
+    read -r -a GRPC_PORTS <<< "$MAVSDK_GRPC_PORTS"
+    port="${GRPC_PORTS[1]}"
+    log_info "== erken: araç 2'nin gRPC portu ($port) önceden tutulur; araç süreci kurulumda çıkar, koşu açık hatayla sonlanır =="
+    if kosu_baslat "$ad" --arac 3; then
+        python3 -I -c 'import socket, sys, time; s = socket.socket(); s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1); s.bind(("127.0.0.1", int(sys.argv[1]))); s.listen(); time.sleep(1800)' "$port" &
+        TUTUCU_PID=$!
+        local tutuldu=0 k
+        for ((k = 0; k < 40; k++)); do
+            if ! kill -0 "$TUTUCU_PID" 2>/dev/null; then break; fi
+            if [[ -n "$(ss -H -l -t -n "sport = :$port" 2>/dev/null)" ]]; then tutuldu=1; break; fi
+            sleep 0.25
+        done
+        if [[ "$tutuldu" -ne 1 ]]; then
+            log_fail "erken: port tutucu süreç $port portunu tutamadı; senaryo koşulmadı"
+            kill "$TUTUCU_PID" 2>/dev/null || true; wait "$TUTUCU_PID" 2>/dev/null || true; TUTUCU_PID=""
+            komut_dene "$TMP_DIR/$ad.temizle.log" "$ad: temizle tamam" "$ad: temizle başarısız" "$KOSU" temizle
+            kalan_yok "$ad"
+            return
+        fi
+        log_ok "erken: gRPC portu $port tutucu süreç tarafından tutuluyor (PID $TUTUCU_PID)"
+        ERKEN_BEKLENEN=1; ERKEN_SONUC=0; ERKEN_DIGER_CANLI=""
+        senaryo_calistir "$ad" 3
+        ERKEN_BEKLENEN=0
+        if [[ "$ERKEN_SONUC" -eq 2 ]]; then log_ok "erken: yalnız araç 2 erken çıktı; koşu bariyerde asılı kalmadan sonlandırıldı"; else log_fail "erken: beklenen erken çıkış (araç 2) tespit edilmedi (sonuç: $ERKEN_SONUC)"; fi
+        if [[ "$ERKEN_SONUC" -eq 2 ]]; then
+            if [[ "$ERKEN_DIGER_CANLI" == "1 3 " ]]; then log_ok "erken: erken çıkış anında araç 1 ve 3 canlıydı (bariyerde bekliyorlardı)"; else log_fail "erken: erken çıkış anında canlı araçlar '${ERKEN_DIGER_CANLI}' (beklenen '1 3 ')"; fi
+        fi
+        if grep -q "zaten kullanımda" "$KOSU_DIR/arac_2.out" "$KOSU_DIR/arac_2.log" 2>/dev/null; then log_ok "erken: araç 2 açık hata yazdı (gRPC portu zaten kullanımda)"; else log_fail "erken: araç 2 çıktısında 'zaten kullanımda' hatası yok"; tail -n 6 "$KOSU_DIR/arac_2.out"; fi
+        kill "$TUTUCU_PID" 2>/dev/null || true; wait "$TUTUCU_PID" 2>/dev/null || true; TUTUCU_PID=""
+        # araçları bu betik başlattığı için 'durdur' ölü aracı görmez ve 'tamamlandi' yazardı; yarım kalan koşu 'temizle' ile 'yarida_kaldi' işaretlenir
+        komut_dene "$TMP_DIR/$ad.temizle.log" "$ad: temizle tamam" "$ad: temizle başarısız" "$KOSU" temizle
+        json_gecerli "$ad" yarida_kaldi
+    fi
+    if [[ -n "$TUTUCU_PID" ]]; then kill "$TUTUCU_PID" 2>/dev/null || true; TUTUCU_PID=""; fi
+    kalan_yok "$ad"
+}
+
 snapshot once
 DAEMON_ONCE=0; if pgrep -f '[r]os2-daemon' >/dev/null; then DAEMON_ONCE=1; fi
 [[ "$DAEMON_ONCE" -eq 0 ]] || log_warn "Başlangıçta ros2 daemon yaşıyor (ölçülen ağa trafik basar); önce durdurun"
@@ -335,6 +411,7 @@ log_info "gz $(gz sim --versions 2>/dev/null | sed -n 1p || true), ROS $ROS_DIST
 if want birim; then test_birim; fi
 if want tek; then test_tek; fi
 if want uc; then test_uc; fi
+if want erken; then test_erken; fi
 
 # --- Son denetim ------------------------------------------------------------------------------
 snapshot sonra

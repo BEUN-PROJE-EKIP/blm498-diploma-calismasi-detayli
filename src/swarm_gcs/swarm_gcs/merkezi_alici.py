@@ -20,6 +20,7 @@ import threading
 import time
 
 from swarm_vehicle import goruntu_ileti as gi
+from swarm_vehicle import port_denetimi as _port
 
 _NS = 10 ** 9
 
@@ -56,7 +57,7 @@ class KanalDurumu:
 
 
 class MerkeziAlici:
-    def __init__(self, ham, arac_kimlikleri, log, islemciler, olay_yaz=None, sha_yaz=None, enjeksiyon_metni=None, kalibrasyon_kimligi=None, defter_tamam=None, isleme_yaz=None):
+    def __init__(self, ham, arac_kimlikleri, log, islemciler, olay_yaz=None, sha_yaz=None, enjeksiyon_metni=None, kalibrasyon_kimligi=None, defter_tamam=None, isleme_yaz=None, port_denetimi=True):
         """islemciler: {araç kimliği: işleyici}; işleyici `goruntu(n, damga_ns, mono_ns, veri, w, h, merkez_poz=...)` ve `kayip(n, mono_ns, merkez_poz=...)` sağlar (KareIsleyici).
         olay_yaz(sözlük): `alim` kare olayları (bloke etmez). sha_yaz(araç, sözlük): yalnız test (MERKEZI_SHA=1).
         defter_tamam(araç) → bool: aracın sonuç defteri tamam mı (temiz kapanış denetimi; None ise denetim yok). isleme_yaz(araç, sözlük): işleme kuyruğu durum kaydı (bloke etmez; None ise kayıt yok)."""
@@ -71,6 +72,7 @@ class MerkeziAlici:
         self.hz = int(float(ham["CAM_RATE_HZ"]))
         self.w, self.h = int(ham["CAM_WIDTH"]), int(ham["CAM_HEIGHT"])
         self.kal = kalibrasyon_kimligi
+        self.port_denetimi = port_denetimi   # birim testleri işletim sisteminin verdiği (geçici aralıktaki) boş portları kullanır; gerçek koşuda hep açık
         self.yuk_maks = int(ham["MERKEZI_YUK_MAKS_BAYT"])
         self.okuma_dur = okuma_dur_ayristir(enjeksiyon_metni if enjeksiyon_metni is not None else os.environ.get("MERKEZI_ENJEKSIYON", ""))
         self._dur = threading.Event()
@@ -85,6 +87,9 @@ class MerkeziAlici:
 
     # --- başlatma ---------------------------------------------------------------------------------------------------------------------------
     def baslat(self):
+        if self.port_denetimi:   # hiçbir soket açılmadan önce: sabit dinleme portları geçici port aralığının dışında olmalı
+            for a in self.kimlikler:
+                _port.denetle(self.durum[a].port, f"merkezi mod dinleme (araç {a})")
         for a in self.kimlikler:
             d = self.durum[a]
             s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)

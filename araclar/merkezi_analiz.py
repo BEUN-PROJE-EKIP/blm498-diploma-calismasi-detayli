@@ -147,7 +147,9 @@ def ana(argv):
         # şema: hiçbir tespitte konum yok
         sonuc(all(t["konum"] is None and t["aday"] is False for r in sn.values() for t in r["tespitler"]), f"has_position_false_{k}", "tespitlerde konum null, aday false (konum B14'te)")
         # kalibrasyon kimliği başlıkta (sayıldı)
-        sonuc(kal == rota.kalibrasyon_kimligi_oku(), f"kalibrasyon_{k}", f"başlıktaki kalibrasyon kimliği {kal!r}; uyuşmayan 0")
+        uyusmayan = [x for x in glog.get("merkezi_kalibrasyon_uyusmuyor", []) if str(x.get("arac")) == str(k)]
+        sonuc(not uyusmayan and o.get("kalibrasyon_uyumsuz") == 0, f"kalibrasyon_{k}",
+              f"yer istasyonu alıcısı her başlıktaki kalibrasyon kimliğini beklenen {kal!r} ile karşılaştırdı: uyuşmazlık günlük satırı {len(uyusmayan)}, özet sayacı {o.get('kalibrasyon_uyumsuz')}")
         # sıra: COMPLETE son sonuçtan sonra
         son_sonuc_mono = max(son_sonuc_mono, max(r["mono_ns"] for r in kul))
         # SHA

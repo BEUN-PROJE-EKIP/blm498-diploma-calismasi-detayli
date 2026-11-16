@@ -35,6 +35,11 @@ def sonuc(gecti, ad, ayrinti):
     print(f"SONUC {'gecti' if gecti else 'kaldi'} {ad} | {ayrinti}", flush=True)
 
 
+def olcum(ad, ayrinti):
+    """Ölçüm/bilgi satırı: geçti/kaldı sayılmaz (test betikleri bilgi olarak yazar)."""
+    print(f"OLCUM {ad} | {ayrinti}", flush=True)
+
+
 def yuzde(v, p):
     v = sorted(v)
     return v[min(len(v) - 1, int(math.ceil(p / 100 * len(v))) - 1)] if v else float("nan")
@@ -104,7 +109,7 @@ def bir_arka_uc(arka, klasor, goruntu, tekrar, cpu_sabitle):
         sonuc(False, f"{arka}_hazir", f"işçi hazır olmadı: {ist.kalici_hata}")
         ist.kapat()
         return None
-    sonuc(True, f"{arka}_hazir", f"işçi hazır: pid {b['pid']}, model {b['model']}, cihaz {b['cihaz']}, yükleme {b['yukleme_s']} sn, ısınma {b['isinma_s']} sn ({len(b['isinma_ms'])} çıkarım: "
+    olcum(f"{arka}_hazir", f"işçi hazır: pid {b['pid']}, model {b['model']}, cihaz {b['cihaz']}, yükleme {b['yukleme_s']} sn, ısınma {b['isinma_s']} sn ({len(b['isinma_ms'])} çıkarım: "
           f"{', '.join(str(x) for x in b['isinma_ms'])} ms), toplam {time.monotonic() - t0:.1f} sn; çevrimdışı={b['cevrimdisi']}")
     sonuc(b["rclpy_yuklu"] is False, f"{arka}_rclpy_yok", f"işçide rclpy yüklü değil (rclpy_yuklu={b['rclpy_yuklu']})")
     sonuc(b["uc_uca"] != {}, f"{arka}_uc_uca", f"nms=False uçtan uca kanıtı: {json.dumps(b['uc_uca'])}")

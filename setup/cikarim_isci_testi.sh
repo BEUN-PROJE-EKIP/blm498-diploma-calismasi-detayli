@@ -240,6 +240,7 @@ analiz() { # analiz <ad> <analiz argümanları...> : SONUC satırlarını (+)/(-
         case "$line" in
             "SONUC gecti "*) log_ok "$ad: ${line#SONUC gecti }" ;;
             "SONUC kaldi "*) log_fail "$ad: ${line#SONUC kaldi }" ;;
+            "OLCUM "*) log_info "$ad: ${line#OLCUM }" ;;
             Traceback*|*Error*) log_fail "$ad: analiz hatası: $line" ;;
         esac
     done < "$TMP_DIR/$ad.analiz.log"
@@ -310,6 +311,7 @@ test_isci() {
         case "$line" in
             "SONUC gecti "*) log_ok "isci: ${line#SONUC gecti }" ;;
             "SONUC kaldi "*) log_fail "isci: ${line#SONUC kaldi }" ;;
+            "OLCUM "*) log_info "isci: ${line#OLCUM }" ;;
             Traceback*|*Error*) log_fail "isci: hata: $line" ;;
         esac
     done < "$TMP_DIR/isci.log"

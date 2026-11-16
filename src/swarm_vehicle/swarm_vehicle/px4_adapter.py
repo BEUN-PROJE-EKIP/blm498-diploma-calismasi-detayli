@@ -29,6 +29,7 @@ from mavsdk import System  # noqa: E402
 from mavsdk.mission import MissionItem, MissionPlan  # noqa: E402
 
 from . import komut_yolu as _komut  # noqa: E402
+from . import port_denetimi as _port  # noqa: E402
 from . import poz_tamponu as _poz  # noqa: E402
 from . import rota as _rota  # noqa: E402
 
@@ -153,6 +154,10 @@ class Px4Adapter:
         bağlanır, uyuşmazlığı günlüğe yazar ve False döner; her yazma komutu KimlikHatasi ile reddedilir. Doğrulandıysa True."""
         if self._thread is not None:
             raise Px4Hatasi("bağdaştırıcı zaten başlatıldı")
+        try:
+            _port.denetle(self.grpc_port, "gRPC")
+        except _port.PortAraligiHatasi as e:
+            raise Px4Hatasi(str(e)) from e
         with socket.socket() as s:
             s.settimeout(1)
             if s.connect_ex(("127.0.0.1", self.grpc_port)) == 0:

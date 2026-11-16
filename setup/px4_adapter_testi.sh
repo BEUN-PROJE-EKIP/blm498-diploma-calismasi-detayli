@@ -178,6 +178,7 @@ deneme_calistir() {
         case "$line" in
             "SONUC gecti "*) log_ok "$ad: ${line#SONUC gecti }" ;;
             "SONUC kaldi "*) log_fail "$ad: ${line#SONUC kaldi }" ;;
+            "OLCUM "*) log_info "$ad: ${line#OLCUM }" ;;
         esac
     done < "$TMP_DIR/$ad.$mod.log"
     if [[ "$rc" -ne 0 ]]; then

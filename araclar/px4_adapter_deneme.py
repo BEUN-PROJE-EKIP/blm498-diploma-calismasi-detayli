@@ -39,6 +39,11 @@ def sonuc(gecti, ad, ayrinti):
     print(f"SONUC {'gecti' if gecti else 'kaldi'} {ad} | {ayrinti}", flush=True)
 
 
+def olcum(ad, ayrinti):
+    """Ölçüm/bilgi satırı: geçti/kaldı sayılmaz (test betikleri bilgi olarak yazar)."""
+    print(f"OLCUM {ad} | {ayrinti}", flush=True)
+
+
 class GzPoz:
     """Gazebo dünyasındaki model pozlarını (gz-transport pose/info) dinler; bağımsız doğrulama kaynağıdır."""
 
@@ -210,7 +215,7 @@ def tam():
               f"yükseklik {ph[2]:.2f} m ({IRTIFA:g} ± 2); komut sayısı {a.komut_sayaci}")
         _, sim0 = gz.al(model)
         b = a.gorev_baslat()
-        sonuc(True, "tam_baslat", f"görev başlatma (havada, ilk noktada) {b['sure_s']:.2f} sn; komut sayısı {a.komut_sayaci}")
+        olcum("tam_baslat", f"görev başlatma (havada, ilk noktada) {b['sure_s']:.2f} sn; komut sayısı {a.komut_sayaci}")
         en_yakin = [1e9] * len(noktalar)
         ilk_varis_sim = None
         ara_varis = set()
@@ -248,7 +253,7 @@ def tam():
         p, _ = gz.al(model)
         if d.get("konum_enu_m") and p:
             e = d["konum_enu_m"]
-            sonuc(True, "tam_onbellek_bilgi", f"önbellek konum ENU=({e[0]:.1f}, {e[1]:.1f}, {e[2]:.1f}) PX4 damgası {d['px4_zaman_us']} µs, Gazebo=({p[0]:.1f}, {p[1]:.1f}, {p[2]:.1f}); "
+            olcum("tam_onbellek_bilgi", f"önbellek konum ENU=({e[0]:.1f}, {e[1]:.1f}, {e[2]:.1f}) PX4 damgası {d['px4_zaman_us']} µs, Gazebo=({p[0]:.1f}, {p[1]:.1f}, {p[2]:.1f}); "
                   f"yatay fark {yatay(e, p):.2f} m; ilerleme {d['gorev_ilerleme']}")
         # havadayken yükleme reddi
         sayac = a.komut_sayaci
@@ -323,7 +328,7 @@ def uc():
         _, sim0 = gz.al(modeller[0])
         for a in adaptorler:
             b = a.gorev_baslat()
-            sonuc(True, f"uc_baslat_{a.arac_kimligi}", f"başlatıldı (havada, ilk noktada; {b['sure_s']:.2f} sn)")
+            olcum(f"uc_baslat_{a.arac_kimligi}", f"başlatıldı (havada, ilk noktada; {b['sure_s']:.2f} sn)")
         en_yakin = {a.arac_kimligi: 1e9 for a in adaptorler}
         varis = {}
         yere_indi = []
