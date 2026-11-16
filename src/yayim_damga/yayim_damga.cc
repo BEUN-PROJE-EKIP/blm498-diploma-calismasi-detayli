@@ -7,6 +7,7 @@
 // (PX4: <model>_<örnek>, UAV_SYS_IDS sırası); eşleşmeyen kamera kaydedilmez, sayaçla günlüğe uyarı yazılır.
 // SDF parametreleri: <cikti_yolu> (tam dosya yolu), <hz> (CAM_RATE_HZ), <model_onek>, <arac_kimlikleri> (boşlukla ayrılmış).
 // Kayıt: bellekte arabellek; ayrı yazıcı iş parçacığı 1 sn'de bir dosyaya boşaltır, kapanışta (SIGTERM) son boşaltma yapılır. SIGKILL'de son ≤ 1 sn kaybolabilir.
+// Yazma hatası: her boşaltmadan sonra akış durumu denetlenir; ilk hata `gzerr` ile bir kez bildirilir, yazılamayan kayıtlar `düşen` sayılır; kapanış satırı ikisini de yazar.
 #include <chrono>
 #include <condition_variable>
 #include <cstdio>
@@ -124,6 +125,9 @@ private:
         cv_.wait_for(g, std::chrono::seconds(1), [this] { return dur_; });
         yerel.swap(arabellek_);
       }
+      // Kayıtlar tek metinde biriktirilir; akış durumu her boşaltmadan sonra denetlenir. Akış bozulduysa (dosya açılamadı, disk dolu vb.) grup `dusen_` sayılır (sessiz kayıp yok).
+      std::string metin;
+      metin.reserve(yerel.size() * 160);
       for (const auto &r : yerel)
       {
         // Izgara: n = hz·t, damga ızgaraya tam oturuyorsa; yuvarlama yok.
@@ -133,11 +137,26 @@ private:
           const int64_t h = static_cast<int64_t>(hz_);
           if ((r.damga_ns * h) % 1000000000LL == 0) n = std::to_string(r.damga_ns * h / 1000000000LL);
         }
-        dosya_ << "{\"surum\": 1, \"tur\": \"kare_olay\", \"kaynak\": \"gazebo_damga\", \"arac_kimligi\": " << r.arac << ", \"n\": " << n
-               << ", \"sim_damga_ns\": " << r.damga_ns << ", \"olay\": \"uretim\", \"mono_ns\": " << r.mono_ns << "}\n";
-        ++yazilan_;
+        metin += "{\"surum\": 1, \"tur\": \"kare_olay\", \"kaynak\": \"gazebo_damga\", \"arac_kimligi\": " + std::to_string(r.arac) + ", \"n\": " + n +
+                 ", \"sim_damga_ns\": " + std::to_string(r.damga_ns) + ", \"olay\": \"uretim\", \"mono_ns\": " + std::to_string(r.mono_ns) + "}\n";
       }
-      dosya_.flush();
+      bool tamam = false;
+      if (!yerel.empty() && dosya_)
+      {
+        dosya_.write(metin.data(), static_cast<std::streamsize>(metin.size()));
+        dosya_.flush();
+        tamam = static_cast<bool>(dosya_);
+      }
+      if (tamam) yazilan_ += yerel.size();
+      else if (!yerel.empty())
+      {
+        dusen_ += yerel.size();
+        if (!hata_bildirildi_)
+        {
+          hata_bildirildi_ = true;
+          gzerr << "[YayimDamga] kayıt yazılamadı (dosya açılamadı ya da akış bozuldu): " << yol_ << "; bu ve sonraki kayıtlar düşen olarak sayılacak" << std::endl;
+        }
+      }
       yerel.clear();
       std::lock_guard<std::mutex> g(kilit_);
       if (dur_ && arabellek_.empty()) break;
@@ -153,7 +172,7 @@ private:
     }
     cv_.notify_all();
     if (yazici_.joinable()) yazici_.join();
-    gzmsg << "[YayimDamga] kapanış: yazılan kayıt=" << yazilan_ << " eşleşmeyen kamera=" << eslesmeyen_ << std::endl;
+    gzmsg << "[YayimDamga] kapanış: yazılan kayıt=" << yazilan_ << " düşen kayıt=" << dusen_ << " eşleşmeyen kamera=" << eslesmeyen_ << std::endl;
   }
 
   gz::transport::Node node_;
@@ -169,6 +188,8 @@ private:
   bool dur_ = false;
   size_t eslesmeyen_ = 0;
   size_t yazilan_ = 0;
+  size_t dusen_ = 0;             // yazılamayan (akış bozuk ya da dosya açılamadı) kayıtlar
+  bool hata_bildirildi_ = false; // ilk yazma hatası bir kez bildirilir
 };
 }  // namespace yayim
 

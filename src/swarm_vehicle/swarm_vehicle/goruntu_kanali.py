@@ -121,6 +121,9 @@ class Gonderici:
         self._bitti = threading.Event()
         self._ipler = []
         self._son_gonderilen_n = None
+        self._kayit_kilit = threading.Lock()   # kuyruk durumu kaydı: anlık görüntü + mono_ns + yazıcıya verme tek kilit altında (sıra geriye gitmez)
+        self._kapanis_kilit = threading.Lock()
+        self._kapanis_sonucu = None            # bosalt_ve_kapat ilk çağrının sonucu (ikinci çağrı günlük/kayıt üretmez)
         self.temiz_kapat_n = temiz_kapat_n     # YALNIZ test: bu numaranın gönderiminden sonra kanal bilerek TEMİZ kapatılır (hata işaretlenmez); yer istasyonu açık hata vermelidir
 
     def hata_ver(self, metin):
@@ -226,19 +229,27 @@ class Gonderici:
     def durum_kaydet(self):
         if self._kuyruk_yaz is None:
             return
-        k = self.kuyruk.sayaclar()                 # tek kilit altında tutarlı anlık görüntü
-        self._kuyruk_yaz({"surum": 1, "tur": "kuyruk_durumu", "arac_kimligi": self.arac_kimligi, "mono_ns": time.monotonic_ns(), "ileti": k["bekleyen"], "bayt": k["bekleyen_bayt"],
-                          "giren_ileti": k["giren"], "gonderilen_ileti": k["cikan"], "gonderilen_bayt": k["cikan_bayt"]})
+        with self._kayit_kilit:                    # periyodik iş parçacığı ile kapanış kaydı aynı anda yazamaz; dosyada mono_ns ve toplam sayaçlar geriye gitmez
+            k = self.kuyruk.sayaclar()             # tek kilit altında tutarlı anlık görüntü
+            self._kuyruk_yaz({"surum": 1, "tur": "kuyruk_durumu", "arac_kimligi": self.arac_kimligi, "mono_ns": time.monotonic_ns(), "ileti": k["bekleyen"], "bayt": k["bekleyen_bayt"],
+                              "giren_ileti": k["giren"], "gonderilen_ileti": k["cikan"], "gonderilen_bayt": k["cikan_bayt"]})
 
     # --- kapanış ----------------------------------------------------------------------------------------------------------------------------
     def bosalt_ve_kapat(self, bosalt_sn):
-        """Kuyruğun boşalmasını bekler (en çok bosalt_sn); sonra göndericiyi durdurur ve soketi kapatır. Dönen: kuyruk boşaldı mı. Boşalmadıysa kalan sayı `kalan` olarak günlüğe yazılır."""
+        """Kuyruğun boşalmasını bekler (en çok bosalt_sn); sonra göndericiyi durdurur ve soketi kapatır. Dönen: kuyruk boşaldı mı. Boşalmadıysa kalan sayı günlüğe yazılır.
+        İdempotent: ikinci ve sonraki çağrılar ilk sonucu döner, günlük ya da kuyruk kaydı üretmez. Kapanış kuyruk kaydı, periyodik iş parçacığı durup birleştikten sonra yazılır."""
+        with self._kapanis_kilit:
+            if self._kapanis_sonucu is None:
+                self._kapanis_sonucu = self._kapat_gercek(bosalt_sn)
+            return self._kapanis_sonucu
+
+    def _kapat_gercek(self, bosalt_sn):
         bos = self.kuyruk.bos_bekle(bosalt_sn) if self.hata is None else False
-        self.durum_kaydet()
         self._dur.set()
         self.kuyruk.kapat()
         for t in self._ipler:
             t.join(5)
+        self.durum_kaydet()                        # periyodik iş parçacığı bitti: kapanış kaydı sonuncu ve en büyük mono_ns'tir
         s = self.sock
         if s is not None:
             try:

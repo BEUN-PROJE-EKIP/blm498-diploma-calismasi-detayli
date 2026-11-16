@@ -203,6 +203,32 @@ class Gonderici(unittest.TestCase):
         istemci.close()
         sunucu.close()
 
+    def test_kapanis_idempotent_ikinci_cagri_gunluk_ve_kayit_uretmez_kuyruk_kaydi_sirali(self):
+        sunucu, port = self._sunucu(65536)
+        kuyruk, loglar, kayitlar = gk.GonderimKuyrugu(), [], []
+        g = gk.Gonderici(1, 2, "127.0.0.1", ("127.0.0.1", port), kuyruk, lambda o, **kv: loglar.append(o), kuyruk_yaz=kayitlar.append, kuyruk_kayit_sn=0.01)
+        g.baslat(5)
+        istemci, _ = sunucu.accept()
+        u = gk.IletiHazirlayici(1, 2, SahteSorgu(), KAL, kuyruk, lambda *a, **k: None)
+        for n in range(1, 4):
+            u.goruntu(n, n * 500_000_000, 1, b"\1" * (W * H * 3), W, H)
+        threading.Thread(target=lambda: [None for _ in iter(lambda: istemci.recv(1 << 20), b"")], daemon=True).start()   # alıcı: gelen baytları boşaltır
+        time.sleep(0.3)                                                        # periyodik kayıt iş parçacığı çalışsın
+        ilk = g.bosalt_ve_kapat(3)
+        kayit_sayisi, kapandi = len(kayitlar), loglar.count("goruntu_kanali_kapandi")
+        ikinci = g.bosalt_ve_kapat(3)
+        self.assertEqual((ilk, ikinci), (True, True))
+        self.assertEqual(kapandi, 1)
+        self.assertEqual(loglar.count("goruntu_kanali_kapandi"), 1)            # ikinci çağrı günlük üretmez
+        self.assertEqual(len(kayitlar), kayit_sayisi)                          # ... ve fazladan kuyruk kaydı yazmaz
+        mono = [k["mono_ns"] for k in kayitlar]
+        self.assertEqual(mono, sorted(mono))                                   # zaman geriye gitmez (kapanış kaydı sonuncu)
+        for alan in ("giren_ileti", "gonderilen_ileti", "gonderilen_bayt"):
+            v = [k[alan] for k in kayitlar]
+            self.assertEqual(v, sorted(v), alan)
+        istemci.close()
+        sunucu.close()
+
     def test_baglanti_kopunca_acik_hata_ve_kalan_sayilir(self):
         sunucu, port = self._sunucu(65536)
         kuyruk = gk.GonderimKuyrugu()

@@ -124,6 +124,25 @@ class KareAraligi(unittest.TestCase):
         self.assertEqual(dm.kare_araligi(10 * self.NS + 1, 10 * self.NS - 1), (21, 19))      # 20,000000002 → 21 ; 19,999999998 → 19
         self.assertEqual(dm.kare_araligi(10 * self.NS, 10 * self.NS + 499999999), (20, 20))   # 20,999999998 → 20
 
+    def test_hz_parametresi_tek_kaynak(self):
+        """Kare hızı parametredir (CAM_RATE_HZ): 4 Hz için n = 4·t; öntanımlı 2 Hz davranışı değişmez."""
+        self.assertEqual(dm.kare_araligi(10 * self.NS, 10 * self.NS, 4), (40, 40))
+        self.assertEqual(dm.kare_araligi(int(10.1 * self.NS), int(10.6 * self.NS), 4), (41, 42))      # ceil(40,4)=41; floor(42,4)=42
+        self.assertEqual(dm.kare_araligi(int(10.25 * self.NS), int(60.5 * self.NS)), dm.kare_araligi(int(10.25 * self.NS), int(60.5 * self.NS), 2))
+        m = dm.DurumMakinesi(hz=4)
+        m.hazir()
+        m.tarama_baslat("G1", int(10.25 * self.NS))
+        m.son_nokta(int(60.5 * self.NS))
+        self.assertEqual(m.kare_araligi(), (41, 242))
+
+    def test_hz_tam_sayi_degilse_hata(self):
+        for kotu in (2.5, 0, -2, "x", None):
+            with self.assertRaises(ValueError, msg=repr(kotu)):
+                dm.kare_araligi(0, 0, kotu)
+            with self.assertRaises(ValueError, msg=repr(kotu)):
+                dm.DurumMakinesi(hz=kotu)
+        self.assertEqual(dm.kare_araligi(0, self.NS, 2.0), (0, 2))             # 2.0 tam sayı değeri: kabul
+
     def test_makine_aralik(self):
         m = S()
         self.assertIsNone(m.kare_araligi())

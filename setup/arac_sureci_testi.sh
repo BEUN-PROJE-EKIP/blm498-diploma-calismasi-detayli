@@ -42,6 +42,7 @@ DOGRULA="$ROOT_DIR/araclar/sozlesme_dogrula.py"
 KOORD="$ROOT_DIR/araclar/koordinator_deneme.py"
 ANALIZ="$ROOT_DIR/araclar/arac_sureci_analiz.py"
 BIRIM_TEST="$ROOT_DIR/src/swarm_vehicle/test/test_durum_makinesi.py"
+BIRIM_TEST_KAPANIS="$ROOT_DIR/src/swarm_vehicle/test/test_arac_kapanis.py"
 PKG_DIR="$ROOT_DIR/src/swarm_vehicle"
 VENV_PY="$ROOT_DIR/.venv/bin/python"
 ENV_SH="$SETUP_DIR/env.sh"
@@ -90,7 +91,7 @@ check_prereqs() {
     check "venv Python (.venv)" test -x "$VENV_PY"
     check "setup/env.sh" test -f "$ENV_SH"
     check "ROS 2 setup.bash" test -f "$ROS_SETUP"
-    for f in "$KOSU" "$KOORD" "$ANALIZ" "$BIRIM_TEST" "$PKG_DIR/swarm_vehicle/arac.py" "$PKG_DIR/swarm_vehicle/durum_makinesi.py" "$PKG_DIR/swarm_vehicle/px4_adapter.py"; do
+    for f in "$KOSU" "$KOORD" "$ANALIZ" "$BIRIM_TEST" "$BIRIM_TEST_KAPANIS" "$PKG_DIR/swarm_vehicle/arac.py" "$PKG_DIR/swarm_vehicle/durum_makinesi.py" "$PKG_DIR/swarm_vehicle/px4_adapter.py"; do
         check "Dosya: ${f#"$ROOT_DIR"/}" test -f "$f"
     done
     check "Yapılandırılmış sürü ağı (lo üzerinde htb)" bash -c '[[ "$(tc qdisc show dev lo)" == *htb* ]]'
@@ -272,6 +273,7 @@ test_birim() {
     local out rc=0 l mod
     log_info "== birim: durum makinesi birim testleri, derleme, içe aktarma, tek komut yolu =="
     if out="$("$VENV_PY" -I "$BIRIM_TEST" 2>&1)"; then log_ok "birim: durum makinesi birim testleri geçti ($(grep -E '^Ran ' <<< "$out"))"; else log_fail "birim: durum makinesi birim testleri BAŞARISIZ"; tail -n 15 <<< "$out"; fi
+    if out="$("$VENV_PY" -I "$BIRIM_TEST_KAPANIS" 2>&1)"; then log_ok "birim: araç kapanış yolu birim testleri geçti ($(grep -E '^Ran ' <<< "$out"))"; else log_fail "birim: araç kapanış yolu birim testleri BAŞARISIZ"; tail -n 15 <<< "$out"; fi
     out="$GENERATED_DIR/arac_sureci_derleme.txt"
     if proje_derle "$out"; then
         log_ok "birim: proje derlendi (swarm_msgs + swarm_vehicle + swarm_gcs; ortak yol: setup/lib/derleme.sh)"

@@ -168,12 +168,16 @@ class SatirYazici:
     Hatalar SESSİZ DEĞİLDİR: dosya açılamaz ya da yazılamazsa ilk hata `log(olay, **alanlar)` ile yazılır, sonraki kayıtlar `dusen` olarak sayılır; `kapat()` sonrası gelen kayıtlar
     `kapali_sonrasi` olarak sayılır (ilki günlüğe yazılır); `ozet()` bütün sayaçları verir ve kapanışta günlüğe yazılması çağıranın işidir. `yol` boşsa yazıcı kapalıdır (yazma istenmemiştir)."""
 
+    KAPAT_BEKLE_SN = 10                               # kapat() içinde yazıcı iş parçacığını bekleme üst sınırı (test için değiştirilebilir)
+
     def __init__(self, yol, log=None):
         self.yol = yol
         self._log = log
         self._q = queue.SimpleQueue()
         self._k = threading.Lock()
         self.yazilan = self.dusen = self.kapali_sonrasi = 0
+        self.verilen = 0                              # `ver` ile verilen kayıt sayısı: yazilan + dusen + kapali_sonrasi == verilen (kapanış bittikten sonra)
+        self._zaman_asimi_bildirildi = False
         self.hata = None
         self._kapali = False
         self._th = None
@@ -191,15 +195,15 @@ class SatirYazici:
     def ver(self, kayit):
         if self.yol is None:
             return
-        with self._k:
+        with self._k:                                 # kuyruğa koyma da kilit altında: kapat() bitiş işaretini araya sokamaz
+            self.verilen += 1
             if self._kapali:
                 self.kapali_sonrasi += 1
                 ilk = self.kapali_sonrasi == 1
             else:
                 ilk = None
-        if ilk is None:
-            self._q.put(kayit)
-        elif ilk:
+                self._q.put(kayit)
+        if ilk:
             self._bildir("satir_yazici_kapali_sonrasi", ayrinti="kapatıldıktan sonra kayıt geldi; yazılmadı, sayılıyor")
 
     def _hata(self, ne, e):
@@ -234,15 +238,26 @@ class SatirYazici:
                 with self._k:
                     self.dusen += len(satirlar)
                 continue
+            metin, gecerli = [], 0
+            for x in satirlar:                        # kayıt kayıt serileştir: yalnız hatalı kayıt düşer
+                try:
+                    metin.append(json.dumps(x, ensure_ascii=False, allow_nan=False) + "\n")
+                    gecerli += 1
+                except (ValueError, TypeError) as e:
+                    self._hata("serilestirilemedi", e)
+                    with self._k:
+                        self.dusen += 1
+            if not metin:
+                continue
             try:
-                f.write("".join(json.dumps(x, ensure_ascii=False, allow_nan=False) + "\n" for x in satirlar))
+                f.write("".join(metin))
                 f.flush()
                 with self._k:
-                    self.yazilan += len(satirlar)
+                    self.yazilan += gecerli
             except (OSError, ValueError, TypeError) as e:
                 self._hata("yazilamadi", e)
                 with self._k:
-                    self.dusen += len(satirlar)
+                    self.dusen += gecerli
                 if isinstance(e, OSError):
                     try:
                         f.close()
@@ -253,14 +268,28 @@ class SatirYazici:
             f.close()
 
     def ozet(self):
+        """Sayaçlar. `tamam`: kapatıldı ve yazıcı iş parçacığı bitti (False ise kuyrukta yazılmamış kayıt kalmış olabilir: `satir_yazici_zaman_asimi` günlüğe yazılmıştır)."""
         with self._k:
-            return {"yazilan": self.yazilan, "dusen": self.dusen, "kapali_sonrasi": self.kapali_sonrasi, "hata": self.hata}
+            th = self._th
+            return {"yazilan": self.yazilan, "dusen": self.dusen, "kapali_sonrasi": self.kapali_sonrasi, "verilen": self.verilen,
+                    "tamam": self._kapali and (th is None or not th.is_alive()), "hata": self.hata}
 
     def kapat(self):
-        """Kuyruğu boşaltıp kapatır; tekrar çağrılabilir. Kapanıştan sonra gelen kayıtlar sayılır (`ozet()['kapali_sonrasi']`)."""
+        """Kuyruğu boşaltıp kapatır. Her çağrı yazıcı iş parçacığının bitmesini bekler (en çok 10 sn; bitiş işareti yalnız bir kez konur), böylece ikinci çağıran da yazma bitmeden dönmez
+        (çıkıştaki `os._exit` yazıcıyı yazarken öldürmesin). Süre dolarsa `satir_yazici_zaman_asimi` günlüğe yazılır ve `ozet()['tamam']` False olur.
+        Dönen: bu çağrı kapatmayı başlatan ilk çağrıysa True (özet günlüğünü yalnız ilk çağıran yazar); sonrakiler ve yolsuz yazıcı için False."""
         with self._k:
+            ilk = not self._kapali and self._th is not None
             self._kapali = True
-        if self._th is not None:
+            th = self._th                             # referans korunur: her çağrı aynı iş parçacığını bekler
+        if ilk:
             self._q.put(None)
-            self._th.join(10)
-            self._th = None
+        if th is not None:
+            th.join(self.KAPAT_BEKLE_SN)
+            if th.is_alive():
+                with self._k:
+                    bildir = not self._zaman_asimi_bildirildi
+                    self._zaman_asimi_bildirildi = True
+                if bildir:
+                    self._bildir("satir_yazici_zaman_asimi", kuyrukta_kalan=self._q.qsize(), ayrinti="yazıcı iş parçacığı 10 sn içinde bitmedi; kuyrukta yazılmamış kayıt kalmış olabilir")
+        return ilk

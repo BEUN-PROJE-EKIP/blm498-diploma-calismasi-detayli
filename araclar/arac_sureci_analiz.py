@@ -33,6 +33,12 @@ def env_oku():
     return rota.deney_env_oku()
 
 
+def kare_araligi(ts, tb, hz):
+    """Bağımsız hesap (aracın kendi işlevini ÇAĞIRMAZ: analiz sınadığı kodu kullanmasın): n_ilk = ceil(hz·t_s), n_son = floor(hz·t_b), tam sayı aritmetiğiyle; hz = CAM_RATE_HZ."""
+    hz = int(float(hz))
+    return -((-hz * ts) // NS), (hz * tb) // NS
+
+
 def log_oku(yol):
     """Araç/bağdaştırıcı günlüğü: {olay: [ {anahtar: değer}... ]}; satır: <iso> <mono_ns> [sim_ns=X] <olay> k=v ..."""
     sonuc_ = {}
@@ -79,6 +85,7 @@ def ana(argv):
             print(__doc__, file=sys.stderr)
             return 2
     ham = env_oku()
+    hz_kare = float(ham["CAM_RATE_HZ"])
     kimlikler = [int(x) for x in ham["UAV_SYS_IDS"].split()][:n_arac]
     with open(os.path.join(KOK, "config", "bolge_rota.json"), encoding="utf-8") as f:
         rotalar = {r["arac_kimligi"]: r["noktalar"] for r in json.load(f)["rotalar"]}
@@ -130,10 +137,10 @@ def ana(argv):
         alog = log_oku(os.path.join(klasor, f"arac_{k}.log"))
         ts = int(alog["tarama_baslat_alindi"][0]["t_s_ns"])
         tb = int(alog["tarama_bitis_yayimlandi"][0]["t_b_ns"])
-        n_ilk, n_son = -((-2 * ts) // NS), (2 * tb) // NS
+        n_ilk, n_son = kare_araligi(ts, tb, ham["CAM_RATE_HZ"])
         b = bitisler.get(k)
         sonuc(b is not None and b["n_first"] == n_ilk and b["n_last"] == n_son and b["n_first"] <= b["n_last"], f"kare_araligi_{k}",
-              f"ScanFinished n_first={b['n_first']}, n_last={b['n_last']}; araç günlüğü t_s={ts / NS:.3f} s, t_b={tb / NS:.3f} s → ceil(2·t_s)={n_ilk}, floor(2·t_b)={n_son}" if b else "ScanFinished yok")
+              f"ScanFinished n_first={b['n_first']}, n_last={b['n_last']}; araç günlüğü t_s={ts / NS:.3f} s, t_b={tb / NS:.3f} s → ceil(hz·t_s)={n_ilk}, floor(hz·t_b)={n_son}" if b else "ScanFinished yok")
         if b:
             pb = b["pozlar"].get(str(k))
             sonuc(pb is not None and yatay(pb, rota[-1]) <= 5.0 and abs(pb[2] - float(ham["ROTA_IRTIFA_M"])) <= 2.0, f"bitis_poz_{k}",
@@ -189,8 +196,8 @@ def ana(argv):
                     ozet.append(f"araç {k}: {len(r)} kayıt")
                     continue
                 aralik = (r[-1]["sim_damga_ns"] - r[0]["sim_damga_ns"]) / NS
-                beklenen = 2 * aralik + 1
-                ozet.append(f"araç {k}: {len(r)} kayıt (2 Hz × {aralik:.0f} sim sn + 1 = {beklenen:.0f} beklenir; eksik oranı %{max(0, 1 - len(r) / beklenen) * 100:.1f})")
+                beklenen = hz_kare * aralik + 1
+                ozet.append(f"araç {k}: {len(r)} kayıt ({hz_kare:g} Hz × {aralik:.0f} sim sn + 1 = {beklenen:.0f} beklenir; eksik oranı %{max(0, 1 - len(r) / beklenen) * 100:.1f})")
             kendi = [x for x in satirlar if x["kaynak_arac_kimligi"] == yazar]
             sonuc(tamam and not kendi and {x["kaynak_arac_kimligi"] for x in satirlar} == set(digerleri), f"diger_arac_kayitlari_{yazar}", f"araç {yazar} kayıt dosyası yalnız diğer araçları içeriyor: " + "; ".join(ozet))
     return 1 if KALDI else 0

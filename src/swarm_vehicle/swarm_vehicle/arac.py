@@ -66,7 +66,8 @@ class Arac:
         self.cikis_kodu = 0
         self._sim_ns = None
         self._sim_kilit = threading.Lock()
-        self._log_kilit = threading.Lock()
+        self._log_kilit = threading.RLock()            # sinyal işleyicisi ana iş parçacığı log() içindeyken de log() çağırabilir (aynı iş parçacığı: yeniden girilebilir)
+        self._node = self._akis_ip = self._rclpy = None
         self._yay_kilit = threading.Lock()
         self.klasor = _rota.aktif_kosu_klasoru()
         self.log_yol = os.path.join(self.klasor, f"arac_{self.arac_kimligi}.log") if self.klasor else None
@@ -357,11 +358,19 @@ class Arac:
         if pb:
             self.log("poz_ozeti", adet=len(pb), gecersiz=",".join(f"{k}:{v}" for k, v in sorted(u.poz_gecersiz.items())) or "yok", bekleme_medyan_ms=f"{pb[len(pb) // 2]:.2f}",
                      bekleme_p95_ms=f"{pb[min(len(pb) - 1, int(0.95 * len(pb)))]:.2f}", bekleme_en_buyuk_ms=f"{pb[-1]:.2f}", **{f"tampon_{k}": v for k, v in self.adapter.poz.sayaclar().items()})
-        for y in self._yazicilar:
-            y.kapat()
-            self.log("satir_yazici_ozet", yol=os.path.basename(y.yol or "-"), **y.ozet())
+        self._yazicilari_kapat()
         if not bos:
             raise RuntimeError(f"gönderim kuyruğu boşalmadı: {self.kuyruk.derinlik()} (kanal hatası: {self.kanal.hata})")
+
+    def _yazicilari_kapat(self):
+        """Bütün kayıt yazıcılarını (kanal/kuyruk/poz/SHA yazıcıları ve uçta moddaki poz yazıcısı) idempotent kapatır; `satir_yazici_ozet` her yazıcı için yalnız ilk kapanışta yazılır
+        (başarılı yolda kapanış `_kanali_bosalt`'ta, hata/sinyal yolunda `calistir` finally'sinde olur)."""
+        yazicilar = list(self._yazicilar)
+        if self.isleyici is not None and self.isleyici.poz_yazici is not None:
+            yazicilar.append(self.isleyici.poz_yazici)
+        for y in yazicilar:
+            if y.kapat():
+                self.log("satir_yazici_ozet", yol=os.path.basename(y.yol or "-"), **y.ozet())
 
     def isleyici_beklenen_tamamla(self, n_ilk, n_son):
         """Kamera alıcısı kapanış karesi gelmediyse sondaki kayıpları şimdi yazdırır ve iç kuyruğun boşalmasını (kısa) bekler. Dönen: (zamanında, zorla kayıp numaraları, None)."""
@@ -430,20 +439,53 @@ class Arac:
 
     # --- giriş -----------------------------------------------------------------------------------------------------------------------------
     def calistir(self):
+        """Kurulum dahil her yol `_kapanis` ile biter (kurulum hatasında da yazıcılar, adaptör, işçi alt süreci kapanır; kapanış adımları None-güvenlidir)."""
         if not os.environ.get("FASTRTPS_DEFAULT_PROFILES_FILE"):
             print("(-) FASTRTPS_DEFAULT_PROFILES_FILE tanımsız: setup/env.sh ile ortamı kurun", file=sys.stderr)
             return 2
+        try:
+            return self._calistir_govde()
+        except BaseException:
+            if not self.cikis_kodu:
+                self.cikis_kodu = 1                                        # `kapandi` satırı hatayı yansıtsın; çıkış kodunu üst katman belirler
+            raise
+        finally:
+            self._kapanis()
+
+    def _kapanis(self):
+        """Kapanış adımları tek tek korunur: biri hata verirse (`kapanis_adimi_hatasi`) sonrakiler yine çalışır, çıkış kodu değişmez. `_yazicilari_kapat` her zaman çalışır; `kapandi` en sonda koşulsuz."""
+        self.dur_olayi.set()
+        adimlar = (("akis", lambda: self._akis_ip.join(10) if self._akis_ip is not None else None),
+                   ("adapter", lambda: self.adapter.kapat() if self.adapter is not None else None),
+                   ("kamera", lambda: self.kamera.kapat() if self.kamera is not None else None),
+                   ("isci", lambda: self.isci.kapat() if self.isci is not None else None),
+                   ("kanal", lambda: self.kanal.bosalt_ve_kapat(0.1) if self.kanal is not None else None),     # idempotent: başarılı yolda zaten kapandıysa günlük üretmez
+                   ("yazicilar", self._yazicilari_kapat),                                                      # kanal kapandıktan sonra: kuyruktaki satırlar yazılır ve sayılır
+                   ("node", lambda: self._node.destroy_node() if self._node is not None else None),
+                   ("rclpy", lambda: self._rclpy.shutdown() if self._rclpy is not None and self._rclpy.ok() else None))
+        for ad, adim in adimlar:
+            try:
+                adim()
+            except Exception as e:  # noqa: BLE001
+                try:
+                    self.log("kapanis_adimi_hatasi", adim=ad, hata=repr(e))
+                except Exception:  # noqa: BLE001
+                    pass
+        self.log("kapandi", cikis_kodu=self.cikis_kodu)
+
+    def _calistir_govde(self):
         os.environ["SWARM_BIND_ADDR"] = self.adres                    # Fast DDS profili: yalnız bu sürecin sürü adresi
         import rclpy
         from rclpy.node import Node
         from rclpy.qos import DurabilityPolicy, HistoryPolicy, QoSProfile, ReliabilityPolicy
         from swarm_msgs.msg import Command, Complete, Mission, ScanFinished, ScanStart, VehicleState
         from . import px4_adapter
+        self._rclpy = rclpy
         self._Command = Command
 
         from swarm_msgs.msg import Detection, FrameResult
         self._FrameResult, self._Detection = FrameResult, Detection
-        self.sm = DurumMakinesi(gunluk=lambda s: self.log("durum_makinesi", ayrinti=s))
+        self.sm = DurumMakinesi(gunluk=lambda s: self.log("durum_makinesi", ayrinti=s), hz=float(self.ham["CAM_RATE_HZ"]))
         self.saat_baslat()
         if not self.merkezi:
             self.isci = IsciIstemcisi(self.ham, self.arac_no, self.arac_kimligi, self.klasor, self.log)
@@ -460,7 +502,7 @@ class Arac:
         if self.merkezi:
             self.kanal.baslat(float(self.ham["MERKEZI_BAGLAN_SN"]))     # bağlanma hazırlık evresiyle paralel sürer; bariyerden önce bağlı olmalı
         rclpy.init()
-        node = Node("vehicle", namespace=self.ad_alani)
+        node = self._node = Node("vehicle", namespace=self.ad_alani)
         qos_durum = QoSProfile(history=HistoryPolicy.KEEP_LAST, depth=10, reliability=ReliabilityPolicy.RELIABLE, durability=DurabilityPolicy.VOLATILE)
 
         def kontrol(derinlik):
@@ -507,23 +549,10 @@ class Arac:
         signal.signal(signal.SIGTERM, durdur)
         signal.signal(signal.SIGINT, durdur)
         self.log("basladi", arac_kimligi=self.arac_kimligi, ad_alani=self.ad_alani, adres=self.adres, dunya=self.dunya, gz_ip=os.environ.get("GZ_IP"), mimari=self.mimari, isci_enjeksiyon=self.isci.enj.ozet() if self.isci is not None else "yok")
-        akis = threading.Thread(target=self._akis, name="arac_akis", daemon=True)
-        akis.start()
-        try:
-            while rclpy.ok() and not self.dur_olayi.is_set():
-                rclpy.spin_once(node, timeout_sec=0.1)
-        finally:
-            self.dur_olayi.set()
-            akis.join(10)
-            self.adapter.kapat()
-            self.kamera.kapat()
-            if self.isci is not None:
-                self.isci.kapat()
-            if self.kanal is not None and self.cikis_kodu != 0:
-                self.kanal.bosalt_ve_kapat(0.1)                          # hata/sinyal çıkışında kanal açık kalmasın
-            node.destroy_node()
-            rclpy.shutdown()
-            self.log("kapandi", cikis_kodu=self.cikis_kodu)
+        self._akis_ip = threading.Thread(target=self._akis, name="arac_akis", daemon=True)
+        self._akis_ip.start()
+        while rclpy.ok() and not self.dur_olayi.is_set():
+            rclpy.spin_once(node, timeout_sec=0.1)
         return self.cikis_kodu
 
 
@@ -549,5 +578,27 @@ def main(argv=None):
         return 2
 
 
+def _cik(kod):
+    """Kapat → boşalt → `os._exit` (yer istasyonu `gorev_koordinatoru.main` ile aynı sıra). Kayıt yazıcıları ve günlük `calistir()` içinde kapanmış olur; burada yalnız akışlar boşaltılır.
+    Neden: gz-transport pybind11 yıkıcısı yorumlayıcı kapanışında `dec_ref() PyGILState_Check()` hatasıyla çöküp çıkış kodunu 134 yapabiliyor."""
+    for akis in (sys.stdout, sys.stderr):
+        try:
+            akis.flush()
+        except (OSError, ValueError):
+            pass
+    os._exit(kod)
+
+
+def giris():
+    """Süreç giriş noktası (`python -m swarm_vehicle.arac` ve `ros2 run` / `arac` komutu): `main()` sonucu ile `os._exit`; kaçan istisna önce günlüğe, sonra çıkış 1."""
+    try:
+        kod = main()
+    except BaseException:  # noqa: BLE001  (kaçan istisna: önce günlüğe, sonra çıkış 1)
+        import traceback
+        print("(-) beklenmeyen istisna: " + traceback.format_exc().replace("\n", " | "), file=sys.stderr)
+        kod = 1
+    _cik(kod if isinstance(kod, int) else 1)
+
+
 if __name__ == "__main__":
-    sys.exit(main())
+    giris()

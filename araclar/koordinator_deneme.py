@@ -133,7 +133,7 @@ def ana(argv):
             bitisler[int(m.vehicle_id)] = (m.mission_id, int(m.n_first), int(m.n_last))
         kayit.yaz("tarama_bitis", arac=int(m.vehicle_id), mission_id=m.mission_id, n_first=int(m.n_first), n_last=int(m.n_last), sim_ns=sim["ns"], pozlar=poz_ozeti())
     alici = SonucAlici(dugum, ham, kimlikler, os.path.join(klasor, "kayit", "yer_istasyonu_kare.jsonl") if klasor else None,
-                       lambda olay, **kv: kayit.yaz("alici_" + olay, **kv))
+                       lambda olay, **kv: kayit.yaz("alici_" + olay, **kv), mission_id=kimlik)
     dugum.create_timer(1.0, lambda: kayit.yaz("poz", sim_ns=sim["ns"], pozlar=poz_ozeti()))      # her saniye Gazebo model pozları (bağımsız doğrulama)
     dugum.create_subscription(VehicleState, ham["KONU_DURUM"], durum_geldi, qos_durum)
     dugum.create_subscription(ScanFinished, ham["KONU_TARAMA_BITIS"], bitis_geldi, kontrol(10))

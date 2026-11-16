@@ -65,6 +65,7 @@ class MerkeziAlici:
         tum = [int(a) for a in ham["UAV_SYS_IDS"].split()]
         self.islemciler, self._olay_yaz, self._sha_yaz = islemciler, olay_yaz, sha_yaz
         self._defter_tamam, self._isleme_yaz = defter_tamam, isleme_yaz
+        self._kayit_kilit = threading.Lock()                 # kuyruk durumu kaydı: anlık görüntü + mono_ns + yazıcıya verme tek kilit altında (sıra geriye gitmez)
         self._say_kilit = threading.Lock()                   # işleme kuyruğu sayaçları (giren/işlenen) tutarlı okunsun
         self.kuyruk_kayit_sn = float(ham["MERKEZI_KUYRUK_KAYIT_SN"])
         self.hz = int(float(ham["CAM_RATE_HZ"]))
@@ -270,12 +271,13 @@ class MerkeziAlici:
     def kuyruk_durumu_kaydet(self):
         if self._isleme_yaz is None:
             return
-        for a in self.kimlikler:
-            d = self.durum[a]
-            with self._say_kilit:
-                giren, islenen = d.kuyruga_giren, d.islenen            # tek kilit altında tutarlı anlık görüntü
-            self._isleme_yaz(a, {"surum": 1, "tur": "isleme_kuyrugu", "arac_kimligi": a, "mono_ns": time.monotonic_ns(), "ileti": giren - islenen,
-                                 "giren_ileti": giren, "islenen_ileti": islenen})
+        with self._kayit_kilit:                                        # periyodik iş parçacığı ile kapanış kaydı aynı anda yazamaz
+            for a in self.kimlikler:
+                d = self.durum[a]
+                with self._say_kilit:
+                    giren, islenen = d.kuyruga_giren, d.islenen        # tek kilit altında tutarlı anlık görüntü
+                self._isleme_yaz(a, {"surum": 1, "tur": "isleme_kuyrugu", "arac_kimligi": a, "mono_ns": time.monotonic_ns(), "ileti": giren - islenen,
+                                     "giren_ileti": giren, "islenen_ileti": islenen})
 
     # --- kapanış ----------------------------------------------------------------------------------------------------------------------------
     def kuyruk_bos_mu(self):
@@ -287,7 +289,6 @@ class MerkeziAlici:
                     "islem_kuyrugu_maks": d.islem_kuyrugu_maks, "hata": d.hata} for a, d in self.durum.items()}
 
     def kapat(self):
-        self.kuyruk_durumu_kaydet()                      # kapanışta bir kez daha
         self._dur.set()
         for s in self._dinle.values():
             try:
@@ -296,4 +297,5 @@ class MerkeziAlici:
                 pass
         for t in self._ipler:
             t.join(3)
+        self.kuyruk_durumu_kaydet()                      # kapanışta bir kez daha: periyodik iş parçacığı durduktan sonra (en büyük mono_ns sonuncudur)
 

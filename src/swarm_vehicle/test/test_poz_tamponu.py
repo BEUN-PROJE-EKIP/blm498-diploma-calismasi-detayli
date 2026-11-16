@@ -8,6 +8,7 @@ import tempfile
 import threading
 import time
 import unittest
+from unittest import mock
 
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), ".."))
 from swarm_vehicle import kare_isleyici as ki  # noqa: E402
@@ -310,9 +311,113 @@ class YaziciHatalari(unittest.TestCase):
             y.kapat()
         o = y.ozet()
         self.assertEqual(o["yazilan"] + o["dusen"], 3)
-        self.assertGreaterEqual(o["dusen"], 1)
-        self.assertIn("yazilamadi", o["hata"])
+        self.assertEqual((o["yazilan"], o["dusen"]), (2, 1))           # serileştirme kayıt kayıt: yalnız hatalı kayıt düşer
+        self.assertIn("serilestirilemedi", o["hata"])
         self.assertEqual(olaylar, ["satir_yazici_hata"])
+
+    def test_nan_iceren_grupta_gecerli_kayitlar_yazilir(self):
+        """Aynı toplu yazımdaki geçerli kayıtlar tek hatalı kayıt yüzünden düşmez."""
+        with tempfile.TemporaryDirectory() as d:
+            yol = os.path.join(d, "t.jsonl")
+            with mock.patch.object(pt.threading.Thread, "start", lambda self: None):    # iş parçacığı başlamasın: kuyruk önce dolar, hepsi tek grupta işlenir (deterministik)
+                y = pt.SatirYazici(yol)
+            for k in range(5):
+                y._q.put({"iyi": k})
+            y._q.put({"kotu": float("nan")})
+            for k in range(5, 10):
+                y._q.put({"iyi": k})
+            y._q.put(None)
+            y._th.run()                                                # yazıcı döngüsünü bu iş parçacığında çalıştır
+            y._th = None
+            y._kapali = True
+            with open(yol, encoding="utf-8") as f:
+                satirlar = [json.loads(x) for x in f]
+        o = y.ozet()
+        self.assertEqual([x["iyi"] for x in satirlar], list(range(10)))
+        self.assertEqual((o["yazilan"], o["dusen"], o["kapali_sonrasi"]), (10, 1, 0))
+
+    def test_kapat_iki_kez_guvenli_ve_ilk_cagri_belli(self):
+        with tempfile.TemporaryDirectory() as d:
+            y = pt.SatirYazici(os.path.join(d, "t.jsonl"))
+            y.ver({"a": 1})
+            self.assertTrue(y.kapat())                                  # kapatmayı gerçekten yapan çağrı
+            self.assertFalse(y.kapat())                                 # ikinci çağrı: zararsız, özet günlüğü yazılmaz
+            self.assertEqual(y.ozet()["yazilan"], 1)
+        self.assertFalse(pt.SatirYazici(None).kapat())                  # yolsuz yazıcı: özet gürültüsü yok (False)
+
+    def test_iki_is_parcacigi_ayni_anda_kapat_ikisi_de_yazma_bitince_doner(self):
+        """İkinci çağıran da yazıcı iş parçacığını bekler: ikisi döndüğünde yazıcı ölü, hiçbir kayıt kuyrukta unutulmamış (os._exit yarışı)."""
+        for tur in range(10):
+            with tempfile.TemporaryDirectory() as d:
+                yol = os.path.join(d, "t.jsonl")
+                y = pt.SatirYazici(yol)
+                th = y._th
+                for k in range(20000):
+                    y.ver({"k": k, "dolgu": "x" * 50})
+                donus, sonuc = [], []
+
+                def kapat():
+                    sonuc.append(y.kapat())
+                    donus.append((not th.is_alive(), y.ozet()))
+                ths = [threading.Thread(target=kapat) for _ in range(2)]
+                for t in ths:
+                    t.start()
+                for t in ths:
+                    t.join()
+                self.assertEqual(sorted(sonuc), [False, True])              # özet günlüğünü yalnız biri yazar
+                for olu, o in donus:
+                    self.assertTrue(olu, tur)                                # iki çağrı da yazıcı bitmeden dönmedi
+                    self.assertTrue(o["tamam"])
+                    self.assertEqual(o["yazilan"] + o["dusen"] + o["kapali_sonrasi"], o["verilen"])
+                with open(yol, encoding="utf-8") as f:
+                    self.assertEqual(sum(1 for _ in f), 20000)
+
+    def test_zaman_asimi_acik_uyari_ve_tamam_false(self):
+        olaylar = []
+        engel = threading.Event()
+        with tempfile.TemporaryDirectory() as d:
+            gercek = pt.json.dumps
+            with mock.patch.object(pt.json, "dumps", lambda *a, **k: (engel.wait(5), gercek(*a, **k))[1]):    # yazıcı iş parçacığı serileştirmede takılır
+                y = pt.SatirYazici(os.path.join(d, "t.jsonl"), lambda olay, **kv: olaylar.append((olay, kv)))
+                y.KAPAT_BEKLE_SN = 0.2
+                for k in range(5):
+                    y.ver({"k": k})
+                time.sleep(0.1)
+                y.kapat()
+                y.kapat()                                                    # ikinci çağrı: uyarı bir kez yazılır
+                o = y.ozet()
+                self.assertFalse(o["tamam"])
+                self.assertEqual([e[0] for e in olaylar].count("satir_yazici_zaman_asimi"), 1)
+                self.assertEqual(o["verilen"], 5)
+                engel.set()
+                y._th.join(5)
+                self.assertTrue(y.ozet()["tamam"])
+                self.assertEqual(y.ozet()["yazilan"] + y.ozet()["dusen"] + y.ozet()["kapali_sonrasi"], 5)
+
+    def test_es_zamanli_ver_ve_kapat_hicbir_kayit_kaybolmaz(self):
+        """Eşzamanlı `ver`/`kapat`: yazılan + düşen + kapalı_sonrası == verilen (kayıt işaretten sonra kuyrukta unutulmaz)."""
+        for tur in range(30):
+            with tempfile.TemporaryDirectory() as d:
+                y = pt.SatirYazici(os.path.join(d, "t.jsonl"))
+                verilen = [0] * 4
+
+                def uret(i):
+                    for k in range(300):
+                        y.ver({"i": i, "k": k})
+                        verilen[i] += 1
+                ths = [threading.Thread(target=uret, args=(i,)) for i in range(4)]
+                for t in ths:
+                    t.start()
+                time.sleep(0.002 * (tur % 5))
+                y.kapat()
+                for t in ths:
+                    t.join()
+                y.kapat()
+                o = y.ozet()
+                self.assertEqual(o["yazilan"] + o["dusen"] + o["kapali_sonrasi"], sum(verilen), (tur, o))
+                self.assertEqual(o["verilen"], sum(verilen))
+                with open(os.path.join(d, "t.jsonl"), encoding="utf-8") as f:
+                    self.assertEqual(sum(1 for _ in f), o["yazilan"])
 
     def test_kapanis_sonrasi_gelenler_sayilir(self):
         olaylar = []

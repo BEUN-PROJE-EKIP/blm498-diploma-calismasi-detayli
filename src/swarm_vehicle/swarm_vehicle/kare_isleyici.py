@@ -4,6 +4,7 @@ Yalnız standart kitaplık (rclpy yok): ileti oluşturma kancayı çağıran tar
 Sonucu olmayan numara kalmaz: kapanışta kalan numaralar için (işçi/zaman sınırı) `islem_hatasi` yazılır — "tespit yok" ASLA varsayılmaz.
 `has_position` (konum, B14) ve `candidate` (birleştirme adayı, B15) bu sürümde her tespitte False'tur; kayıtta `konum: null`, `aday: false`.
 """
+import os
 import threading
 import time
 
@@ -102,7 +103,6 @@ class KareIsleyici:
             for n in self.defter.eksikler(n_ilk, n_son):
                 self._bitir(n, n * _NS // self.hz, ks.ISLEM_HATASI, hata=f"kapanışta işlenemedi (kuyruk {bekle_sn:g} sn içinde boşalmadı)")
                 hatali.append(n)
-        if self.poz_yazici is not None:
-            self.poz_yazici.kapat()
-            self.log("kare_poz_yazici", **self.poz_yazici.ozet())
+        if self.poz_yazici is not None and self.poz_yazici.kapat():          # özet adı her yolda aynı (`satir_yazici_ozet`); ikinci kapanışta tekrar yazılmaz
+            self.log("satir_yazici_ozet", yol=os.path.basename(self.poz_yazici.yol or "-"), **self.poz_yazici.ozet())
         return zamaninda, zorla, hatali

@@ -6,6 +6,7 @@ import time
 import unittest
 
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), ".."))
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", "swarm_vehicle"))
 from swarm_gcs.sonuc_defteri import DURUMLAR, SonucDefteri  # noqa: E402
 
 
@@ -88,6 +89,36 @@ class Defter(unittest.TestCase):
         self.assertTrue(d.bekle_hepsi_tamam(5.0))
         self.assertGreaterEqual(time.monotonic() - baslangic, 0.15)
         t.join()
+
+
+class TaramaBitisiGorevKimligi(unittest.TestCase):
+    """SonucAlici tarama bitişi: geçerli görev kimliğiyle uyuşmayan ileti deftere yazılmaz (ROS 2 gerekmez: düğümsüz nesne kurulur)."""
+
+    def _alici(self, mission_id):
+        from types import SimpleNamespace
+        from swarm_gcs.sonuc_alici import SonucAlici
+        a = SonucAlici.__new__(SonucAlici)
+        a.log = lambda olay, **kv: a.gunluk.append((olay, kv))
+        a.gunluk = []
+        a.defter = SonucDefteri([1, 2])
+        a.mission_id, a.yok_sayilan_bitis = mission_id, 0
+        return a, SimpleNamespace
+
+    def test_uyusmayan_gorev_kimligi_deftere_yazilmaz(self):
+        a, NS = self._alici("G1")
+        a._bitis_geldi(NS(mission_id="ESKI", vehicle_id=1, n_first=10, n_last=12))
+        self.assertIsNone(a.defter.eksikler(1))                         # aralık ayarlanmadı
+        self.assertEqual(a.yok_sayilan_bitis, 1)
+        olay, kv = a.gunluk[0]
+        self.assertEqual((olay, kv["neden"], kv["alinan"], kv["beklenen"]), ("tarama_bitis_yok_sayildi", "mission_id_uyusmuyor", "ESKI", "G1"))
+        a._bitis_geldi(NS(mission_id="G1", vehicle_id=1, n_first=10, n_last=12))
+        self.assertEqual(a.defter.eksikler(1), [10, 11, 12])             # doğru kimlik kabul edilir
+        self.assertEqual(a.yok_sayilan_bitis, 1)
+
+    def test_kimlik_verilmediyse_denetim_yok(self):
+        a, NS = self._alici(None)
+        a._bitis_geldi(NS(mission_id="HERHANGI", vehicle_id=2, n_first=1, n_last=2))
+        self.assertEqual(a.defter.eksikler(2), [1, 2])
 
 
 if __name__ == "__main__":

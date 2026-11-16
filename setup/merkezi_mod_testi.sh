@@ -22,12 +22,12 @@ TESTS=()
 ARGS=()
 for a in "$@"; do
     case "$a" in
-        birim|tek|hata|basinc|kapat) TESTS+=("$a") ;;
+        birim|tek|hata|basinc|kapat|sigterm) TESTS+=("$a") ;;
         *) ARGS+=("$a") ;;
     esac
 done
 parse_common_args "${ARGS[@]+"${ARGS[@]}"}"
-[[ "${#TESTS[@]}" -gt 0 ]] || TESTS=(birim tek hata basinc kapat)
+[[ "${#TESTS[@]}" -gt 0 ]] || TESTS=(birim tek hata basinc kapat sigterm)
 COMPONENT_NAME="Merkezi mod (TCP görüntü kanalı)"
 require_not_root
 load_versions
@@ -70,6 +70,8 @@ BEKLE_SN_TAM=900      # tam koşu için kosu.sh bekle üst sınırı (gerçek sn
 BASINC_BASLANGIC=60   # basinc: ilk iletiden sonra okumanın durması (gerçek sn)
 BASINC_SURE=20        # basinc: okuma durma süresi (gerçek sn)
 KAPAT_N=350           # kapat: bu numaradan sonra araç kanalı temiz kapatır (tarama ortası; tek araç aralığı yaklaşık [161, 543])
+SIGTERM_KARE=60       # sigterm: kare_poz kaydı bu kadar satıra ulaşınca (tarama ortası) araç sürecine SIGTERM gönderilir
+SIGTERM_BEKLE_SN=600  # sigterm: tarama ortasına ulaşmak için en çok bu kadar gerçek sn
 KAPAT_SINIR_SN=60     # kapat: kanal kapanışından yer istasyonunun hatayla bitişine en çok bu kadar gerçek sn
 
 check_prereqs() {
@@ -89,6 +91,7 @@ print_plan() {
     log_info "[dry-run] hata: merkezi koşu + KAMERA_ENJEKSIYON=dusur=+20, ISCI_ENJEKSIYON=hata=+40 → analiz --hata"
     log_info "[dry-run] basinc: merkezi koşu + MERKEZI_ENJEKSIYON=okuma_dur=$BASINC_BASLANGIC:$BASINC_SURE → analiz --basinc"
     log_info "[dry-run] kapat: merkezi koşu + MERKEZI_ARAC_ENJEKSIYON=kanal_kapat=$KAPAT_N → yer istasyonu en çok $KAPAT_SINIR_SN sn içinde açık hatayla biter (zaman aşımından önce), COMPLETE yok"
+    log_info "[dry-run] sigterm: merkezi koşu, tarama ortasında (kare_poz >= $SIGTERM_KARE satır) araç süreci PID ile SIGTERM alır → kare_poz ve gonderim_kuyrugu son satırları yazılmış, satir_yazici_ozet var (yazilan = dosya satırı, dusen 0), çıkış kodu 143 (134 değil)"
     log_info "[dry-run] Her testten sonra araç süreci/yer istasyonu/px4/gz/mavsdk_server artığı, yeni dinleyen port, /dev/shm; sonda ros2 daemon, tc/ip denetimi. Hiçbir süreç başlatılmadı"
 }
 
@@ -335,6 +338,50 @@ test_kapat() {
     kalan_yok kapat
 }
 
+# satir_sayisi <dosya> : dosyadaki satır sayısı (yoksa 0)
+satir_sayisi() { if [[ -f "$1" ]]; then wc -l < "$1" | tr -d ' '; else echo 0; fi; }
+
+test_sigterm() {
+    log_info "== sigterm: merkezi mod, tarama ortasında araç süreci SIGTERM alır; kayıt yazıcıları kapanışta boşalmalı =="
+    EK_ENV=()
+    local i pid pids son=0 yaz dus kap hata dosya satir ozet arc bekle ver tam sira_ozet sira_kapandi
+    if kosu_baslat sigterm --arac 1 --yer-istasyonu var --mimari merkezi; then
+        bekle=$((SIGTERM_BEKLE_SN * 2))
+        for ((i = 0; i < bekle; i++)); do
+            son="$(satir_sayisi "$KOSU_DIR/kayit/kare_poz_${KIMLIK}.jsonl")"
+            [[ "$son" -lt "$SIGTERM_KARE" ]] || break
+            sleep 0.5
+        done
+        if [[ "$son" -ge "$SIGTERM_KARE" ]]; then log_ok "sigterm: tarama ortasında ($son kare_poz satırı)"; else log_fail "sigterm: tarama ortasına ulaşılamadı ($son satır)"; fi
+        pids="$(pgrep -f ' -m swarm_vehicle[.]arac 1$' || true)"                  # yalnız python süreci (kabuk sarmalayıcısı değil)
+        if [[ -z "$pids" ]]; then log_fail "sigterm: araç süreci bulunamadı"; fi
+        for pid in $pids; do kill -TERM "$pid" 2>/dev/null || true; done           # PID ile; desenle öldürme yok
+        for ((i = 0; i < 200; i++)); do pgrep -f 'swarm_vehicle[.]arac' >/dev/null || break; sleep 0.2; done
+        if pgrep -f 'swarm_vehicle[.]arac' >/dev/null; then log_fail "sigterm: araç süreci SIGTERM'den sonra 40 sn içinde çıkmadı"; else log_ok "sigterm: araç süreci SIGTERM ile çıktı"; fi
+        sleep 1
+        arc="$(cat "$KOSU_DIR/arac_${KIMLIK}.cikis" 2>/dev/null || echo yok)"
+        if [[ "$arc" == "143" ]]; then log_ok "sigterm: araç çıkış kodu 143 (128+SIGTERM; 134 çökme değil)"; else log_fail "sigterm: araç çıkış kodu '$arc' (beklenen 143)"; fi
+        if grep -q "sinyal numara=15" "$KOSU_DIR/arac_${KIMLIK}.log" 2>/dev/null; then log_ok "sigterm: günlükte sinyal kaydı var"; else log_fail "sigterm: günlükte sinyal kaydı yok"; fi
+        if grep -q " kapandi " "$KOSU_DIR/arac_${KIMLIK}.log" 2>/dev/null; then log_ok "sigterm: günlükte kapandi satırı var"; else log_fail "sigterm: günlükte kapandi satırı yok"; fi
+        for dosya in "kare_poz_$KIMLIK" "gonderim_kuyrugu_$KIMLIK" "arac_sureci_$KIMLIK"; do
+            ozet="$(grep -h " satir_yazici_ozet yol=$dosya.jsonl " "$KOSU_DIR/arac_${KIMLIK}.log" 2>/dev/null || true)"
+            if [[ "$(grep -c . <<< "$ozet")" != "1" ]]; then log_fail "sigterm: $dosya için satir_yazici_ozet satır sayısı $(grep -c . <<< "$ozet") (beklenen 1)"; continue; fi
+            yaz="$(sed -n 's/.* yazilan=\([0-9]*\) .*/\1/p' <<< "$ozet")"; dus="$(sed -n 's/.* dusen=\([0-9]*\) .*/\1/p' <<< "$ozet")"
+            kap="$(sed -n 's/.* kapali_sonrasi=\([0-9]*\) .*/\1/p' <<< "$ozet")"; hata="$(sed -n 's/.* hata=\(.*\)$/\1/p' <<< "$ozet")"
+            satir="$(satir_sayisi "$KOSU_DIR/kayit/$dosya.jsonl")"
+            ver="$(sed -n 's/.* verilen=\([0-9]*\) .*/\1/p' <<< "$ozet")"; tam="$(sed -n 's/.* tamam=\([A-Za-z]*\) .*/\1/p' <<< "$ozet")"
+            if [[ "$yaz" == "$satir" && "$dus" == "0" && "$hata" == "None" ]]; then log_ok "sigterm: $dosya: yazilan=$yaz = dosya satırı $satir, dusen=0, hata yok (kapali_sonrasi=$kap)"; else log_fail "sigterm: $dosya: yazilan=$yaz dosya=$satir dusen=$dus hata=$hata"; fi
+            if [[ -n "$ver" && "$((yaz + dus + kap))" == "$ver" && "$tam" == "True" ]]; then log_ok "sigterm: $dosya: yazilan + dusen + kapali_sonrasi = $((yaz + dus + kap)) = verilen $ver, yazıcı tamam"; else log_fail "sigterm: $dosya: denklik bozuk (yazilan=$yaz dusen=$dus kapali_sonrasi=$kap verilen=${ver:-yok} tamam=${tam:-yok})"; fi
+            sira_ozet="$(grep -n " satir_yazici_ozet yol=$dosya.jsonl " "$KOSU_DIR/arac_${KIMLIK}.log" | head -n 1 | cut -d: -f1)"
+            sira_kapandi="$(grep -n " kapandi " "$KOSU_DIR/arac_${KIMLIK}.log" | tail -n 1 | cut -d: -f1)"
+            if [[ -n "$sira_ozet" && -n "$sira_kapandi" && "$sira_ozet" -lt "$sira_kapandi" ]]; then log_ok "sigterm: $dosya: satir_yazici_ozet (satır $sira_ozet) kapandi satırından (satır $sira_kapandi) önce"; else log_fail "sigterm: $dosya: satir_yazici_ozet kapandi'dan önce değil (özet ${sira_ozet:-yok}, kapandi ${sira_kapandi:-yok})"; fi
+            log_info "sigterm: OLCUM $dosya yazilan=$yaz dusen=$dus kapali_sonrasi=$kap verilen=${ver:-yok} satir=$satir"
+        done
+        komut_dene "$TMP_DIR/sigterm.durdur.log" "sigterm: durdur tamam" "sigterm: durdur başarısız" "$KOSU" durdur
+    fi
+    kalan_yok sigterm
+}
+
 test_basinc() {
     log_info "== basinc: merkezi mod, yer istasyonu alıcısı okumayı durdurur (MERKEZI_ENJEKSIYON=okuma_dur=$BASINC_BASLANGIC:$BASINC_SURE) =="
     EK_ENV=("MERKEZI_ENJEKSIYON=okuma_dur=$BASINC_BASLANGIC:$BASINC_SURE" "MERKEZI_SHA=1")
@@ -357,6 +404,7 @@ if want tek; then test_tek; fi
 if want hata; then test_hata; fi
 if want basinc; then test_basinc; fi
 if want kapat; then test_kapat; fi
+if want sigterm; then test_sigterm; fi
 
 # --- Son denetim ------------------------------------------------------------------------------
 snapshot sonra

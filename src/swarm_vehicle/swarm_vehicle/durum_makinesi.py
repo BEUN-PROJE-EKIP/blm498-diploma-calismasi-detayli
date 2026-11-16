@@ -17,15 +17,31 @@ AD = {STATE_HAZIR: "HAZIR", STATE_BARIYER_BEKLE: "BARIYER_BEKLE", STATE_TARAMA: 
 _NS = 10 ** 9
 
 
-def kare_araligi(t_s_ns, t_b_ns):
-    """Izgara yolu kare aralığı (n = 2·t_sim): n_ilk = ceil(2·t_s), n_son = floor(2·t_b). Tam sayı aritmetiğiyle (buçuk saniye sınırları kesin)."""
-    return -((-2 * t_s_ns) // _NS), (2 * t_b_ns) // _NS
+HZ_ONTANIMLI = 2     # yalnız birim testleri için kolaylık; araç süreci CAM_RATE_HZ'yi (config/deney.env) açıkça geçirir
+
+
+def hz_dogrula(hz):
+    """Kare hızı pozitif tam sayı olmalı (ızgara kuralı); tam sayı olmayan değer sessizce kesilmez, ValueError verilir. Dönen: int."""
+    try:
+        sayi = float(hz)
+    except (TypeError, ValueError):
+        raise ValueError(f"kare hızı sayı olmalı: {hz!r}") from None
+    if sayi <= 0 or sayi != int(sayi):
+        raise ValueError(f"kare hızı pozitif tam sayı olmalı: {hz!r}")
+    return int(sayi)
+
+
+def kare_araligi(t_s_ns, t_b_ns, hz=HZ_ONTANIMLI):
+    """Izgara yolu kare aralığı (n = hz·t_sim): n_ilk = ceil(hz·t_s), n_son = floor(hz·t_b). Tam sayı aritmetiğiyle (buçuk saniye sınırları kesin). hz: kare hızı (CAM_RATE_HZ, tam sayı)."""
+    hz = hz_dogrula(hz)
+    return -((-hz * t_s_ns) // _NS), (hz * t_b_ns) // _NS
 
 
 class DurumMakinesi:
-    def __init__(self, gunluk=None, beklenen_mission_id=None):
+    def __init__(self, gunluk=None, beklenen_mission_id=None, hz=HZ_ONTANIMLI):
         """gunluk: gunluk(metin) çağrılabilir (öntanımlı: yalnız `olaylar` listesine yazar). beklenen_mission_id: bilinen bir görev kimliği varsa,
-        farklı kimlikli tarama başlatma yok sayılır (öntanımlı None: ilk geçerli tarama başlatma kimliği belirler)."""
+        farklı kimlikli tarama başlatma yok sayılır (öntanımlı None: ilk geçerli tarama başlatma kimliği belirler). hz: kare hızı (kare aralığı için)."""
+        self.hz = hz_dogrula(hz)
         self.durum = STATE_HAZIR
         self.mission_id = None
         self.beklenen_mission_id = beklenen_mission_id
@@ -85,4 +101,4 @@ class DurumMakinesi:
         """(n_ilk, n_son); t_s ve t_b bilinmiyorsa None."""
         if self.t_s_ns is None or self.t_b_ns is None:
             return None
-        return kare_araligi(self.t_s_ns, self.t_b_ns)
+        return kare_araligi(self.t_s_ns, self.t_b_ns, self.hz)

@@ -102,7 +102,7 @@ def ana(argv):
     izle = DurumIzleyici(kimlikler, ham["IZLEME_BAYAT_SN"], ham["IZLEME_OZET_SN"])
     rclpy.init()
     dugum = Node("mission_coordinator", namespace="/gcs")
-    alici = SonucAlici(dugum, ham, kimlikler, yol(os.path.join("kayit", "yer_istasyonu_kare.jsonl")), log, dds_sonuc=not merkezi)
+    alici = SonucAlici(dugum, ham, kimlikler, yol(os.path.join("kayit", "yer_istasyonu_kare.jsonl")), log, dds_sonuc=not merkezi, mission_id=mission_id)
     kanal, isciler, isci_hazir, yazicilar = None, {}, {}, []
     if merkezi:
         from swarm_vehicle.cikarim_istemci import IsciIstemcisi

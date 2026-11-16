@@ -20,7 +20,7 @@ _NS = 10 ** 9
 
 
 class SonucAlici:
-    def __init__(self, dugum, ham, arac_kimlikleri, kayit_yol=None, log=None, dds_sonuc=True):
+    def __init__(self, dugum, ham, arac_kimlikleri, kayit_yol=None, log=None, dds_sonuc=True, mission_id=None):
         from rclpy.qos import DurabilityPolicy, HistoryPolicy, QoSProfile, ReliabilityPolicy
         from swarm_msgs.msg import FrameResult, ScanFinished
         self._FR = FrameResult
@@ -28,6 +28,8 @@ class SonucAlici:
         self.hz = int(float(ham["CAM_RATE_HZ"]))
         self.arac_kimlikleri = [int(a) for a in arac_kimlikleri]
         self.defter = SonucDefteri(self.arac_kimlikleri)
+        self.mission_id = mission_id                     # geçerli görev kimliği; uyuşmayan ScanFinished deftere yazılmaz (None: denetim yok)
+        self.yok_sayilan_bitis = 0
         self.kayit_yol = kayit_yol
         self.gecersiz = 0
         self.eslesme_anlari = []                         # [(mono_ns, eşleşmiş yayımcı sayısı)]
@@ -88,8 +90,18 @@ class SonucAlici:
 
     def _bitis_geldi(self, m):
         mono = time.monotonic_ns()
+        if not self.bitis_kabul(m.mission_id, int(m.vehicle_id)):
+            return
         if self.defter.aralik_ayarla(int(m.vehicle_id), int(m.n_first), int(m.n_last), mono):
             self.log("tarama_bitis_alindi", arac=int(m.vehicle_id), n_ilk=int(m.n_first), n_son=int(m.n_last))
+
+    def bitis_kabul(self, mission_id, arac):
+        """Tarama bitişi geçerli görev kimliğiyle uyuşuyor mu (koordinatör `gorev_mantik.bitis_geldi` ile aynı kural). Uyuşmazsa yok sayılır, neden günlüğe yazılır."""
+        if self.mission_id is not None and mission_id != self.mission_id:
+            self.yok_sayilan_bitis += 1
+            self.log("tarama_bitis_yok_sayildi", neden="mission_id_uyusmuyor", arac=int(arac), alinan=mission_id, beklenen=self.mission_id)
+            return False
+        return True
 
     # --- eşleşme --------------------------------------------------------------------------------------------------------------------------------
     def eslesen_yayinci(self):

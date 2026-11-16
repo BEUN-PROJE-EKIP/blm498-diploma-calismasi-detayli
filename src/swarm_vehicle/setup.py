@@ -18,7 +18,7 @@ setup(
     license='Apache-2.0',
     entry_points={
         'console_scripts': [
-            'arac = swarm_vehicle.arac:main',
+            'arac = swarm_vehicle.arac:giris',
         ],
     },
 )
