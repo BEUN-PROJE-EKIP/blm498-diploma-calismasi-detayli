@@ -7,10 +7,33 @@ Erken, yinelenen, yanlış kimlikli ve bilinmeyen araçlı olaylar sayılır ve 
 Her yöntem, dışarıda kaydedilecek olay sözlüklerinin listesini döndürür (`olay`, `arac_kimligi`, ... anahtarlarıyla).
 """
 
+import os
+
 STATE_BARIYER_BEKLE = 2
 STATE_TAMAMLANDI = 5
 
 FAZ_HAZIR_BEKLE, FAZ_TARAMA, FAZ_COMPLETE_VERILDI, FAZ_BITTI, FAZ_HATA = "hazir_bekle", "tarama", "complete_verildi", "bitti", "hata"
+
+
+def arac_cikislari(klasor, arac_kimlikleri):
+    """Koşu klasöründeki `arac_<k>.cikis` dosyalarından çıkmış araç SÜREÇLERİ: {araç kimliği: çıkış kodu}. `araclar/kosu.sh` her araç sürecini sarmalayıcıyla başlatır; süreç çıkınca
+    sarmalayıcı çıkış kodunu bu dosyaya yazar (k = 1..N, `arac_kimlikleri` sırasıyla). Dosya yoksa araç yaşıyor sayılır; yarım yazılmış/okunamayan dosya çıkış kodu -1 sayılır (çıktığı kesindir)."""
+    cikan = {}
+    for sira, kimlik in enumerate(arac_kimlikleri, 1):
+        yol = os.path.join(klasor, f"arac_{sira}.cikis")
+        if not os.path.isfile(yol):
+            continue
+        try:
+            with open(yol, encoding="ascii") as f:
+                cikan[int(kimlik)] = int(f.read().strip())
+        except (OSError, ValueError):
+            cikan[int(kimlik)] = -1
+    return cikan
+
+
+def baslatma_hatasi_olayi(hata):
+    """Merkezi mod dinleme başlatılamadı (port aralığı ihlali ya da bağlama hatası): görev kaydına yazılacak `hata` olayı (koşu başlamaz)."""
+    return {"olay": "hata", "neden": "merkezi_baslatma_hatasi", "ayrinti": str(hata)}
 
 
 class Koordinasyon:
@@ -74,6 +97,16 @@ class Koordinasyon:
             return self._yok("tekrar_bitis", arac_kimligi=arac)
         self.bitis[arac] = (int(n_ilk), int(n_son), int(mono_ns))
         return [{"olay": "tarama_bitisi", "arac_kimligi": arac, "n_ilk": int(n_ilk), "n_son": int(n_son)}]
+
+    def arac_cikti(self, arac, cikis_kodu):
+        """Bir araç SÜRECİ çıktı (süreç çıkışı: çıkış kodu ne olursa olsun). COMPLETE yayımlanmadan önceyse (faz `hazir_bekle` ya da `tarama`) COMPLETE koşulu hiç sağlanamaz:
+        faz `hata` olur ve `hata` olayı (`neden: arac_erken_cikti`) döner; COMPLETE'ten sonra (faz `complete_verildi`/`bitti`) olağan çıkıştır, bu kurala girmez; zaten `hata` ise tekrar bildirilmez."""
+        arac = int(arac)
+        if arac not in self.arac_kimlikleri or self.faz not in (FAZ_HAZIR_BEKLE, FAZ_TARAMA):
+            return []
+        evre = "t0_oncesi" if self.t0 is None else "t0_sonrasi"
+        self.faz, self.hata_nedeni = FAZ_HATA, f"araç {arac} süreci COMPLETE'ten önce çıktı (çıkış kodu {cikis_kodu}, {evre})"
+        return [{"olay": "hata", "neden": "arac_erken_cikti", "arac_kimligi": arac, "ayrinti": f"cikis_kodu={cikis_kodu} evre={evre}"}]
 
     def sonuclar_guncelle(self, tamam):
         """Sonuç defteri hepsi_tamam durumu (kare koşulu)."""

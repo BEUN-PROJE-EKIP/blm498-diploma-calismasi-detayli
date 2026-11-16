@@ -155,7 +155,7 @@ class Px4Adapter:
         if self._thread is not None:
             raise Px4Hatasi("bağdaştırıcı zaten başlatıldı")
         try:
-            _port.denetle(self.grpc_port, "gRPC")
+            _port.denetle(self.grpc_port, "gRPC", uyar=lambda m: self._gunluk("uyari", neden=m.replace(" ", "_")))
         except _port.PortAraligiHatasi as e:
             raise Px4Hatasi(str(e)) from e
         with socket.socket() as s:

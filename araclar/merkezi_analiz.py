@@ -1,12 +1,14 @@
 #!/usr/bin/env python3
 """Merkezi mod (araç başına TCP görüntü kanalı + yer istasyonu çıkarımı, B12) koşusunun çözümlemesi (YALNIZ okuma; test yardımcısı).
 
-Kullanım:  python3 -I araclar/merkezi_analiz.py <koşu_klasörü> --arac N [--hata] [--basinc <başlangıç_sn>:<süre_sn>] [--sha] [--tc-once BAYT --tc-sonra BAYT] [--uc-klasoru <uçta mod koşu klasörü>]
+Kullanım:  python3 -I araclar/merkezi_analiz.py <koşu_klasörü> --arac N [--hata] [--basinc <başlangıç_sn>:<süre_sn>] [--sha] [--tc-once BAYT --tc-sonra BAYT] [--uc-klasoru <uçta mod koşu klasörü>] [--tek-klasoru <tek araç merkezi koşu klasörü>]
   --hata      hata senaryosu: araçta `KAMERA_ENJEKSIYON=dusur=+20` (kare alınamadı), yer istasyonunda `ISCI_ENJEKSIYON=hata=+40` (işlem hatası) beklenir
   --basinc    yer istasyonu alıcısı `MERKEZI_ENJEKSIYON=okuma_dur=<başlangıç>:<süre>` ile okumayı durdurdu: kuyruk büyümeli, kare atılmamalı, hepsi gelmeli
   --sha       `MERKEZI_SHA=1` kayıtları (gönderilen / alınan görüntü SHA-256'sı) numara bazında karşılaştırılır
   --tc-once/--tc-sonra  tc htb 1:10 'Sent' sayaçları (bayt): araç→yer istasyonu bayt sayısı hesabıyla karşılaştırılır
   --uc-klasoru  aynı rota için uçta mod koşusu: L ve CPU eşlemesi yan yana raporlanır (yalnız rapor)
+  --tek-klasoru aynı makinede tek araç merkezi koşusu: ortak her araç için L (ortanca/p95/en çok) farkı raporlanır (yalnız rapor; değer kilitlenmez)
+--arac N (N = 1, 2 ya da 3): her ölçüt HER ARAÇ İÇİN ayrı sınanır (`_<araç kimliği>` son ekli SONUC satırları); üç araçta ayrıca kontrol iletilerinin (ScanStart/COMPLETE) alım gecikmesi raporlanır.
 Her sonuç "SONUC <gecti|kaldi> <ad> | <ayrıntı>" satırıdır; ardından ölçüm satırları (`OLCUM ...`). Yalnız standart kitaplık (+ swarm_vehicle saf mantık modülleri).
 """
 import json
@@ -30,6 +32,51 @@ def sonuc(gecti, ad, ayrinti):
     if not gecti:
         KALDI += 1
     print(f"SONUC {'gecti' if gecti else 'kaldi'} {ad} | {ayrinti}", flush=True)
+
+
+def durum_gecikmeleri(klasor, kimlikler, t0, t1, gorev):
+    """OLCUM (yaklaşık): 2 Hz VehicleState alım gecikmesi, hat boşken (t0 öncesi) ve hat doygunken (t0–t1) ayrı; ScanFinished alım gecikmesi.
+    Yöntem: iletinin `yayim_sim_ns` (aracın yayım anındaki sim saati) → Gazebo üretim kayıtlarındaki (`gazebo_damga.jsonl`, sim_damga_ns ↔ mono_ns) doğrusal en küçük kareler eşlemesiyle yayım anı (mono) tahmin edilir;
+    gecikme = yer istasyonu alım anı (mono) − tahmini yayım anı. Eşleme yaklaşıktır (üretim kaydının kendi gecikmesi ve doğrusal varsayım dahil); mutlak sapma birkaç ms olabilir. Eşik/iddia yok."""
+    ham_yol = os.path.join(klasor, "kayit", "yer_istasyonu_durum_ham.jsonl")
+    damga_yol = os.path.join(klasor, "kayit", "gazebo_damga.jsonl")
+    if not (os.path.isfile(ham_yol) and os.path.isfile(damga_yol)):
+        print("OLCUM durum iletisi gecikmesi: yer_istasyonu_durum_ham.jsonl ya da gazebo_damga.jsonl yok")
+        return
+    xs, ys = [], []
+    for d in isteye_bagli(damga_yol):
+        if d.get("olay") == "uretim" and isinstance(d.get("n"), int) and d.get("sim_damga_ns") is not None:
+            xs.append(float(d["sim_damga_ns"])); ys.append(float(d["mono_ns"]))
+    if len(xs) < 10:
+        print(f"OLCUM durum iletisi gecikmesi: sim→mono eşlemesi için yetersiz üretim kaydı ({len(xs)})")
+        return
+    mx, my = sum(xs) / len(xs), sum(ys) / len(ys)
+    egim = sum((x - mx) * (y - my) for x, y in zip(xs, ys)) / sum((x - mx) ** 2 for x in xs)
+    artik = [abs(my + egim * (x - mx) - y) / 1e6 for x, y in zip(xs, ys)]
+    ham = [d for d in isteye_bagli(ham_yol) if d.get("yayim_sim_ns") is not None]
+    t0m, t1m = t0["mono_ns"], t1["mono_ns"]
+    for k in kimlikler:
+        bos, doygun = [], []
+        for d in ham:
+            if d.get("arac") != k:
+                continue
+            gec = (d["mono_ns"] - (my + egim * (d["yayim_sim_ns"] - mx))) / 1e6
+            if d["mono_ns"] < t0m:
+                bos.append(gec)
+            elif d["mono_ns"] <= t1m:
+                doygun.append(gec)
+        for ad, v in (("t0 öncesi (hat boş)", bos), ("t0–t1 (hat doygun)", doygun)):
+            print(f"OLCUM araç {k}: durum iletisi (2 Hz) alım gecikmesi, {ad}: {len(v)} ileti" + (f" ortanca {yuzdelik(v, 50):.1f} / p95 {yuzdelik(v, 95):.1f} / en çok {max(v):.1f} ms" if v else "")
+                  + " [yaklaşık: yayim_sim_ns → gazebo_damga doğrusal sim→mono eşlemesi]")
+    print(f"OLCUM sim→mono eşlemesi: {len(xs)} üretim kaydı, eğim {egim:.6f}, eşleme artığı ortanca {yuzdelik(artik, 50):.2f} / en çok {max(artik):.2f} ms")
+    for k in kimlikler:
+        alog = log_oku(os.path.join(klasor, f"arac_{k}.log"))
+        yay = [x["mono_ns"] for x in alog.get("tarama_bitis_yayimlandi", [])]
+        alim = [x["mono_ns"] for x in gorev if x["olay"] == "tarama_bitisi" and x.get("arac_kimligi") == k]
+        if len(yay) == 1 and len(alim) == 1:
+            print(f"OLCUM araç {k}: ScanFinished alım gecikmesi {(alim[0] - yay[0]) / 1e6:.1f} ms (yayım: araç günlüğü tarama_bitis_yayimlandi; alım: yer istasyonu görev kaydı tarama_bitisi; hat doygunken yayımlanır)")
+        else:
+            print(f"OLCUM araç {k}: ScanFinished alım gecikmesi hesaplanamadı (yayım kaydı {len(yay)}, alım kaydı {len(alim)})")
 
 
 def isteye_bagli(yol):
@@ -59,7 +106,7 @@ def ana(argv):
         print(__doc__, file=sys.stderr)
         return 2
     klasor = a.pop(0)
-    n_arac, hata, basinc, sha, tc0, tc1, uc = 0, False, None, False, None, None, None
+    n_arac, hata, basinc, sha, tc0, tc1, uc, tek = 0, False, None, False, None, None, None, None
     while a:
         k = a.pop(0)
         if k == "--arac" and a:
@@ -77,6 +124,8 @@ def ana(argv):
             tc1 = int(a.pop(0))
         elif k == "--uc-klasoru" and a:
             uc = a.pop(0)
+        elif k == "--tek-klasoru" and a:
+            tek = a.pop(0)
         else:
             print(__doc__, file=sys.stderr)
             return 2
@@ -103,6 +152,12 @@ def ana(argv):
     sonuc(all(b["mono_ns"] < t0["mono_ns"] for b in bag + hazir) and bool(bag), "bariyer_kanal_isci_sonrasi", "t0, bütün kanallar bağlandıktan ve bütün işçiler hazır olduktan sonra yayımlandı"
           + (f" (son bağlantı t0'dan {(t0['mono_ns'] - max(b['mono_ns'] for b in bag)) / 1e9:.1f} s, son hazır işçi {(t0['mono_ns'] - max(b['mono_ns'] for b in hazir)) / 1e9:.1f} s önce)" if bag and hazir else ""))
     sonuc(len(glog.get("isci_baslatildi", [])) == n_arac and "eslesme_degisti" not in glog, "yer_isci_sayisi", f"yer istasyonunda {len(glog.get('isci_baslatildi', []))} işçi başlatıldı (beklenen {n_arac}); DDS kare sonucu eşleşme günlüğü yok")
+    for k in kimlikler:                        # kontrol iletileri (ScanStart, Complete): yayım anından (yer istasyonu t0/t1 kaydı) araç günlüğündeki alım anına; aynı makine, aynı CLOCK_MONOTONIC
+        a_ = log_oku(os.path.join(klasor, f"arac_{k}.log"))
+        bas = [(x["mono_ns"] - t0["mono_ns"]) / 1e6 for x in a_.get("tarama_baslat_alindi", [])]
+        com = [(x["mono_ns"] - t1["mono_ns"]) / 1e6 for x in a_.get("complete_alindi", [])]
+        sonuc(len(bas) == 1 and len(com) == 1, f"kontrol_iletileri_{k}", f"araç {k}: ScanStart alımı t0'dan {bas[0]:.1f} ms sonra, COMPLETE alımı t1'den {com[0]:.1f} ms sonra (hat boşken ölçüldü; doygun hat gecikmesi aşağıdaki durum iletisi OLCUM satırlarında)" if len(bas) == 1 and len(com) == 1 else f"araç {k}: ScanStart alım kaydı {len(bas)}, COMPLETE alım kaydı {len(com)} (beklenen 1 + 1)")
+    durum_gecikmeleri(klasor, kimlikler, t0, t1, gorev)
     ozet_g = {}
     for kv in glog.get("merkezi_ozet", []):
         for ad, v in kv.items():
@@ -127,6 +182,11 @@ def ana(argv):
         sn = {r["n"]: r for r in isteye_bagli(os.path.join(klasor, "kayit", f"kare_sonuc_{k}.jsonl"))}
         sonuc(sorted(r["n"] for r in gon) == aralik and sorted(r["n"] for r in kuy) == aralik and sorted(r["n"] for r in alim) == aralik and sorted(sn) == aralik and sorted(r["n"] for r in kul) == aralik,
               f"sayilar_{k}", f"[{n_ilk}, {n_son}] {len(aralik)} numara: araçta kuyruğa giren {len(kuy)}, gönderilen {len(gon)}; yer istasyonunda alınan {len(alim)}, sonuç {len(sn)}, kullanılabilir {len(kul)}; her numara bir kez")
+        durumlar = {}
+        for r in kul:
+            durumlar[r["sonuc_durumu"]] = durumlar.get(r["sonuc_durumu"], 0) + 1
+        uretilen = durumlar.get("sonuc", 0) + durumlar.get("tespit_yok", 0)
+        sonuc(uretilen > 0 and sum(durumlar.values()) == len(aralik), f"isci_sonuc_uretti_{k}", f"araç {k}'nin yer istasyonundaki işçisi {uretilen}/{len(aralik)} karede çıkarım sonucu üretti (durumlar {durumlar})")
         o = ozet_g.get(k, {})
         sonuc(o.get("tekrar") == 0 and o.get("geriye") == 0 and o.get("atlanan") == 0 and o.get("kalibrasyon_uyumsuz") == 0 and o.get("hata") is None and o.get("islenen") == len(aralik) and o.get("alinan_ileti") == len(aralik),
               f"alici_dogrulama_{k}", f"tekrar {o.get('tekrar')}, geriye giden {o.get('geriye')}, atlanan {o.get('atlanan')} (aralık dışı alım: 0), kalibrasyon uyuşmazlığı {o.get('kalibrasyon_uyumsuz')}, kanal hatası {o.get('hata')}, işlenen {o.get('islenen')}/{len(aralik)}")
@@ -167,6 +227,9 @@ def ana(argv):
         L = ozet_L(klasor, k)
         tum[k] = L
         sonuc(bool(L) and min(L) > 0, f"L_{k}", f"L = kullanilabilir − uretim (merkezi): {len(L)} kare, ortanca {yuzdelik(L, 50):.1f} ms, p95 {yuzdelik(L, 95):.1f} ms, en çok {max(L):.1f} ms, en az {min(L):.1f} ms")
+        if tek:
+            Lt = ozet_L(tek, k)
+            print(f"OLCUM L tek araç merkezi koşuyla (araç {k}): bu koşu {len(L)} kare ortanca {yuzdelik(L, 50):.1f} / p95 {yuzdelik(L, 95):.1f} / en çok {max(L):.1f} ms; tek araç koşusu {len(Lt)} kare ortanca {yuzdelik(Lt, 50):.1f} / p95 {yuzdelik(Lt, 95):.1f} / en çok {max(Lt):.1f} ms; fark ortanca {yuzdelik(L, 50) - yuzdelik(Lt, 50):+.1f} / p95 {yuzdelik(L, 95) - yuzdelik(Lt, 95):+.1f} ms" if Lt else f"OLCUM tek araç merkezi koşusunda araç {k} için L yok")
         if uc:
             Lu = ozet_L(uc, k)
             print(f"OLCUM L yan yana (araç {k}): merkezi {len(L)} kare ortanca {yuzdelik(L, 50):.1f} / p95 {yuzdelik(L, 95):.1f} / en çok {max(L):.1f} ms; uçta {len(Lu)} kare ortanca {yuzdelik(Lu, 50):.1f} / p95 {yuzdelik(Lu, 95):.1f} / en çok {max(Lu):.1f} ms" if Lu else "OLCUM uçta mod L yok")

@@ -33,6 +33,7 @@ from .durum_makinesi import (AD, STATE_BARIYER_BEKLE, STATE_HAZIR, STATE_TAMAMLA
 CIKIS_KIMLIK = 3
 CIKIS_MISSION_UYUSMUYOR = 4        # alınan Mission yerel bolge_rota.json ile birebir eşit değil: yükleme yok
 CIKIS_MISSION_ZAMAN = 5             # GOREV_BEKLE_SN içinde kendi Mission'ı gelmedi
+CIKIS_TEST = 70                     # YALNIZ test: ARAC_TEST_CIKIS ile bilerek (kapanış adımı olmadan) çıkış
 GZ_IP_YEREL = "127.0.0.1"
 
 
@@ -91,12 +92,33 @@ class Arac:
         self.mission_olayi = threading.Event()
         self.pub_onay = None
         self._tarama_mono = None
+        self._kapat_sonrasi_sn = self._temiz_kapat_bekle_sn()
+        self._test_cikis = self._test_cikis_ayristir(os.environ.get("ARAC_TEST_CIKIS", ""), self.arac_kimligi)
         self._sus = self._sus_ayristir(os.environ.get("ARAC_DURUM_SUS", ""), self.arac_kimligi)   # YALNIZ test: (başlangıç_sn, süre_sn) tarama başından; durum yayımı bu pencerede susar
         self.isci = None
         self.isleyici = None
         self.kare_sonucu_kancasi = None          # isteğe bağlı yerel kanca: callable(FrameResult); DDS yayımı ayrıdır (self.yayinci)
         self.kare_sonucu_mesaj_sayisi = 0
         self._FrameResult = self._Detection = None
+
+    @staticmethod
+    def _test_cikis_ayristir(metin, arac_kimligi):
+        """YALNIZ test: ARAC_TEST_CIKIS=`<araç kimliği>:bariyer` (araç BARIYER_BEKLE'ye geçince, t0'dan önce) ya da `<araç kimliği>:tarama:<sn>` (tarama başladıktan sn gerçek saniye sonra) → o araç süreci kapanış adımı
+        olmadan (çökme gibi) `os._exit(70)` ile çıkar; yer istasyonu COMPLETE'ten önceki araç çıkışını gecikmesiz açık hatayla sonlandırmalı. Boşsa ya da başka aracın anahtarıysa None (öntanımlı kapalı)."""
+        parca = metin.strip().split(":")
+        if not metin.strip():
+            return None
+        if int(parca[0]) != arac_kimligi:
+            return None
+        if len(parca) == 2 and parca[1] == "bariyer":
+            return ("bariyer", 0.0)
+        if len(parca) == 3 and parca[1] == "tarama":
+            return ("tarama", float(parca[2]))
+        raise ValueError(f"ARAC_TEST_CIKIS: '<araç>:bariyer' ya da '<araç>:tarama:<sn>' bekleniyordu (verilen: {metin!r})")
+
+    def _test_cikis_yap(self):
+        self.log("test_cikis", evre=self._test_cikis[0], cikis_kodu=CIKIS_TEST)
+        _cik(CIKIS_TEST)
 
     @staticmethod
     def _sus_ayristir(metin, arac_kimligi):
@@ -258,6 +280,9 @@ class Arac:
             if self.dur_olayi.is_set():
                 raise InterruptedError(f"{ne} beklenirken durduruldu")
             if self.merkezi and self.kanal.durdu_mu():                  # merkezi mod: kanal hatayla (ya da bilerek) durduysa COMPLETE hiç gelmez; açık hata
+                if self._kapat_sonrasi_sn > 0:
+                    self.log("test_kanal_kapandi_bekleniyor", sn=self._kapat_sonrasi_sn)
+                    self.dur_olayi.wait(self._kapat_sonrasi_sn)
                 raise RuntimeError(f"{ne} beklenirken görüntü kanalı durdu (hata: {self.kanal.hata or 'yok'}); koşu tamamlanamaz")
 
     def _akis(self):
@@ -308,11 +333,20 @@ class Arac:
                 self.sm.hazir()
             self.log("durum", durum=AD[STATE_BARIYER_BEKLE])
             self._yayinla()                           # geçiş anında ek yayım (BARIYER_BEKLE = hazır bildirimi)
+            if self._test_cikis and self._test_cikis[0] == "bariyer":
+                self._test_cikis_yap()
             self._bekle(self.baslat_olayi, "tarama başlatma")
             self.log("durum", durum=AD[STATE_TARAMA])
             b = self.adapter.gorev_baslat()
             self.log("gorev_basladi", sure_s=f"{b['sure_s']:.3f}")
+            zamanlayici = None
+            if self._test_cikis and self._test_cikis[0] == "tarama":
+                zamanlayici = threading.Timer(self._test_cikis[1], self._test_cikis_yap)
+                zamanlayici.daemon = True
+                zamanlayici.start()
             self._bekle(self.son_nokta_olayi, "son nokta")
+            if zamanlayici is not None:
+                zamanlayici.cancel()                  # test çıkışı tarama bittikten sonra tetiklenmesin
             with self.kilit:
                 self.sm.son_nokta(self.t_b_ns)
                 aralik = self.sm.kare_araligi()
@@ -415,7 +449,13 @@ class Arac:
         anahtar, _, deger = m.partition("=")
         if anahtar != "kanal_kapat":
             raise ValueError(f"MERKEZI_ARAC_ENJEKSIYON: bilinmeyen anahtar '{anahtar}'")
-        return int(deger)
+        return int(deger.partition(":")[0])
+
+    @staticmethod
+    def _temiz_kapat_bekle_sn():
+        """YALNIZ test: `kanal_kapat=<n>:<sn>` → kanal kapandıktan sonra araç süreci açık hatayla çıkmadan önce `sn` saniye daha yaşar (yer istasyonunda kanal hatasının süreç çıkışından ayırt edilmesi için). Varsayılan 0."""
+        deger = os.environ.get("MERKEZI_ARAC_ENJEKSIYON", "").partition("=")[2]
+        return float(deger.partition(":")[2] or 0)
 
     def _merkezi_kur(self):
         """Merkezi mod bileşenleri: gönderim kuyruğu, göndericisi, ileti hazırlayıcısı ve kamera alıcısı (tüketici = ileti hazırlayıcısı; kare alınamadı da aynı kuyruktan, sırasıyla)."""

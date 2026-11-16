@@ -11,7 +11,10 @@ Kayıtlar (koşu klasörü): `kayit/yer_istasyonu_gorev.jsonl` (`gorev_olay`, §
 Test anahtarı (yalnız test, varsayılan kapalı): ortam değişkeni GOREV_ENJEKSIYON=`sapma=<araç>`: o aracın Mission'ının ilk noktası 1 m kaydırılır (araç yerel dosyayla uyuşmazlık görür, yüklemez).
 Merkezi mod (`MIMARI_MODU=merkezi`; kosu.sh --mimari merkezi): kare sonuçları DDS'ten gelmez. Yer istasyonu araç başına TCP görüntü kanalını dinler (`merkezi_alici.py`), araç başına bir çıkarım işçisi (alt süreç; `IsciIstemcisi`, uçta moddakiyle aynı sınıf,
 model, `INF_*` ve araç–CPU eşlemesi) çalıştırır ve sonuçları AYNI sonuç defterine / `kullanilabilir` kaydına teslim eder (`KareIsleyici` → `SonucAlici.sonuc_ver`). Bariyer: N araç BARIYER_BEKLE VE N kanal bağlı (kaynak adresi doğrulanmış) VE N işçi hazır.
-Çıkış kodları: 0 tamam; 1 zaman aşımı/hata (COMPLETE yayımlanmadı); 2 kullanım/yapılandırma.
+Erken araç çıkışı (kullanıcı kararı 2026-11-16): COMPLETE yayımlanmadan önce herhangi bir araç SÜRECİ çıkarsa (çıkış kodu ne olursa olsun; t0 öncesi ya da sonrası) koşu gecikmesiz biter: COMPLETE yayımlanmaz, `hata` olayı
+(`neden: arac_erken_cikti`) ve günlük satırı yazılır, çıkış 1. Algılama süreç çıkışına dayanır (`araclar/kosu.sh` her araç sürecini sarmalar; çıkınca koşu klasörüne `arac_<k>.cikis` yazılır): DDS durum iletisinin bayatlamasına dayanmaz
+(doygun hatta gecikme yanlış alarm üretir) ve `kosu.sh bekle` çağrılmasa da çalışır. COMPLETE'ten sonraki olağan araç çıkışı bu kurala girmez.
+Çıkış kodları: 0 tamam; 1 zaman aşımı/hata (COMPLETE yayımlanmadı); 2 kullanım/yapılandırma (ör. dinleme portu geçici port aralığında).
 """
 import json
 import os
@@ -22,10 +25,13 @@ import time
 
 from swarm_vehicle import gorev as _gorev
 from swarm_vehicle import rota
+from swarm_vehicle.port_denetimi import PortAraligiHatasi
 
 from .gorev_kayit import GorevKaydi
-from .gorev_mantik import FAZ_BITTI, FAZ_HATA, Koordinasyon
+from .gorev_mantik import FAZ_BITTI, FAZ_HATA, FAZ_HAZIR_BEKLE, FAZ_TARAMA, Koordinasyon, arac_cikislari, baslatma_hatasi_olayi
 from .izleme import DurumIzleyici
+
+CIKIS_PAYI_SN = 1.0   # kanal hatasında, aynı aracın süreç çıkışını (arac_<k>.cikis) beklemek için en çok bu kadar gerçek sn (neden doğru yazılsın)
 
 
 class Gunluk:
@@ -125,6 +131,21 @@ def ana(argv):
         kanal = MerkeziAlici(ham, kimlikler, log, islemciler, olay_yaz=alici.olay_ekle, sha_yaz=(lambda a, d: sha_yazicilar[a].ver(d)) if sha_yazicilar else None,
                              enjeksiyon_metni=os.environ.get("MERKEZI_ENJEKSIYON", ""), kalibrasyon_kimligi=rota.kalibrasyon_kimligi_oku(), defter_tamam=alici.defter.arac_tamam,
                              isleme_yaz=(lambda a, d: isleme_yazicilar[a].ver(d)) if isleme_yazicilar else None)
+        try:
+            kanal.baslat()      # önce port denetimi (geçici aralıktaki dinleme portu açık hata), sonra dinleme; GPU çıkarım işçileri bundan SONRA başlar
+        except (PortAraligiHatasi, OSError) as e:
+            kod_erken = 2 if isinstance(e, PortAraligiHatasi) else 1
+            log("merkezi_baslatma_hatasi", neden=str(e).replace(" ", "_"))
+            _o = baslatma_hatasi_olayi(e)
+            gorev.yaz(_o.pop("olay"), sim_ns=sim["ns"], **_o)
+            print(f"(-) KOORDINATOR hata: merkezi mod dinleme başlatılamadı: {e}", file=sys.stderr, flush=True)
+            kanal.kapat()
+            for y in yazicilar:
+                y.kapat()
+            alici.kapat()
+            dugum.destroy_node()
+            rclpy.shutdown()
+            return kod_erken
         for k, ist in isciler.items():
             ist.baslat()                                   # model yükleme ve ısınma bariyerden önce, araçlarla paralel sürer
 
@@ -133,7 +154,6 @@ def ana(argv):
                 isci_hazir[_k] = bilgi is not None
                 log("merkezi_isci_hazir" if bilgi is not None else "merkezi_isci_hazir_degil", arac=_k, **({"cpu": ",".join(map(str, bilgi["cpu"])), "yukleme_s": bilgi["yukleme_s"], "isinma_s": bilgi["isinma_s"]} if bilgi else {"neden": str(_i.kalici_hata).replace(" ", "_")}))
             threading.Thread(target=_hazir, name=f"isci_hazir_{k}", daemon=True).start()
-        kanal.baslat()
     komut = KomutArayuzu(dugum, ham, kimlikler, yol(os.path.join("kayit", "yer_istasyonu_komut.jsonl")))
     _ = komut        # komut arayüzü hazır (abone ve yayımcılar açık); koşu akışında komut gönderilmez
 
@@ -206,6 +226,7 @@ def ana(argv):
     # --- ana döngü --------------------------------------------------------------------------------------------------------------------------
     kod = 1
     kanal_hata_bildirildi = False
+    kanal_hata_ilk = None
     dur = threading.Event()
     signal.signal(signal.SIGTERM, lambda *_: dur.set())
     signal.signal(signal.SIGINT, lambda *_: dur.set())
@@ -213,11 +234,21 @@ def ana(argv):
     try:
         while rclpy.ok() and not dur.is_set():
             rclpy.spin_once(dugum, timeout_sec=0.05)
+            if klasor and kor.faz in (FAZ_HAZIR_BEKLE, FAZ_TARAMA):       # COMPLETE'ten önce bir araç süreci çıktı mı? (süreç çıkışı; DDS bayatlığı değil). Kanal hatasından ÖNCE bakılır: ölen aracın kanalı da kapanır
+                for a, cikis in sorted(arac_cikislari(klasor, kimlikler).items()):
+                    olaylar = kor.arac_cikti(a, cikis)
+                    if olaylar:
+                        yaz_olaylar(olaylar)
+                        log("arac_erken_cikti", arac=a, cikis_kodu=cikis, evre="t0_oncesi" if kor.t0 is None else "t0_sonrasi")
+                        break
             if merkezi:
                 hazir_sayi = sum(1 for k in kimlikler if kanal.bagli_mi(k) and isci_hazir.get(k))     # bariyer: kanal bağlı (kaynak adresi doğrulanmış) VE işçi hazır
                 yaz_olaylar(kor.eslesme_guncelle(hazir_sayi))
                 hatalar = kanal.hata_var()
                 if hatalar and not kanal_hata_bildirildi and kor.faz not in (FAZ_BITTI, FAZ_HATA):
+                    kanal_hata_ilk = kanal_hata_ilk or time.monotonic()
+                    if klasor and time.monotonic() - kanal_hata_ilk < CIKIS_PAYI_SN and not arac_cikislari(klasor, kimlikler):
+                        continue                                 # ölen aracın kanalı süreç çıkış dosyasından birkaç ms önce kapanır: neden süreç çıkışı olabilir, kısa pay beklenir
                     kanal_hata_bildirildi = True                 # bağlantı koparsa yeniden bağlanma yoktur: açık hata, COMPLETE yayımlanmaz, koşu tamamlanamaz
                     a0 = sorted(hatalar)[0]
                     kor.faz, kor.hata_nedeni = FAZ_HATA, f"görüntü kanalı hatası (araç {a0}): {hatalar[a0]}"

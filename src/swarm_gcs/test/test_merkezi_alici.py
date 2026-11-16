@@ -289,6 +289,19 @@ class PortAraligi(unittest.TestCase):
             a.baslat()
         self.assertEqual(a._dinle, {})                                  # hiçbir dinleme soketi açılmadı
 
+    def test_aralik_okunamazsa_uyari_gunluge_yazilir_calisma_durmaz(self):
+        from unittest import mock
+
+        from swarm_vehicle import port_denetimi
+        loglar = []
+        ham = dict(rota.deney_env_oku(), GCS_ADDR="127.0.0.1", UAV1_ADDR="127.0.0.1")
+        a = MerkeziAlici(ham, [1], lambda o, **kv: loglar.append((o, kv)), {1: Sahte()}, kalibrasyon_kimligi=KAL)
+        with mock.patch.object(port_denetimi, "ARALIK_DOSYASI", "/yok/yok/yok"), mock.patch.object(port_denetimi.denetle, "__defaults__", ("/yok/yok/yok", None)):
+            a.portlari_denetle()                                         # hata fırlatmaz
+        uyarilar = [kv for o, kv in loglar if o == "uyari"]
+        self.assertEqual(len(uyarilar), 1)
+        self.assertIn("okunamadı", uyarilar[0]["neden"])
+
     def test_yapilandirmadaki_taban_aralik_disinda_ve_denetim_gecer(self):
         ham = dict(rota.deney_env_oku(), GCS_ADDR="127.0.0.1", UAV1_ADDR="127.0.0.1")
         a = MerkeziAlici(ham, [1], lambda *x, **k: None, {1: Sahte()}, kalibrasyon_kimligi=KAL)

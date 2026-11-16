@@ -139,5 +139,33 @@ class Giris(unittest.TestCase):
             self.assertIn("swarm_vehicle.arac:giris", f.read())
 
 
+class TestCikisAnahtari(unittest.TestCase):
+    def test_ayristirma(self):
+        a = ar.Arac._test_cikis_ayristir
+        self.assertIsNone(a("", 12))
+        self.assertIsNone(a("  ", 12))
+        self.assertIsNone(a("11:bariyer", 12))                     # başka aracın anahtarı
+        self.assertEqual(a("12:bariyer", 12), ("bariyer", 0.0))
+        self.assertEqual(a("12:tarama:30", 12), ("tarama", 30.0))
+        for kotu in ("12", "12:baska", "12:tarama", "12:bariyer:3"):
+            with self.assertRaises(ValueError):
+                a(kotu, 12)
+
+    def test_kanal_kapat_bekleme(self):
+        with mock.patch.dict(os.environ, {"MERKEZI_ARAC_ENJEKSIYON": "kanal_kapat=350"}):
+            self.assertEqual((ar.Arac._temiz_kapat_n(), ar.Arac._temiz_kapat_bekle_sn()), (350, 0.0))
+        with mock.patch.dict(os.environ, {"MERKEZI_ARAC_ENJEKSIYON": "kanal_kapat=350:3"}):
+            self.assertEqual((ar.Arac._temiz_kapat_n(), ar.Arac._temiz_kapat_bekle_sn()), (350, 3.0))
+        with mock.patch.dict(os.environ, {"MERKEZI_ARAC_ENJEKSIYON": ""}):
+            self.assertIsNone(ar.Arac._temiz_kapat_n())
+            self.assertEqual(ar.Arac._temiz_kapat_bekle_sn(), 0.0)
+
+    def test_kapali_varsayilan(self):
+        self.assertEqual(ar.CIKIS_TEST, 70)
+        with mock.patch.dict(os.environ, {}, clear=False):
+            os.environ.pop("ARAC_TEST_CIKIS", None)
+            self.assertIsNone(ar.Arac._test_cikis_ayristir(os.environ.get("ARAC_TEST_CIKIS", ""), 1))
+
+
 if __name__ == "__main__":
     unittest.main()

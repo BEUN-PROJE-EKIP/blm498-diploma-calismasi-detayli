@@ -52,6 +52,51 @@ class Koordinasyon(unittest.TestCase):
         k.scan_start_yapildi(1000, 5)
         return k
 
+    def test_arac_cikti_t0_oncesi_hata_faza_gecer(self):
+        k = gm.Koordinasyon(A, "G1")
+        o = k.arac_cikti(2, 1)
+        self.assertEqual(o, [{"olay": "hata", "neden": "arac_erken_cikti", "arac_kimligi": 2, "ayrinti": "cikis_kodu=1 evre=t0_oncesi"}])
+        self.assertEqual(k.faz, gm.FAZ_HATA)
+        self.assertIn("araç 2", k.hata_nedeni)
+        self.assertIsNone(k.sonraki())                        # hata fazında scan_start/complete yok
+        self.assertEqual(k.arac_cikti(3, 0), [])              # ikinci çıkış tekrar bildirilmez
+
+    def test_arac_cikti_t0_sonrasi_cikis_kodu_ne_olursa_olsun(self):
+        for kod in (0, 1, 143):
+            k = self._taramaya_gec()
+            o = k.arac_cikti(3, kod)
+            self.assertEqual(o[0]["ayrinti"], f"cikis_kodu={kod} evre=t0_sonrasi")
+            self.assertEqual(k.faz, gm.FAZ_HATA)
+            k.bitis_geldi(1, "G1", True, 10, 400, 2000)       # hatadan sonra gelen bitişler yok sayılır; COMPLETE asla
+            k.sonuclar_guncelle(True)
+            self.assertIsNone(k.sonraki())
+
+    def test_arac_cikti_complete_sonrasi_olagan_cikis_kurala_girmez(self):
+        k = self._taramaya_gec()
+        for a in A:
+            k.bitis_geldi(a, "G1", True, 10, 400, 2000)
+        k.sonuclar_guncelle(True)
+        k.complete_yapildi(3000, 9)
+        self.assertEqual(k.arac_cikti(1, 0), [])
+        self.assertEqual(k.faz, gm.FAZ_COMPLETE_VERILDI)
+        k.kapatildi()
+        self.assertEqual(k.arac_cikti(2, 0), [])
+        self.assertEqual(k.faz, gm.FAZ_BITTI)
+
+    def test_arac_cikti_bilinmeyen_arac_yok_sayilir(self):
+        k = gm.Koordinasyon(A, "G1")
+        self.assertEqual(k.arac_cikti(9, 1), [])
+        self.assertEqual(k.faz, gm.FAZ_HAZIR_BEKLE)
+
+    def test_arac_cikislari_dosyalardan(self):
+        with tempfile.TemporaryDirectory() as d:
+            self.assertEqual(gm.arac_cikislari(d, A), {})
+            for ad, ic in (("arac_2.cikis", "134\n"), ("arac_3.cikis", "")):
+                with open(os.path.join(d, ad), "w", encoding="ascii") as f:
+                    f.write(ic)
+            self.assertEqual(gm.arac_cikislari(d, A), {2: 134, 3: -1})     # boş/yarım dosya: çıkış kesin, kod bilinmiyor
+            self.assertEqual(gm.arac_cikislari(d, [11, 12, 13]), {12: 134, 13: -1})   # dosya adı sıra numarası (1..N), sonuç araç kimliğiyle
+
     def test_t1_iki_kosul(self):
         k = self._taramaya_gec()
         for a in (1, 2):
@@ -184,6 +229,19 @@ class Kayit(unittest.TestCase):
         g.yaz("zaman_asimi", neden="x")
         with open(yol, encoding="utf-8") as f:
             self.assertEqual(json.loads(f.read())["olay"], "zaman_asimi")
+
+
+class BaslatmaHatasi(unittest.TestCase):
+    def test_gorev_kaydina_hata_olayi_yazilir(self):
+        o = gm.baslatma_hatasi_olayi(OSError("port kullanımda"))
+        self.assertEqual((o["olay"], o["neden"], o["ayrinti"]), ("hata", "merkezi_baslatma_hatasi", "port kullanımda"))
+        with tempfile.TemporaryDirectory() as d:
+            yol = os.path.join(d, "gorev.jsonl")
+            o = dict(o)
+            GorevKaydi(yol).yaz(o.pop("olay"), sim_ns=None, **o)
+            with open(yol, encoding="utf-8") as f:
+                k = json.loads(f.read())
+        self.assertEqual((k["olay"], k["neden"]), ("hata", "merkezi_baslatma_hatasi"))
 
 
 if __name__ == "__main__":

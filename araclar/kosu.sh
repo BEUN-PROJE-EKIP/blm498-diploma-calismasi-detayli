@@ -349,7 +349,7 @@ komut_baslat() {
         for ((i = 1; i <= N_ARAC; i++)); do
             # shellcheck disable=SC2016  # tek tırnak bilerek: $1.. alt kabukta açılır
             start_group "arac_$i" "$KOSU_DIR/arac_$i.out" env -u VIRTUAL_ENV LC_NUMERIC=C GZ_PARTITION="$part" GZ_IP=127.0.0.1 MIMARI_MODU="$MIMARI" \
-                bash -c 'source "$1" >/dev/null 2>&1; source "$2/install/setup.bash"; cd "$2"; python -m swarm_vehicle.arac "$3"; rc=$?; echo "$rc" > "$4/arac_$3.cikis"; exit "$rc"' _ "$ENV_SH" "$ROOT_DIR" "$i" "$KOSU_DIR" || exit 1
+                bash -c 'source "$1" >/dev/null 2>&1; source "$2/install/setup.bash"; cd "$2"; python -m swarm_vehicle.arac "$3"; rc=$?; echo "$rc" > "$4/.arac_$3.cikis.tmp" && mv -f "$4/.arac_$3.cikis.tmp" "$4/arac_$3.cikis"; exit "$rc"' _ "$ENV_SH" "$ROOT_DIR" "$i" "$KOSU_DIR" || exit 1
             pg="$LAST_PG"
             if ! wait_for_log "$KOSU_DIR/arac_${SYS_IDS[$((i - 1))]}.log" ' basladi ' 90 "$pg"; then
                 log_fail "Araç süreci $i 90 sn içinde başlamadı"; dump_log "$KOSU_DIR/arac_$i.out"; exit 1

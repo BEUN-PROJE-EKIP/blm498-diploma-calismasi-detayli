@@ -92,11 +92,15 @@ def ana(argv):
         yukleme = os.path.isfile(os.path.join(klasor, f"px4_adapter_{k}.log")) and " yukleme " in open(os.path.join(klasor, f"px4_adapter_{k}.log"), encoding="utf-8").read()
         sonuc(not yukleme and "rota_yuklendi" not in logs[k], f"mission_yukleme_yok_{k}", f"araç {k}: rota PX4'e yüklenmedi (px4_adapter günlüğünde `yukleme` olayı yok, araç günlüğünde rota_yuklendi yok)")
         sonuc(t0 is None and t1 is None, "mission_t0_yok", "koşu başlamadı: görev kaydında t0 ve t1 yok")
-        z = ol("zaman_asimi")
-        sonuc(bool(z), "mission_zaman_asimi", f"koordinatör açık zaman aşımı kaydı yazdı: {z[0]['neden'] if z else '-'}")
-        digerleri = [x for x in kimlikler if x != k]
-        sonuc(all("rota_yuklendi" in logs[x] for x in digerleri) and all(any(h["arac_kimligi"] == x for h in ol("hazir")) for x in digerleri), "mission_digerleri_hazir",
-              f"diğer araçlar {digerleri} Mission'larını doğruladı, rotayı yükledi ve BARIYER_BEKLE'de bekledi (hazır kaydı var); bariyer açılmadı")
+        e = [h for h in ol("hata") if h.get("neden") == "arac_erken_cikti" and h.get("arac_kimligi") == k]
+        sonuc(bool(e) and e[0].get("ayrinti") == "cikis_kodu=4 evre=t0_oncesi", "mission_acik_hata",
+              f"koordinatör açık hata kaydı yazdı: arac_erken_cikti araç {k} ({e[0].get('ayrinti') if e else '-'}; beklenen cikis_kodu=4 evre=t0_oncesi); zaman aşımı kabul edilmez")
+        t_a, t_y = (os.path.getmtime(os.path.join(klasor, f)) if os.path.isfile(os.path.join(klasor, f)) else None for f in (f"arac_{k}.cikis", "yer_istasyonu.cikis"))
+        if t_a is not None and t_y is not None:
+            print(f"OLCUM mission: araç {k} çıkışından yer istasyonu bitişine {t_y - t_a:.2f} sn")
+            sonuc(0 <= t_y - t_a <= 10, "mission_gecikmesiz", f"yer istasyonu araç çıkışından {t_y - t_a:.2f} sn sonra bitti (sınır 10 sn; GCS_UST_SN beklenmedi)")
+        else:
+            sonuc(False, "mission_gecikmesiz", "araç ya da yer istasyonu çıkış dosyası yok")
         return 1 if KALDI else 0
 
     # --- ortak: görev kaydı ---------------------------------------------------------------------------------------------------------

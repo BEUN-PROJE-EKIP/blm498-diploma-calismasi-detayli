@@ -5,6 +5,8 @@ Neden: aralıktaki bir port başka bir sürecin giden bağlantısına kaynak por
 sabit yazılmaz; çalışma anında okunur. Yeniden deneme yoktur: aralık içindeki port açık hatayla reddedilir.
 """
 
+import sys
+
 ARALIK_DOSYASI = "/proc/sys/net/ipv4/ip_local_port_range"
 
 
@@ -26,9 +28,16 @@ def aralik_disinda_mi(port, aralik):
     return aralik is None or not (aralik[0] <= int(port) <= aralik[1])
 
 
-def denetle(port, ad, yol=ARALIK_DOSYASI):
-    """Port geçici aralığın içindeyse PortAraligiHatasi fırlatır; aralık okunamıyorsa denetlenemez ve geçer."""
+def denetle(port, ad, yol=ARALIK_DOSYASI, uyar=None):
+    """Port geçici aralığın içindeyse PortAraligiHatasi fırlatır. Aralık okunamıyorsa denetim yapılamaz ve çalışma durmaz; ama sessiz de geçmez:
+    `uyar(metin)` verilmişse çağrılır, verilmemişse standart hataya `(!)` satırı yazılır."""
     aralik = gecici_aralik(yol)
+    if aralik is None:
+        metin = f"{ad} portu {port}: geçici port aralığı okunamadı ({yol}); aralık denetimi yapılamadı (çalışma durmuyor)"
+        if uyar is not None:
+            uyar(metin)
+        else:
+            print(f"(!) {metin}", file=sys.stderr, flush=True)
     if not aralik_disinda_mi(port, aralik):
         raise PortAraligiHatasi(
             f"{ad} portu {port}, Linux geçici port aralığının ({aralik[0]}–{aralik[1]}, {yol}) içinde: başka sürecin giden bağlantısı bu portu alıp dinlemeyi "

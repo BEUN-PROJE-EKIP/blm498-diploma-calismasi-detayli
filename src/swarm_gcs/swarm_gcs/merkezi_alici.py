@@ -86,10 +86,14 @@ class MerkeziAlici:
         self._ilk_alim_mono = None
 
     # --- başlatma ---------------------------------------------------------------------------------------------------------------------------
-    def baslat(self):
-        if self.port_denetimi:   # hiçbir soket açılmadan önce: sabit dinleme portları geçici port aralığının dışında olmalı
+    def portlari_denetle(self):
+        """Sabit dinleme portları geçici port aralığının dışında olmalı (PortAraligiHatasi); hiçbir soket açmaz. Aralık okunamazsa günlüğe uyarı yazılır, çalışma durmaz."""
+        if self.port_denetimi:
             for a in self.kimlikler:
-                _port.denetle(self.durum[a].port, f"merkezi mod dinleme (araç {a})")
+                _port.denetle(self.durum[a].port, f"merkezi mod dinleme (araç {a})", uyar=lambda m: self.log("uyari", neden=m.replace(" ", "_")))
+
+    def baslat(self):
+        self.portlari_denetle()   # hiçbir soket açılmadan önce
         for a in self.kimlikler:
             d = self.durum[a]
             s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)

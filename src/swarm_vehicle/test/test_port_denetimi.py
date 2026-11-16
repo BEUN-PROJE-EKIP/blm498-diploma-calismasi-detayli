@@ -35,9 +35,29 @@ class AralikOkuma(unittest.TestCase):
         with self.assertRaises(pd.PortAraligiHatasi):
             pd.denetle(15000, "gRPC", yol)
 
-    def test_okunamayan_aralik_denetlenemez_gecer(self):
+    def test_okunamayan_aralik_denetlenemez_gecer_ama_uyarir(self):
         self.assertIsNone(pd.gecici_aralik("/yok/yok/yok"))
-        pd.denetle(50052, "gRPC", "/yok/yok/yok")
+        uyarilar = []
+        pd.denetle(50052, "gRPC", "/yok/yok/yok", uyar=uyarilar.append)   # çalışma durmaz (hata yok)
+        self.assertEqual(len(uyarilar), 1)                                  # ama sessiz de geçmez
+        self.assertIn("okunamadı", uyarilar[0])
+        self.assertIn("50052", uyarilar[0])
+
+    def test_okunamayan_aralik_uyari_verilmediyse_stderr(self):
+        import contextlib
+        import io
+        hata = io.StringIO()
+        with contextlib.redirect_stderr(hata):
+            pd.denetle(50052, "gRPC", "/yok/yok/yok")
+        self.assertTrue(hata.getvalue().startswith("(!) "))
+        self.assertIn("okunamadı", hata.getvalue())
+
+    def test_okunabilen_aralikta_uyari_yok(self):
+        yol = aralik_dosyasi("32768 60999\n")
+        self.addCleanup(os.unlink, yol)
+        uyarilar = []
+        pd.denetle(20051, "gRPC", yol, uyar=uyarilar.append)
+        self.assertEqual(uyarilar, [])
 
     def test_bozuk_icerik(self):
         yol = aralik_dosyasi("abc\n")

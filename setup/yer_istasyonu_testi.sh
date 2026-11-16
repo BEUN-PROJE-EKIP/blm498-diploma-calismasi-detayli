@@ -9,7 +9,7 @@
 #             tek komut yolu (MAVSDK yalnız px4_adapter.py; komut_isle `_yaz` çağırmaz), süreç izi taraması, kosu.sh --dry-run (süreç sırası)
 #   uc        `kosu.sh baslat --arac 3 --yer-istasyonu var` → `bekle` → `durdur`, enjeksiyon kapalı, tam rota: Mission ulaştı, t0 → bitişler → son sonuç → t1 → TAMAMLANDI, ortak başlangıç/bitiş, T, izleme geçişleri
 #   komut     uc + koşu sürerken (t0'dan sonra) araç 2'ye `komut_gonder --sira 1` iki kez: ACK_REJECTED (tür tanımsız), ACK_REJECTED (tekrar sıra); diğer araçlar tepkisiz; PX4 yazma olayı yeni yok
-#   mission   GOREV_ENJEKSIYON=sapma=2: araç 2'nin Mission'ı yerel dosyayla uyuşmaz → araç yüklemez (çıkış 4), koşu başlamaz (t0 yok), koordinatör zaman aşımı (GCS_UST_SN=150), temiz kapanış
+#   mission   GOREV_ENJEKSIYON=sapma=2: araç 2'nin Mission'ı yerel dosyayla uyuşmaz → araç yüklemez (çıkış 4), koşu başlamaz (t0 yok), koordinatör süreç çıkışını açık hata (arac_erken_cikti) olarak yazıp gecikmesiz biter (GCS_UST_SN=150 beklenmez), temiz kapanış
 #   bayat     ARAC_DURUM_SUS=2:60:15: araç 2'nin durum yayımı tarama başından 60 sn sonra 15 sn susar → izleme bayat uyarısı; akış değişmez
 # Süreçler `setsid` ile ayrı gruplarda başlar; her çıkışta (hata, Ctrl-C dahil) `kosu.sh temizle` çalıştırılır. Bu betik install_all.sh/verify_all.sh sırasına GİRMEZ. sudo gerekmez.
 # Ölçüm disiplini: Gazebo görsel istemcisi (gz sim -g) açıkken ölçüm yapılmaz.
@@ -87,7 +87,7 @@ print_plan() {
     log_info "[dry-run] birim: ${BIRIM_TESTLER[*]##*/}; colcon build (swarm_msgs swarm_vehicle swarm_gcs); rclpy'siz içe aktarım; py_compile; tek komut yolu; süreç izi; kosu.sh --dry-run sırası"
     log_info "[dry-run] uc: kosu.sh baslat --arac 3 --yer-istasyonu var → kosu.sh bekle → analiz (yer_istasyonu_analiz.py) → kosu.sh durdur"
     log_info "[dry-run] komut: uc + t0'dan sonra araç 2'ye python -m swarm_gcs.komut_gonder --arac 2 --sira 1 (iki kez)"
-    log_info "[dry-run] mission: GOREV_ENJEKSIYON=sapma=2 GCS_UST_SN=150 → araç 2 Mission uyuşmazlığı (çıkış 4), t0 yok, zaman aşımı"
+    log_info "[dry-run] mission: GOREV_ENJEKSIYON=sapma=2 GCS_UST_SN=150 → araç 2 Mission uyuşmazlığı (çıkış 4), t0 yok, açık hata (arac_erken_cikti)"
     log_info "[dry-run] bayat: ARAC_DURUM_SUS=2:60:15 → izleme bayat uyarısı"
     log_info "[dry-run] Her testten sonra araç süreci/yer istasyonu/px4/gz/mavsdk_server artığı, yeni dinleyen port, /dev/shm; sonda ros2 daemon, tc/ip denetimi. Hiçbir süreç başlatılmadı"
 }
