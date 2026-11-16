@@ -1,11 +1,13 @@
 # Kod sahipleri: bu yollardaki değişiklikler için sahibin onayı gerekir.
 # Kod sahibi incelemesi, GitHub'da `main-koruma` kuralında "Require review from Code Owners" açıkken uygulanır.
-# Ağaç, sözleşmeler, kararlar ve README ilerleme bölümü depo sahibinin onayıyla değişir (ekip yalnız kendi maddelerini ağaçta `[x]` işaretler).
+# Ağaç, sözleşmeler, kararlar ve README ilerleme bölümü depo sahibinin onayıyla değişir (ekip yalnız kendi maddelerini ağaçta `[x]` işaretler); takım kuralları ve asistan izinleri de depo sahibinin onayıyla değişir.
 /setup/            @omerfarukguner
 /config/           @omerfarukguner
 /src/swarm_*/      @omerfarukguner
 /.github/          @omerfarukguner
 /CLAUDE.md         @omerfarukguner
+/.claude/          @omerfarukguner
+/.githooks/        @omerfarukguner
 /planlama/sozlesmeler.md       @omerfarukguner
 /planlama/gelistirme_agaci.md   @omerfarukguner
 /planlama/kararlar.md           @omerfarukguner

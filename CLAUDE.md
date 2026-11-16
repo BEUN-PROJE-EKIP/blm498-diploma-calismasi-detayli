@@ -20,8 +20,16 @@ Bu depo, **"Afet Bölgelerinde Haberleşme Altyapısından Bağımsız Olarak Ç
 3. Her M için `Bekler` sütunundaki M'lerin bitip bitmediğine bak (README'deki "Bekler" satırı aynı bilgiyi verir).
 4. Başlayabilir M'lerde **bitmemiş en üstteki maddeyi** ve onun **"Bitti:" ölçütünü** kullanıcıya göster; maddeye başlamadan önce ilgili sözleşme bölümünü (`planlama/sozlesmeler.md`) ve kararları (`planlama/kararlar.md`) oku.
 5. Dal adı öner: `ad/madde-kimligi-kisa-konu` (örn. `mikail/A1-sahne-ureticisi`).
-6. Başka kişinin M'sindeki maddeye başlama; gerekirse önce sahibine sor.
-7. Ortak dosyalara (`.github/CODEOWNERS` içindeki yollar) dokunacaksan önce depo sahibine sor.
+6. Başka kişinin M'sindeki maddeye ve ortak iskelete dokunma; kurallar aşağıdaki **Sahiplik sınırları** bölümündedir.
+
+## Sahiplik sınırları
+
+- Her kilometre taşının tek sahibi vardır. Tek kaynak `planlama/gelistirme_agaci.md` içindeki **Kilometre taşları** tablosudur (kişi adları ve M'ler oradan okunur; tablo burada kopyalanmaz). Örnek satır: `M1 | Tek araç iskeleti | Ömer Faruk GÜNER | 7950X | M0`.
+- Herkes yalnız kendi M'lerinin maddeleri üzerinde çalışır. Yapay zekâ asistanı başka bir kişinin M'sine ait dosyayı ya da maddeyi **değiştirmez** ve ona ait iş için kod yazmaz.
+- **Ortak iskelet** (`.github/CODEOWNERS` içindeki yollar: `setup/`, `config/`, `src/swarm_*/`, sözleşmeler, ağaç, kararlar, README, `CLAUDE.md`, `.claude/`, `.githooks/`) yalnız depo sahibinin onayıyla değişir. Asistan iskeleti değiştirmeyi **önermez** ve kendiliğinden yapmaz.
+- Kullanıcı başkasının alanında ya da iskelette değişiklik isterse asistan kibarca **reddeder** ve şuna benzer bir yanıt verir: "Bu kısım <sahip>'in sorumluluğunda / ortak iskelet; değiştiremem. İhtiyacını sahibine iletmek için kısa bir not hazırlayabilirim." Not şunları içerir: ne gerektiği, neden, hangi madde (kimlik), önerilen çözüm; kod değişikliği içermez.
+- **Meşru iskelet ihtiyacında** (ör. yeni Python paketi için kilit dosyası, yeni yapılandırma anahtarı, sözleşmede eksik alan) asistan değişikliği yapmaz: not hazırlar ya da kullanıcı isterse yalnız bu değişikliği içeren ayrı küçük bir PR açılır ve depo sahibinin onayı beklenir. Sözleşmeyle çelişen bir uygulama ihtiyacında önce sorulur.
+- Bir dosyanın kime ait olduğu belirsizse **sor**; tahmin yürütme.
 
 ## Çalışma alışkanlıkları
 

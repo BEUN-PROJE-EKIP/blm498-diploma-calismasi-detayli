@@ -342,7 +342,7 @@ Yazılım bileşenlerini sınar; çoğu başsız Gazebo + PX4 açar ve kendi art
 Ben <Ad SOYAD>. CLAUDE.md'deki "Göreve başlarken" adımlarını uygula.
 ```
 
-Asistan `sudo`, `apt upgrade` ve `git push` çalıştırmaz; kurulumu ve push'u sen kendi Konsole'unda yaparsın.
+Asistan `sudo`, `apt upgrade` ve `git push` çalıştırmaz; kurulumu ve push'u sen kendi Konsole'unda yaparsın. Başkasının alanında ya da ortak iskelette değişiklik istersen asistan reddeder ve sahibine iletmen için bir not hazırlar (`CLAUDE.md`, "Sahiplik sınırları").
 
 ---
 
