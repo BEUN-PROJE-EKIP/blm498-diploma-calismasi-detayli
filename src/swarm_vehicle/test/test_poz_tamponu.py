@@ -441,23 +441,21 @@ class KareIsleyiciPozKilidi(unittest.TestCase):
         yol = os.path.join(d, "kare_poz.jsonl")
         return b, yol, ki.KareIsleyici(rota.deney_env_oku(), 1, None, None, lambda *a, **kw: None, None, poz_tamponu=b, poz_yol=yol)
 
-    def test_poz_beklerken_baska_kayip_bloke_olmaz(self):
+    def test_kayip_poz_beklerken_cagri_bloke_olmaz_sira_korunur(self):
+        """`kayip` (gz geri çağrısından gelir) poz beklemesini ayrı iş parçacığında tamamlar: çağrı hemen döner, sonuçlar sırayla ve her numara bir kez yazılır."""
         with tempfile.TemporaryDirectory() as d:
             b, yol, k = self.kur(d)
-            a = threading.Thread(target=k.kayip, args=(40, 1))
-            a.start()
-            time.sleep(0.2)                                             # A, kapsanmayan kare için poz bekliyor (en çok 1 sn)
             t0 = time.monotonic()
-            k.kayip(30, 1)                                              # B: kapsanan kare; A'nın beklemesi onu geciktirmemeli
-            gecen = time.monotonic() - t0
-            self.assertLess(gecen, 0.4)
-            self.assertTrue(a.is_alive() and not k.defter.var_mi(40))
-            a.join(5)
-            self.assertTrue(k.defter.var_mi(40))
+            k.kayip(40, 1)                                              # kapsanmayan kare: poz bekleniyor (en çok 1 sn)
+            k.kayip(30, 1)                                              # kapsanan kare
+            self.assertLess(time.monotonic() - t0, 0.2)                 # çağıran beklemedi
+            self.assertFalse(k.defter.var_mi(40))
+            self.assertTrue(k.kayip_bekle(5))
+            self.assertTrue(k.defter.var_mi(40) and k.defter.var_mi(30))
             k.poz_yazici.kapat()
             with open(yol, encoding="utf-8") as f:
                 kayitlar = [json.loads(x) for x in f]
-            self.assertEqual(sorted(r["n"] for r in kayitlar), [30, 40])
+            self.assertEqual([r["n"] for r in kayitlar], [40, 30])      # çağrı sırası
             self.assertEqual({r["n"]: (r["gecerli"], r["neden"]) for r in kayitlar}, {30: (True, None), 40: (False, pt.BEKLEME_ASILDI)})
 
     def test_defterin_reddettigi_numaraya_ikinci_kare_poz_yazilmaz(self):
@@ -465,6 +463,7 @@ class KareIsleyiciPozKilidi(unittest.TestCase):
             b, yol, k = self.kur(d)
             k.kayip(30, 1)
             k.kayip(30, 2)                                              # ikinci sonuç reddedilir: ikinci kare_poz da yazılmaz
+            self.assertTrue(k.kayip_bekle(5))
             k.poz_yazici.kapat()
             with open(yol, encoding="utf-8") as f:
                 self.assertEqual(len(f.readlines()), 1)

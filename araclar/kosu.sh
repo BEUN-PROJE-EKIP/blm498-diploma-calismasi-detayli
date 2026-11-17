@@ -291,6 +291,7 @@ komut_baslat() {
     python3 -I "$HELPER" baslangic "$KOSU_DIR/kosu.json" "$id" "$N_ARAC" "${SYS_IDS[*]:0:$N_ARAC}" "$part" "$SIM_WORLD" "$SIM_MODEL" "$DENEY_ENV" \
         || fail_stop "kosu.json yazılamadı"
     python3 -I "$HELPER" mimari "$KOSU_DIR/kosu.json" "$MIMARI" || fail_stop "kosu.json mimari_modu yazılamadı"
+    python3 -I "$HELPER" test-anahtarlari "$KOSU_DIR/kosu.json" || fail_stop "kosu.json test_anahtarlari yazılamadı"
     printf '%s\n' "$id" > "$AKTIF"
     log_info "Koşu $id (GZ_PARTITION=$part), $N_ARAC araç; klasör ${KOSU_DIR#"$ROOT_DIR"/}"
     damga_derle "$YAYIM_SRC" "$YAYIM_BUILD" "$GENERATED_DIR/yayim_damga" || exit 1

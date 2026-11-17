@@ -40,11 +40,13 @@ class Sahte:
         self.cagrilar = []
         self.n_ilk = None
 
-    def goruntu(self, n, damga, mono, veri, w, h, merkez_poz=None):
+    def goruntu(self, n, damga, mono, veri, w, h, merkez_poz=None, kalibrasyon_uyumsuz=False):
         self.cagrilar.append(("goruntu", n, damga, len(veri), merkez_poz))
+        self.uyumsuz = getattr(self, "uyumsuz", []) + [(n, kalibrasyon_uyumsuz)]
 
-    def kayip(self, n, mono, merkez_poz=None):
+    def kayip(self, n, mono, merkez_poz=None, kalibrasyon_uyumsuz=False):
         self.cagrilar.append(("kayip", n, merkez_poz))
+        self.uyumsuz = getattr(self, "uyumsuz", []) + [(n, kalibrasyon_uyumsuz)]
 
 
 def kur(beklenen_kaynak="127.0.0.1", enj="", islemci=None, **ek):
@@ -222,6 +224,7 @@ class Alici(unittest.TestCase):
         c.sendall(gi.kodla(il))
         self.assertTrue(bekle(lambda: len(sahte.cagrilar) == 1))
         self.assertEqual(a.ozet()[1]["kalibrasyon_uyumsuz"], 1)
+        self.assertEqual(sahte.uyumsuz, [(1, True)])                 # işleyiciye bildirilir: o karenin tespitleri konumsuz kalır
         c.close()
 
     def test_okuma_dur_enjeksiyonu_ayristirma(self):
@@ -272,7 +275,7 @@ class SonucZinciri(unittest.TestCase):
         self.assertEqual(poz[23]["neden"], "aralik_asildi")
         self.assertIsNone(poz[23]["konum_ned_m"])                                # geçersiz pozda konum yok; yedek kullanılmaz
         self.assertTrue(all(k["tespitler"] == [] for k in kayitlar if k["durum"] != "tespit"))
-        self.assertTrue(all(t["konum"] is None and t["aday"] is False for k in kayitlar for t in k["tespitler"]))   # has_position bu sürümde false
+        self.assertTrue(all(t["konum"] is None and t["konum_neden"] == "poz_yok" and t["aday"] is False for k in kayitlar for t in k["tespitler"]))   # konum hesaplayıcı verilmedi: konumsuz
         self.assertEqual(isl.istemci.n_ilk, 20)                                  # işçi enjeksiyonu için n_ilk = ilk ileti
         c.close()
 

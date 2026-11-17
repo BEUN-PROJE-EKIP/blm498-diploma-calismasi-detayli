@@ -536,9 +536,12 @@ def dogrula_kosu_ustveri(c, d):
     h = Hatalar()
     zorunlu = ["surum", "tur", "kosu_kimligi", "baslangic", "bitis", "depo", "yapilandirma_sha256", "ortam_kilidi_sha256", "rota_sha256", "kaynak_sha256", "arac_sayisi",
                "arac_kimlikleri", "mimari_modu", "sahne_kimligi", "dunya", "model", "gz_partition", "surecler", "bitis_durumu"]
-    if not alan_denetle(h, "", d, zorunlu, ["zorla_kapatilan"]):
+    if not alan_denetle(h, "", d, zorunlu, ["zorla_kapatilan", "test_anahtarlari"]):
         return h.liste
     ust_alanlar(h, d, "kosu_ustveri")
+    ta = d.get("test_anahtarlari", [])
+    if not (isinstance(ta, list) and all(isinstance(x, str) and re.fullmatch(r"[A-Z][A-Z0-9_]*", x) for x in ta)):
+        h.ekle("test_anahtarlari", "ortam değişkeni adlarının (BÜYÜK_HARF_RAKAM_ALTÇİZGİ) listesi olmalı (değerler yazılmaz)")
     mutlak_yol_tara(h, "", d)
     if not (isinstance(d.get("kosu_kimligi"), str) and KIMLIK_RE.match(d["kosu_kimligi"])):
         h.ekle("kosu_kimligi", "1-64 karakter, yalnız harf/rakam/_/- olmalı")
@@ -774,7 +777,7 @@ def dogrula_kare_sonuc(c, d):
             h.ekle("poz", "nesne olmalı (merkezi modda iletiden alınan kare–poz)")
         else:
             sahte = {"surum": 1, "tur": "kare_poz", "arac_kimligi": d.get("arac_kimligi"), "n": d.get("n"), "kare_ns": d.get("sim_damga_ns"), "bekleme_ms": 0, **d["poz"]}
-            h.liste.extend(f"poz.{x}" for x in dogrula_kare_poz(c, sahte))
+            h.liste.extend(f"poz.{x}" for x in dogrula_kare_poz(c, sahte, hata_izinli=False))
     if not tam_sayi_mi(d.get("arac_kimligi")) or d.get("arac_kimligi") not in c.arac_kimlikleri:
         h.ekle("arac_kimligi", f"UAV_SYS_IDS değerlerinden biri olmalı ({c.arac_kimlikleri}; bulunan: {d.get('arac_kimligi')!r})")
     hz = c.kamera_hz
@@ -812,7 +815,7 @@ def dogrula_kare_sonuc(c, d):
         h.ekle("atilan_sinif_disi", "'kare_alinamadi' durumunda 0 olmalı")
     for i, x in enumerate(t):
         yol = f"tespitler[{i}]"
-        if not alan_denetle(h, yol, x, ["sinif", "sinif_no", "guven", "kutu", "konum", "aday"]):
+        if not alan_denetle(h, yol, x, ["sinif", "sinif_no", "guven", "kutu", "konum", "konum_neden", "aday"]):
             continue
         if x.get("sinif") not in c.model_siniflari:
             h.ekle(f"{yol}.sinif", f"MODEL_SINIFLAR değerlerinden biri olmalı ({c.model_siniflari}; bulunan: {x.get('sinif')!r})")
@@ -826,10 +829,20 @@ def dogrula_kare_sonuc(c, d):
             h.ekle(f"{yol}.kutu", "[x_min, y_min, x_maks, y_maks] (piksel, 4 sayı) olmalı")
         elif not (0 <= k[0] < k[2] <= c.w_px and 0 <= k[1] < k[3] <= c.h_px):
             h.ekle(f"{yol}.kutu", f"görüntü içinde ve x_min < x_maks, y_min < y_maks olmalı ({c.w_px}×{c.h_px}; bulunan: {k})")
-        if x.get("konum") is not None:
-            h.ekle(f"{yol}.konum", "bu sürümde null olmalı (tahmini konum konum hesaplayıcının işidir)")
+        kn, kneden = x.get("konum"), x.get("konum_neden")
+        if kn is None:
+            if kneden not in KONUMSUZ_NEDENLERI:
+                h.ekle(f"{yol}.konum_neden", f"konum null iken {list(KONUMSUZ_NEDENLERI)} değerlerinden biri zorunlu (bulunan: {kneden!r})")
+        else:
+            if not (isinstance(kn, list) and len(kn) == 2 and all(sayi_mi(v) and math.isfinite(v) for v in kn)):
+                h.ekle(f"{yol}.konum", "[doğu_m, kuzey_m] (iki sonlu sayı) ya da null olmalı")
+            if kneden is not None:
+                h.ekle(f"{yol}.konum_neden", "konum doluyken null olmalı")
+            p = d.get("poz")
+            if isinstance(p, dict) and p.get("gecerli") is False:
+                h.ekle(f"{yol}.konum", "kare–poz geçersizken (poz.gecerli false) konum null olmalı")
         if x.get("aday") is not False:
-            h.ekle(f"{yol}.aday", "bu sürümde false olmalı (birleştirme adayı birleştirme modülünün işidir)")
+            h.ekle(f"{yol}.aday", "false olmalı (birleştirme adayı birleştirme modülünün işidir)")
     return h.liste
 
 
@@ -924,6 +937,8 @@ def dogrula_isci_kaynak_dosyasi(c, satirlar):
 
 POZ_RED_NEDENLERI = ("geriye_giden", "yinelenen", "gecersiz_deger", "enjeksiyon")
 POZ_GECERSIZ_NEDENLERI = ("aralik_asildi", "tampon_disi", "bekleme_asildi")
+POZ_KAYIT_HATA = "hata"          # yalnız araç içi `kare_poz` kaydında: poz sorgusu istisna verdi; ağ iletisinde ve kare sonucundaki `poz` alanında bulunmaz
+KONUMSUZ_NEDENLERI = ("poz_yok", "kesisim_yok")
 
 
 def _vektor_mu(v, n):
@@ -996,7 +1011,7 @@ def dogrula_telemetri_dosyasi(c, satirlar):
     return hatalar
 
 
-def dogrula_kare_poz(c, d):
+def dogrula_kare_poz(c, d, hata_izinli=True):
     """Tek bir kare–poz kaydı (§8.11): kare üretim anındaki enterpolasyonlu PX4 pozu ya da geçersizlik nedeni. Geçerli poz yokken konum/yönelim null'dır (yedek poz yoktur)."""
     h = Hatalar()
     zor = ["surum", "tur", "arac_kimligi", "n", "kare_ns", "gecerli", "neden", "t1_ns", "t2_ns", "aralik_ms", "bekleme_ms", "konum_ned_m", "q_wxyz"]
@@ -1041,8 +1056,9 @@ def dogrula_kare_poz(c, d):
         elif abs(math.sqrt(sum(v * v for v in q)) - 1.0) > 1e-3:
             h.ekle("q_wxyz", "birim kuaterniyon olmalı")
         return h.liste
-    if neden not in POZ_GECERSIZ_NEDENLERI:
-        h.ekle("neden", f"geçersiz pozda {list(POZ_GECERSIZ_NEDENLERI)} değerlerinden biri olmalı (bulunan: {neden!r})")
+    izinli = POZ_GECERSIZ_NEDENLERI + ((POZ_KAYIT_HATA,) if hata_izinli else ())
+    if neden not in izinli:
+        h.ekle("neden", f"geçersiz pozda {list(izinli)} değerlerinden biri olmalı (bulunan: {neden!r})")
     if konum is not None:
         h.ekle("konum_ned_m", "geçerli poz yokken null olmalı (son örnek ya da durum mesajı yedek olarak kullanılmaz)")
     if q is not None:
@@ -1052,7 +1068,7 @@ def dogrula_kare_poz(c, d):
             h.ekle("t1_ns", "'aralik_asildi' için t1_ns < t2_ns ve aralik_ms = (t2 - t1) / 10⁶ olmalı")
         elif ar <= c.poz_aralik_sinir_ms:
             h.ekle("aralik_ms", f"'aralik_asildi' için POZ_ARALIK_SINIR_MS ({c.poz_aralik_sinir_ms:g}) değerini aşmalı (bulunan: {ar:g})")
-    elif neden in POZ_GECERSIZ_NEDENLERI:
+    elif neden in izinli:
         if t1 is not None or t2 is not None or ar is not None:
             h.ekle("t1_ns", f"'{neden}' için t1_ns, t2_ns ve aralik_ms null olmalı")
     return h.liste

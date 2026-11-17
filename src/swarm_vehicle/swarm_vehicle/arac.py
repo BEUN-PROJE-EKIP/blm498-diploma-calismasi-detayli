@@ -27,6 +27,7 @@ from .cikarim_istemci import IsciIstemcisi
 from .kamera_alici import n_ilk_hesapla
 from .kamera_alici_gz import KameraAliciGz
 from .kare_isleyici import KareIsleyici
+from .konum_hesap import KonumHesaplayici
 from .sonuc_yayin import SonucYayinci
 from .durum_makinesi import (AD, STATE_BARIYER_BEKLE, STATE_HAZIR, STATE_TAMAMLANDI, STATE_TARAMA, STATE_WAIT, DurumMakinesi)
 
@@ -436,6 +437,7 @@ class Arac:
             self.log("poz_ozeti", adet=len(pb), gecersiz=",".join(f"{k}:{v}" for k, v in sorted(self.isleyici.poz_gecersiz.items())) or "yok",
                      bekleme_medyan_ms=f"{pb[len(pb) // 2]:.2f}", bekleme_p95_ms=f"{pb[min(len(pb) - 1, int(0.95 * len(pb)))]:.2f}", bekleme_en_buyuk_ms=f"{pb[-1]:.2f}",
                      **{f"tampon_{k}": v for k, v in self.adapter.poz.sayaclar().items()})
+        self.log("konum_ozeti", **self.isleyici.konum_ozeti())
         sm = sorted(self.isleyici.sureler_ms)
         if sm:
             self.log("cikarim_sureleri", adet=len(sm), medyan_ms=f"{sm[len(sm) // 2]:.2f}", p99_ms=f"{sm[min(len(sm) - 1, int(0.99 * len(sm)))]:.2f}", en_buyuk_ms=f"{sm[-1]:.2f}")
@@ -534,7 +536,8 @@ class Arac:
         if self.merkezi:
             self._merkezi_kur()
         else:
-            self.isleyici = KareIsleyici(self.ham, self.arac_kimligi, self.isci, self.sonuc_yol, self.log, self._kare_sonucu_uret, poz_tamponu=self.adapter.poz, poz_yol=self.poz_yol)
+            self.isleyici = KareIsleyici(self.ham, self.arac_kimligi, self.isci, self.sonuc_yol, self.log, self._kare_sonucu_uret, poz_tamponu=self.adapter.poz, poz_yol=self.poz_yol,
+                                         konum_hesaplayici=KonumHesaplayici.yapilandirmadan(self.ham, self.arac_kimligi))
             self.kamera = KameraAliciGz(self.ham, self.arac_no, self.arac_kimligi, self.kamera_yol, self.log, tuketici=self.isleyici.goruntu, kayip_ver=self.isleyici.kayip)
             self.log("isci_enjeksiyon_durumu", durum=self.isci.enj.ozet())
             self.isci.baslat()                                         # alt süreç: model yükleme ve ısınma hazırlık evresiyle paralel sürer

@@ -1,4 +1,4 @@
-"""Poz tamponu ve kare–poz enterpolasyonu (FR-17, FR-18; B14'ün ilk yarısı). Yalnız standart kitaplık (rclpy ve MAVSDK içe aktarılmaz).
+"""Poz tamponu ve kare–poz enterpolasyonu (FR-17, FR-18; konum hesaplayıcının girdisi `konum_hesap.py`). Yalnız standart kitaplık (rclpy ve MAVSDK içe aktarılmaz).
 
 Belge (merkezi mod): her görüntü iletisi, kare üretim anına eşlenmiş canlı PX4 konum/yönelim tahminini taşır; eşleme KAYNAK zamanına göre enterpolasyonla yapılır
 (konum doğrusal, yönelim küresel); kareyi çevreleyen iki telemetri örneği arasındaki süre sınırı (öngörülen 100 ms) aşarsa o karenin tespitleri konumsuz kaydedilir; iki mod aynı
@@ -20,6 +20,7 @@ _NS = 10 ** 9
 # geçersizlik nedenleri
 ARALIK_ASILDI, TAMPON_DISI, BEKLEME_ASILDI = "aralik_asildi", "tampon_disi", "bekleme_asildi"
 NEDENLER = (ARALIK_ASILDI, TAMPON_DISI, BEKLEME_ASILDI)
+HATA = "hata"      # yalnız araç içi kare–poz kaydında: poz sorgusu istisna verdi (tampon nedeni değildir; ağ iletisi bunu taşımaz)
 # ekleme ret nedenleri
 RED_GERI, RED_YINELENEN, RED_GECERSIZ = "geriye_giden", "yinelenen", "gecersiz_deger"
 

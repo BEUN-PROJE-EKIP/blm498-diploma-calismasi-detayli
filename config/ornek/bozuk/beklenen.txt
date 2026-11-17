@@ -67,10 +67,14 @@ kare_sonuc_yinelenen_numara.jsonl | ikinci sonuç
 kare_sonuc_sinif_gecersiz.jsonl | MODEL_SINIFLAR değerlerinden biri olmalı
 kare_sonuc_guven_esik_alti.jsonl | INF_CONF eşiği
 kare_sonuc_kutu_disarida.jsonl | görüntü içinde ve x_min < x_maks
-kare_sonuc_konum_dolu.jsonl | bu sürümde null olmalı
+kare_sonuc_konum_dolu.jsonl | konum doluyken null olmalı
 kare_sonuc_damga_uyumsuz.jsonl | n = 2·t_sim olmalı
 kare_sonuc_yazar_karisik.jsonl | yazarı aynı olmalı
 kare_sonuc_bilinmeyen_alan.jsonl | bilinmeyen alan
+kare_sonuc_konumsuz_nedensiz.jsonl | konum null iken
+kare_sonuc_konum_bozuk.jsonl | [doğu_m, kuzey_m]
+kare_sonuc_konum_poz_gecersiz.jsonl | kare–poz geçersizken
+kare_sonuc_poz_hata_nedeni.jsonl | poz.neden: geçersiz pozda
 isci_kaynak_gpu_yuzde_gecersiz.jsonl | [0, 100] aralığında tam sayı
 isci_kaynak_mono_geriye.jsonl | geriye gidiyor
 isci_kaynak_rss_bos.jsonl | null olamaz
@@ -101,6 +105,7 @@ kare_poz_yinelenen_numara.jsonl | ikinci kayıt
 kare_poz_bekleme_yok.jsonl | bekleme_ms
 kare_poz_aralik_asildi_sinir_alti.jsonl | 'aralik_asildi' için POZ_ARALIK_SINIR_MS
 kare_poz_kare_ns_uyumsuz.jsonl | n · 10⁹ / CAM_RATE_HZ olmalı
+kare_poz_hata_zamanli.jsonl | 'hata' için t1_ns, t2_ns ve aralik_ms null olmalı
 telemetri_nan_degeri.jsonl | üç sayı (m) olmalı
 kuyruk_durumu_gonderilen_geriye.jsonl | geriye gidiyor
 kuyruk_durumu_ileti_tutarsiz.jsonl | giren − gönderilen olmalı

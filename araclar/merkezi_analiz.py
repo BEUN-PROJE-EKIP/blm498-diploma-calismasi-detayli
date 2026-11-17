@@ -204,8 +204,10 @@ def ana(argv):
                 if p[alan] != r[alan]:
                     farkli.append((n, alan))
         sonuc(sorted(kp) == aralik and not farkli, f"poz_birebir_{k}", f"başlıktaki poz (yer istasyonu kare sonucu) ile araçtaki kare_poz kaydı numara bazında birebir ({len(aralik)} numara; farklı {farkli[:4]}); geçerli {sum(1 for r in kp.values() if r['gecerli'])}/{len(kp)}")
-        # şema: hiçbir tespitte konum yok
-        sonuc(all(t["konum"] is None and t["aday"] is False for r in sn.values() for t in r["tespitler"]), f"has_position_false_{k}", "tespitlerde konum null, aday false (konum B14'te)")
+        # şema: konum ya [doğu, kuzey] (neden null) ya da null (neden poz_yok | kesisim_yok); birleştirme adayı false (B15)
+        tespitler = [(r, t) for r in sn.values() for t in r["tespitler"]]
+        tutarli = all(((t["konum"] is None) == (t["konum_neden"] is not None)) and t["aday"] is False for r, t in tespitler)
+        sonuc(tutarli, f"konum_alani_{k}", f"tespitlerde konum/konum_neden tutarlı, aday false ({len(tespitler)} tespit; konumlu {sum(1 for r, t in tespitler if t['konum'] is not None)})")
         # kalibrasyon kimliği başlıkta (sayıldı)
         uyusmayan = [x for x in glog.get("merkezi_kalibrasyon_uyusmuyor", []) if str(x.get("arac")) == str(k)]
         sonuc(not uyusmayan and o.get("kalibrasyon_uyumsuz") == 0, f"kalibrasyon_{k}",

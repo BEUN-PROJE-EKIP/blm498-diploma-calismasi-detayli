@@ -3,3 +3,4 @@
 {"surum": 1, "tur": "kare_poz", "arac_kimligi": 1, "n": 22, "kare_ns": 11000000000, "gecerli": false, "neden": "aralik_asildi", "t1_ns": 10900000000, "t2_ns": 11150000000, "aralik_ms": 250.0, "bekleme_ms": 0.1, "konum_ned_m": null, "q_wxyz": null}
 {"surum": 1, "tur": "kare_poz", "arac_kimligi": 1, "n": 23, "kare_ns": 11500000000, "gecerli": false, "neden": "bekleme_asildi", "t1_ns": null, "t2_ns": null, "aralik_ms": null, "bekleme_ms": 250.3, "konum_ned_m": null, "q_wxyz": null}
 {"surum": 1, "tur": "kare_poz", "arac_kimligi": 1, "n": 24, "kare_ns": 12000000000, "gecerli": false, "neden": "tampon_disi", "t1_ns": null, "t2_ns": null, "aralik_ms": null, "bekleme_ms": 0.0, "konum_ned_m": null, "q_wxyz": null}
+{"surum": 1, "tur": "kare_poz", "arac_kimligi": 1, "n": 25, "kare_ns": 12500000000, "gecerli": false, "neden": "hata", "t1_ns": null, "t2_ns": null, "aralik_ms": null, "bekleme_ms": 0.1, "konum_ned_m": null, "q_wxyz": null}

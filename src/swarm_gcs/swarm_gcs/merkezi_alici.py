@@ -4,7 +4,8 @@ Akış (araç başına): dinleme soketi (`GCS_ADDR:MERKEZI_TCP_PORT_TABAN + k �
 (akış çözücü; iletiler parçalı gelebilir) → doğrulama (porta göre beklenen araç kimliği, sihirli değer/sürüm, artan kare numarası) → `alim` kare olayı → araç başına işleme kuyruğu (SINIRSIZ, atma yok) →
 işleme iş parçacığı (araca ayrılmış çıkarım işçisi: `KareIsleyici` → kare sonucu) → sonuç defteri.
 Sonuç, uçta moddaki AYNI mantıksal yapıdır: `KareIsleyici` (swarm_vehicle) aynı dört durumu, aynı kayıt şemasını (`kayit/kare_sonuc_<araç>.jsonl`) ve aynı kancayı (→ `SonucAlici.sonuc_ver` → sonuç defteri +
-`kullanilabilir` kaydı) kullanır; "kare alınamadı" iletisi aynı yapıya (`STATUS_FRAME_NOT_RECEIVED`) çevrilir. Alınan poz sonuç kaydında `poz` alanında saklanır (B14 kullanacak; `has_position` bu sürümde False).
+`kullanilabilir` kaydı) kullanır; "kare alınamadı" iletisi aynı yapıya (`STATUS_FRAME_NOT_RECEIVED`) çevrilir. Alınan poz sonuç kaydında `poz` alanında saklanır ve tespitlerin yatay konumu (konum hesaplayıcı, uçta moddakiyle aynı kod) bu pozla hesaplanır; gecikmiş kare 2 Hz durum mesajıyla konumlandırılmaz.
+Kalibrasyon kimliği yüklü dosyanınkinden farklı iletilerde o karenin tespitleri konumsuz kalır (`poz_yok`, açık günlük satırı; uyuşmazlık sayacı korunur).
 Doğrulama kuralları: tekrar eden numara ve geriye giden numara SAYILIR ve günlüğe yazılır (işlenmez); atlanan numara (boşluk) sayılır ve günlüğe yazılır (kayıp kare ancak "kare alınamadı" iletisiyle bildirilir; eksik numara COMPLETE'i
 engeller); aralık dışı numara sonuç defterinde sayılır (tarama bitişi bildirimi gelince). Bozuk ileti açık hata: bağlantı kapatılır, `hata` alanı dolar. Bağlantı koptuğunda yeniden bağlanma yoktur.
 Temiz kapanış: bağlantı yarım iletisiz kapanırsa ve o aracın sonuç defteri tamam değilse (tarama bitişi gelmemiş ya da [n_ilk, n_son] eksik; alınan her ileti işlendikten sonra denetlenir) kanal hatası doldurulur
@@ -262,11 +263,12 @@ class MerkeziAlici:
             if istemci is not None and getattr(istemci, "n_ilk", 1) is None:
                 istemci.n_ilk = il.n                       # işçi enjeksiyonu belirteçleri (+k): ilk ileti n_ilk'tir (kare alınamadı iletileri de sıradadır)
             poz = il.poz
+            ek = {"kalibrasyon_uyumsuz": True} if (self.kal is not None and il.kalibrasyon_kimligi != self.kal) else {}   # yüklü dosyadan farklı kalibrasyon: o karenin tespitleri konumsuz
             try:
                 if il.goruntu_mu:
-                    isl.goruntu(il.n, il.damga_ns, mono, il.yuk, self.w, self.h, merkez_poz=poz)
+                    isl.goruntu(il.n, il.damga_ns, mono, il.yuk, self.w, self.h, merkez_poz=poz, **ek)
                 else:
-                    isl.kayip(il.n, mono, merkez_poz=poz)
+                    isl.kayip(il.n, mono, merkez_poz=poz, **ek)
             except Exception as e:  # noqa: BLE001
                 self.log("merkezi_isleme_hatasi", arac=a, n=il.n, hata=repr(e))
             with self._say_kilit:

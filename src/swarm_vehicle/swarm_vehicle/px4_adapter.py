@@ -29,6 +29,7 @@ from mavsdk import System  # noqa: E402
 from mavsdk.mission import MissionItem, MissionPlan  # noqa: E402
 
 from . import komut_yolu as _komut  # noqa: E402
+from . import konum_hesap as _konum  # noqa: E402
 from . import port_denetimi as _port  # noqa: E402
 from . import poz_tamponu as _poz  # noqa: E402
 from . import rota as _rota  # noqa: E402
@@ -341,7 +342,7 @@ class Px4Adapter:
         with self._kilit:
             self._durum.update(
                 px4_zaman_us=int(o.time_usec), alinma_ns=time.monotonic_ns(),
-                konum_ned_m=(n, e, d), konum_enu_m=(x0 + e, y0 + n, z0 - d),
+                konum_ned_m=(n, e, d), konum_enu_m=_konum.ned_den_enu(n, e, d, x0, y0, z0),
                 yonelim_q_wxyz=(o.q.w, o.q.x, o.q.y, o.q.z),
                 yatay_hiz_ms=math.hypot(o.velocity_body.x_m_s, o.velocity_body.y_m_s))
         alinma, kaynak_ns, q = time.monotonic_ns(), int(o.time_usec) * 1000, (o.q.w, o.q.x, o.q.y, o.q.z)

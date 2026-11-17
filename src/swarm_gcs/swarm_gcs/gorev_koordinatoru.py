@@ -103,6 +103,8 @@ def ana(argv):
     except Exception as e:  # noqa: BLE001
         log("gz_saat_yok", neden=repr(e))
 
+    if os.environ.get("KONUM_TEST_SAHTE"):
+        log("test_anahtari_acik", seviye="(!)", anahtar="KONUM_TEST_SAHTE", uyari="TEST ANAHTARI ACIK: sahte tespit eklenir; bu koşunun tespit sayıları gerçek değildir")
     mission_id = f"G_{time.strftime('%Y%m%d_%H%M%S')}"
     kor = Koordinasyon(kimlikler, mission_id)
     izle = DurumIzleyici(kimlikler, ham["IZLEME_BAYAT_SN"], ham["IZLEME_OZET_SN"])
@@ -113,6 +115,7 @@ def ana(argv):
     if merkezi:
         from swarm_vehicle.cikarim_istemci import IsciIstemcisi
         from swarm_vehicle.kare_isleyici import KareIsleyici
+        from swarm_vehicle.konum_hesap import KonumHesaplayici
         from swarm_vehicle.poz_tamponu import SatirYazici
 
         from .merkezi_alici import MerkeziAlici
@@ -121,7 +124,8 @@ def ana(argv):
             ist = IsciIstemcisi(ham, sira, k, klasor, log)
             isciler[k] = ist
             islemciler[k] = KareIsleyici(ham, k, ist, yol(os.path.join("kayit", f"kare_sonuc_{k}.jsonl")), log,
-                                         lambda kayit, _a=alici: _a.sonuc_ver(kayit["arac_kimligi"], kayit["n"], kayit["durum"], kayit["sim_damga_ns"]))
+                                         lambda kayit, _a=alici: _a.sonuc_ver(kayit["arac_kimligi"], kayit["n"], kayit["durum"], kayit["sim_damga_ns"]),
+                                         konum_hesaplayici=KonumHesaplayici.yapilandirmadan(ham, k))
         sha_yazicilar = {}
         if os.environ.get("MERKEZI_SHA") == "1" and klasor:                   # YALNIZ test: alınan görüntü baytlarının SHA-256'sı
             sha_yazicilar = {k: SatirYazici(os.path.join(klasor, "kayit", f"merkezi_sha_alim_{k}.jsonl"), log) for k in kimlikler}
@@ -303,6 +307,8 @@ def ana(argv):
             kanal.kapat()
             from swarm_vehicle.goruntu_kanali import rss_zirve_mib
             log("merkezi_ozet", rss_zirve_mib=rss_zirve_mib(), **{f"arac{a}": json.dumps(o, ensure_ascii=False).replace(" ", "") for a, o in kanal.ozet().items()})
+            for k, isl in islemciler.items():
+                log("konum_ozeti", arac=k, **isl.konum_ozeti())
             for k, ist in isciler.items():
                 ist.kapat()
         for y in yazicilar:

@@ -6,7 +6,8 @@ Dört durum birbirine KODLANMAZ [belge: kare sonucu iletisi]:
   tespit_yok     çıkarım BAŞARIYLA bitti ve proje sınıfında tespit bulunmadı (açık)   → STATUS_NO_DETECTION
   islem_hatasi   kare alındı ama işlenemedi (işçi hatası/ölümü/zaman aşımı/bozuk görüntü); "tespit yok" DEĞİLDİR → STATUS_PROCESSING_ERROR
   kare_alinamadi alıcıya ulaşmayan görev karesi (alıcının `kayip_tespit` kaydı)       → STATUS_FRAME_NOT_RECEIVED
-Yerel kayıt (`kayit/kare_sonuc_<araç>.jsonl`, planlama/sozlesmeler.md §8.6): satır başına bir `kare_sonuc`. Bu sürümde kare sonucu ağa GÖNDERİLMEZ (B11); yerel kancaya verilir.
+Yerel kayıt (`kayit/kare_sonuc_<araç>.jsonl`, planlama/sozlesmeler.md §8.6): satır başına bir `kare_sonuc`; kayıt yerel kancaya da verilir (uçta modda kanca DDS'e yayımlar).
+Tespitin yatay konumu (`konum` = [doğu_m, kuzey_m] ya da null, `konum_neden`) konum hesaplayıcının (`konum_hesap`) işidir; `candidate` (birleştirme adayı, B15) her tespitte False'tur.
 """
 import json
 import threading
@@ -34,7 +35,7 @@ def durum_belirle(isci_yaniti, esleme):
                 atilan += 1
                 continue
             x1, y1, x2, y2 = (float(v) for v in t["kutu"])
-            tespitler.append({"sinif": e[0], "sinif_no": e[1], "guven": float(t["guven"]), "kutu": [x1, y1, x2, y2], "konum": None, "aday": False})
+            tespitler.append({"sinif": e[0], "sinif_no": e[1], "guven": float(t["guven"]), "kutu": [x1, y1, x2, y2], "konum": None, "konum_neden": None, "aday": False})
     except (KeyError, TypeError, ValueError) as ex:
         return ISLEM_HATASI, [], 0, f"işçi yanıtı çözülemedi: {ex!r}"
     return (TESPIT if tespitler else TESPIT_YOK), tespitler, atilan, None
@@ -57,8 +58,8 @@ def kayit_olustur(arac_kimligi, n, sim_damga_ns, durum, tespitler=(), atilan=0, 
 
 
 def mesaj_olustur(kayit, FrameResult, Detection, zaman_olustur):
-    """Kayıt sözlüğünden `FrameResult` iletisi. `zaman_olustur(ns)` builtin_interfaces/Time döndürür. `has_position` ve `candidate` bu sürümde hep False
-    (konum B14'te, birleştirme adayı B15'te dolacak)."""
+    """Kayıt sözlüğünden `FrameResult` iletisi. `zaman_olustur(ns)` builtin_interfaces/Time döndürür. `has_position`/`east`/`north` kayıttaki `konum`dan (konumsuzda false ve 0);
+    `candidate` her tespitte False (birleştirme adayı B15'tir)."""
     m = FrameResult()
     m.vehicle_id = kayit["arac_kimligi"]
     m.numbering_mode = FrameResult.NUMBERING_GRID
@@ -71,8 +72,12 @@ def mesaj_olustur(kayit, FrameResult, Detection, zaman_olustur):
         d.class_id = t["sinif_no"]
         d.confidence = t["guven"]
         d.box_x_min, d.box_y_min, d.box_x_max, d.box_y_max = t["kutu"]
-        d.has_position = False
-        d.east = d.north = 0.0
+        if t.get("konum") is not None:
+            d.has_position = True
+            d.east, d.north = (float(v) for v in t["konum"])
+        else:
+            d.has_position = False
+            d.east = d.north = 0.0
         d.candidate = False
         m.detections.append(d)
     return m

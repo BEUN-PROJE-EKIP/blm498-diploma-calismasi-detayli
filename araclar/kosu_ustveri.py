@@ -53,6 +53,10 @@ def oku(yol):
         return json.load(f)
 
 
+# Test anahtarları (planlama/sozlesmeler.md "Test anahtarları"): koşu başlarken ortamda doluysa adları kosu.json `test_anahtarlari` listesine yazılır
+TEST_ANAHTARLARI = ("KONUM_TEST_SAHTE", "KAMERA_ENJEKSIYON", "MERKEZI_SHA", "MERKEZI_ARAC_ENJEKSIYON", "ISCI_ENJEKSIYON", "MERKEZI_ENJEKSIYON")
+
+
 def yaz(yol, d):
     gecici = yol + ".tmp"
     with open(gecici, "w", encoding="utf-8") as f:
@@ -77,6 +81,11 @@ def main(a):
     if len(a) == 3 and a[0] == "mimari":
         d = oku(a[1])
         d["mimari_modu"] = a[2]
+        yaz(a[1], d)
+        return 0
+    if len(a) == 2 and a[0] == "test-anahtarlari":
+        d = oku(a[1])
+        d["test_anahtarlari"] = [k for k in TEST_ANAHTARLARI if os.environ.get(k)]        # yalnız adlar (değerler yazılmaz)
         yaz(a[1], d)
         return 0
     if len(a) == 5 and a[0] == "surec-ekle":
