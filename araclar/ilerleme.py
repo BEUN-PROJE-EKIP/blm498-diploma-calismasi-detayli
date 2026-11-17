@@ -9,13 +9,15 @@ Kullanım:
 
 Ağaç biçimi: maddeler kilometre taşı başlıkları altında (`## M2 · Üç araç`) iş sırasıyla dizilir; madde satırı
   - [x] **B5** · w3 · M2 · geliştirme · Kısa ad · açıklama · ilgili gereksinim · Bitti: ...
-Kilometre taşları tablosu (`## Kilometre taşları`): M, Ad, Sorumlu, Makine, Bekler. Paket ağırlıkları tablosu (`## Paket ağırlıkları`): Paket, Tarih, Ad, Ağırlık;
+Kilometre taşları tablosu (`## Kilometre taşları`): M, Ad, Sorumlu, Makine, Bekler. Paket ağırlıkları tablosu (`## Paket ağırlıkları`): Paket, Tarih, Ad, Ağırlık.
+Ana hedefler tablosu (`## Ana hedefler`): Hedef, Ad, Paketler (virgülle), Kaynak; her paket tam bir hedefe aittir;
 bir maddenin paketi kimliğinin harfinden (K, A, B, C, D, E) okunur. Eksik ya da yanlış alan açık hatayla (satır numarası) reddedilir. Madde düzeyinde bağımlılık izlenmez.
 
 Hesap: bir maddenin katkısı = paket ağırlığı × w ÷ paketin tüm maddelerinin w toplamı.
   Genel tamamlanma    = biten maddelerin katkı toplamı (bütün maddeler, makine işi dahil; paket ağırlıkları toplamı 100).
   Geliştirme oranı    = biten `geliştirme` maddelerinin katkısı ÷ bütün `geliştirme` maddelerinin katkısı.
-  Kilometre taşı oranı = aynı formül, yalnız o M'nin maddeleri üzerinden. `w0` (isteğe bağlı) maddeler hiçbir orana girmez.
+  Kilometre taşı oranı = aynı formül, yalnız o M'nin maddeleri üzerinden.
+  Hedef oranı         = aynı formül, yalnız hedefin paketlerindeki maddeler üzerinden. `w0` (isteğe bağlı) maddeler hiçbir orana girmez.
 """
 import pathlib
 import re
@@ -33,6 +35,7 @@ MADDE_RE = re.compile(r"^- \[( |x)\] \*\*(\w+)\*\* · w(\d+) · (\w+) · ([^·]+
 KIMLIK_RE = re.compile(r"^([A-Z])\d+[a-z]?$")
 TABLO_BASLIK = "## Kilometre taşları"
 PAKET_TABLO_BASLIK = "## Paket ağırlıkları"
+HEDEF_TABLO_BASLIK = "## Ana hedefler"
 M_RE = re.compile(r"^(K|M\d+[a-z]?)$")
 BASLIK_RE = re.compile(r"^## (K|M\d+[a-z]?) · (.+?)\s*$")
 
@@ -42,13 +45,14 @@ class AgacHatasi(Exception):
 
 
 def oku():
-    """(kilometre taşları, paketler) döndürür; biçim hatasında AgacHatasi (satır numarasıyla).
+    """(kilometre taşları, paketler, hepsi, hedefler) döndürür; biçim hatasında AgacHatasi (satır numarasıyla).
     paketler: {kod: {"agirlik", "hafta", "ad", "maddeler": []}}; maddeler dosya sırasıyla her paketin listesine ve `hepsi` sırasına eklenir."""
     kilometre = {}
     paketler = {}
+    hedefler = {}
     hepsi = []
     kimlikler = set()
-    bolum = ""        # "km" | "paket" | "madde" | ""
+    bolum = ""        # "km" | "paket" | "hedef" | "madde" | ""
     bolum_m = ""
     for no, satir in enumerate(AGAC.read_text(encoding="utf-8").splitlines(), 1):
         if satir.startswith("## "):
@@ -57,6 +61,8 @@ def oku():
                 bolum = "km"
             elif satir.strip() == PAKET_TABLO_BASLIK:
                 bolum = "paket"
+            elif satir.strip() == HEDEF_TABLO_BASLIK:
+                bolum = "hedef"
             else:
                 b = BASLIK_RE.match(satir)
                 if b:
@@ -68,7 +74,7 @@ def oku():
                 else:
                     bolum = ""
             continue
-        if bolum in ("km", "paket") and satir.startswith("|"):
+        if bolum in ("km", "paket", "hedef") and satir.startswith("|"):
             h = [x.strip() for x in satir.strip().strip("|").split("|")]
             if bolum == "km" and h and M_RE.match(h[0]):
                 if len(h) != 5 or not all(h):
@@ -83,6 +89,12 @@ def oku():
                 if h[0] in paketler:
                     raise AgacHatasi(f"{AGAC.name}:{no}: paket tekrarlanıyor: {h[0]}")
                 paketler[h[0]] = {"kod": h[0], "hafta": h[1], "ad": h[2], "agirlik": int(h[3]), "maddeler": []}
+            elif bolum == "hedef" and h and h[0].isdigit():
+                if len(h) != 4 or not all(h):
+                    raise AgacHatasi(f"{AGAC.name}:{no}: hedef satırı 4 dolu hücre içermeli (Hedef, Ad, Paketler, Kaynak)")
+                if h[0] in hedefler:
+                    raise AgacHatasi(f"{AGAC.name}:{no}: hedef tekrarlanıyor: {h[0]}")
+                hedefler[h[0]] = {"ad": h[1], "paketler": [x.strip() for x in h[2].split(",")], "kaynak": h[3], "satir": no}
             continue
         if not MADDE_ISARET_RE.match(satir):
             continue
@@ -111,15 +123,29 @@ def oku():
                  "tur": tur, "kisa": kisa, "aciklama": parcalar[0].strip(), "ilgili": ilgili, "satir": no}
         paketler[k.group(1)]["maddeler"].append(madde)
         hepsi.append(madde)
-    return kilometre, paketler, hepsi
+    return kilometre, paketler, hepsi, hedefler
 
 
-def kontrol_et(kilometre, paketler, hepsi):
+def kontrol_et(kilometre, paketler, hepsi, hedefler):
     hatalar = []
     if not kilometre:
         hatalar.append(f"{AGAC.name}: '{TABLO_BASLIK}' tablosu yok ya da boş")
     if not paketler:
         hatalar.append(f"{AGAC.name}: '{PAKET_TABLO_BASLIK}' tablosu yok ya da boş")
+    if not hedefler:
+        hatalar.append(f"{AGAC.name}: '{HEDEF_TABLO_BASLIK}' tablosu yok ya da boş")
+    sahip = {}
+    for kod, h in hedefler.items():
+        for p in h["paketler"]:
+            if p not in paketler:
+                hatalar.append(f"{AGAC.name}:{h['satir']}: hedef {kod}: '{p}' paket ağırlıkları tablosunda yok")
+            elif p in sahip:
+                hatalar.append(f"{AGAC.name}:{h['satir']}: hedef {kod}: '{p}' paketi zaten hedef {sahip[p]}'e ait")
+            else:
+                sahip[p] = kod
+    for p in paketler:
+        if hedefler and p not in sahip:
+            hatalar.append(f"{AGAC.name}: '{p}' paketi hiçbir ana hedefe ait değil")
     for kod, k in kilometre.items():
         yer = f"{AGAC.name}:{k['satir']}: {kod}"
         for b in k["bekler"]:
@@ -174,7 +200,7 @@ def durum_simgesi(maddeler):
     return "◐" if biten else "☐"
 
 
-def uret(kilometre, paketler, hepsi):
+def uret(kilometre, paketler, hepsi, hedefler):
     if sum(p["agirlik"] for p in paketler.values()) != 100:
         raise SystemExit("(-) Paket ağırlıklarının toplamı 100 değil")
     katkilar(paketler)
@@ -191,6 +217,20 @@ def uret(kilometre, paketler, hepsi):
     s.append(f"**Geliştirme oranı: {yuzde(gel)}** ({sum(1 for m in gelistirme if m['bitti'])} / {len(gelistirme)} geliştirme maddesi; yalnız kod ve altyapı işi)")
     s.append("")
     s.append(f"`{cubuk(gel)}` {yuzde(gel)}")
+    s.append("")
+    s.append("**Ana hedefler** (belgeye göre; ana amaç uçta ve merkezi modun beş ölçütle karşılaştırılmasıdır). Bir hedef, paketlerindeki bütün maddeler bitince tamamlanır.")
+    s.append("")
+    s.append("| | Hedef | Paketler | Tamamlanma |")
+    s.append("|---|---|---|---|")
+    tamam = 0
+    for kod, h in hedefler.items():
+        ms = [m for m in hepsi if m["paket"] in h["paketler"]]
+        o = 100 * oran(ms)
+        simge = durum_simgesi(ms)
+        tamam += simge == "✔"
+        s.append(f"| {simge} | **{kod}.** {h['ad']} | {', '.join(h['paketler'])} | `{cubuk(o)}` {yuzde(o)} |")
+    s.append("")
+    s.append(f"**Tamamlanan ana hedef: {tamam} / {len(hedefler)}**")
     s.append("")
     s.append("Kilometre taşları (✔ bitti, ◐ sürüyor, ☐ başlamadı). Maddeler iş sırasıyla dizilidir: sıradaki iş, bitmemiş en üstteki maddedir. Biten kilometre taşları kapalıdır, başlığına tıklayınca açılır.")
     s.append("")
@@ -234,16 +274,16 @@ def main():
         print(__doc__)
         return 0
     try:
-        kilometre, paketler, hepsi = oku()
+        kilometre, paketler, hepsi, hedefler = oku()
     except AgacHatasi as e:
         print(f"(-) {e}")
         return 1
-    hatalar = kontrol_et(kilometre, paketler, hepsi)
+    hatalar = kontrol_et(kilometre, paketler, hepsi, hedefler)
     if hatalar:
         for h in hatalar:
             print(f"(-) {h}")
         return 1
-    blok = uret(kilometre, paketler, hepsi)
+    blok = uret(kilometre, paketler, hepsi, hedefler)
     if arg == "":
         print(blok)
         return 0

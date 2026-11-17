@@ -85,6 +85,17 @@ Kendi işlerin için: kilometre taşında adının yazdığı satırlar; sırada
 
 `█████████░░░░░░░░░░░` %45,7
 
+**Ana hedefler** (belgeye göre; ana amaç uçta ve merkezi modun beş ölçütle karşılaştırılmasıdır). Bir hedef, paketlerindeki bütün maddeler bitince tamamlanır.
+
+| | Hedef | Paketler | Tamamlanma |
+|---|---|---|---|
+| ◐ | **1.** Sürü sistemi: üç İHA, dört sürü işlevi, uçta ve merkezi mod | B | `███████████████░░░░░` %77,3 |
+| ☐ | **2.** Görüntü işleme: YOLO26 modeli, veri hattı ve eğitim | A | `░░░░░░░░░░░░░░░░░░░░` %0,0 |
+| ◐ | **3.** Deney düzeneği: başkalarının da çalıştırabileceği kilitli, tekrarlanabilir simülasyon ortamı | K, C | `███████░░░░░░░░░░░░░` %33,3 |
+| ☐ | **4.** Deney sonuçları: 30 sahnede 60 koşu ve karar kuralına göre rapor | D, E | `░░░░░░░░░░░░░░░░░░░░` %0,0 |
+
+**Tamamlanan ana hedef: 0 / 4**
+
 Kilometre taşları (✔ bitti, ◐ sürüyor, ☐ başlamadı). Maddeler iş sırasıyla dizilidir: sıradaki iş, bitmemiş en üstteki maddedir. Biten kilometre taşları kapalıdır, başlığına tıklayınca açılır.
 
 <details>
@@ -399,7 +410,7 @@ Yazılım bileşenlerini sınar; çoğu başsız Gazebo + PX4 açar ve kendi art
 
 1. **İşin:** `planlama/gelistirme_agaci.md` kilometre taşı tablosunda adın yazan M'ler; sıradaki iş, bitmemiş en üstteki madde. Bir maddeye başlamadan ekibe haber ver. Sorumluluk yalnız iş bölümüdür; herkes her dosyada çalışabilir.
 2. **Commit ve push:** `main`'e doğrudan commit ve push serbest; istersen dal + PR kullan. Push'tan önce `git pull`; force push yapma. Commit mesajı Türkçe: `alan: kısa açıklama`.
-3. **Bitti demek:** maddenin **"Bitti:" ölçütü** gerçekten sağlanınca ağaçta `[x]` yap. README ilerlemesini `python3 araclar/ilerleme.py --yaz` ile yenile.
+3. **Bitti demek:** maddenin **"Bitti:" ölçütü** gerçekten sağlanınca ağaçta `[x]` yap. README ilerlemesini `python3 araclar/ilerleme.py --yaz` ile yenile (asistan bunu madde bitince sormadan yapar).
 4. **Büyük değişiklikten sonra:** `./setup/verify_all.sh` hepsi `(+)`; `setup/` ya da `config/` değiştiyse `./setup/lock_ozet.sh` ile özetleri yenile.
 5. **Kilitli değerler** (25 Mbit/s ağ profili, çıkarım ayarları, karar kuralları, kilit dosyaları) sonuçlara bakılarak değiştirilmez. Yapay zekâ asistanıyla çalışıyorsan ona önce `CLAUDE.md`'yi okut; tüm kurallar orada.
 

@@ -35,6 +35,7 @@ Kimin hangi kilometre taşından sorumlu olduğu `planlama/gelistirme_agaci.md` 
 ## Çalışma alışkanlıkları
 
 - Bir işe başlamadan önce ağaçtaki ilgili maddeyi ve **"Bitti:" ölçütünü** oku. Ölçüt gerçekten sağlanmadan maddeyi işaretleme.
+- **İlerleme otomatik yenilenir (sormadan):** bir maddenin "Bitti:" ölçütü sağlanıp ağaçta `[x]` işaretlendiğinde (bir kilometre taşının son maddesi bittiğinde de) asistan kullanıcıya sormadan `python3 araclar/ilerleme.py --yaz` çalıştırır, `--kontrol` ile doğrular ve README değişikliğini aynı commit'e katar. Kullanıcıya yeni genel yüzdeyi tek satırla bildirir.
 - Büyük bir değişiklikten önce planı kısaca yaz ve onay al.
 - Belge ile kod ya da iki belge çelişiyorsa tahmin yürütme; sor.
 - Kapsam dışı özellik ekleme. Belgede olmayan iddia kurma (operasyonel yeterlilik, gerçek donanım, "iyileşme olacak" gibi). Sonuçlar deneyle sınanır, önceden varsayılmaz.
@@ -63,4 +64,4 @@ Kimin hangi kilometre taşından sorumlu olduğu `planlama/gelistirme_agaci.md` 
 - `main` dalına doğrudan commit ve push serbesttir; PR ve onay zorunlu değildir. İstersen kendi dalında çalışıp PR açabilirsin.
 - Push'tan önce `git pull` yap (başkasının işinin üzerine yazmamak için). **Force push yapma**; gerekiyorsa önce ekibe haber ver.
 - Büyük bir değişiklikten sonra `./setup/verify_all.sh` ile doğrula; `setup/` veya `config/` değiştiyse `./setup/lock_ozet.sh --check`.
-- README ilerleme bölümünü `python3 araclar/ilerleme.py --yaz` ile herkes yenileyebilir.
+- README ilerleme bölümünü `python3 araclar/ilerleme.py --yaz` ile herkes yenileyebilir; asistan bunu her biten maddeden sonra kendiliğinden yapar (bkz. Çalışma alışkanlıkları).

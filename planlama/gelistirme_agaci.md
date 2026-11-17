@@ -53,6 +53,17 @@ Madde, kimliğinin harfiyle (K, A, B, C, D, E) bir iş paketine aittir; paket a�
 | D | 19 Nisan 2027 - 9 Mayıs 2027 | Ana deneyler | 15 |
 | E | 10 Mayıs 2027 - 28 Mayıs 2027 | Analiz ve raporlama | 10 |
 
+## Ana hedefler
+
+Projenin ana hedefleri (GŞÖA v2 3.1 "Amaç" ve "Hedefler", 3.2 "Ürün Değeri"; el kitabı "Amaç ve Hedefler"). Ana amaç, uçta mod ile merkezi modu beş ölçütle (D, B, T, R, L) karşılaştırmaktır; hedefler bu amaca hizmet eder. Her paket tam bir hedefe aittir; hedefin oranı, paketlerindeki maddelerin aynı ağırlıklı formülle hesaplanan tamamlanmasıdır (`araclar/ilerleme.py`). README'de ayrı tablo olarak gösterilir.
+
+| Hedef | Ad | Paketler | Kaynak |
+|---|---|---|---|
+| 1 | Sürü sistemi: üç İHA, dört sürü işlevi, uçta ve merkezi mod | B | GŞÖA 3.1 Hedef 1 |
+| 2 | Görüntü işleme: YOLO26 modeli, veri hattı ve eğitim | A | GŞÖA 3.1 Hedef 2 |
+| 3 | Deney düzeneği: başkalarının da çalıştırabileceği kilitli, tekrarlanabilir simülasyon ortamı | K, C | GŞÖA 3.2 Yeniden üretilebilirlik, 3.4 Hazırlık |
+| 4 | Deney sonuçları: 30 sahnede 60 koşu ve karar kuralına göre rapor | D, E | GŞÖA 3.1 Hedef 3 ve 4 |
+
 ## K · Kurulum ve doğrulama
 
 - [x] **K1** · w2 · K · geliştirme · Temel yazılım kurulumu · Ubuntu 24.04, ROS 2 Jazzy, Gazebo Harmonic 8.15, PX4 v1.16.0, MAVSDK-Python 3.17.4 + mavsdk_server kurulumu; Gazebo grafik arayüzsüz, yalnız sunucu modunda çalışır · FR-31 · Bitti: `verify_all.sh` hepsi `(+)`, sıfırdan kurulum yeniden üretildi
