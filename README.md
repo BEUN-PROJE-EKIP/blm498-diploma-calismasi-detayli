@@ -25,6 +25,51 @@ Bu depo **detaylı dünya deposudur**: projenin tamamının detaylı (yıkık ş
 
 Önerilen sıra: önce 6 ve 5 (makine ve altyapı kaldırıyor mu), sonra 1–3 (tasarım kararları), en son 4 (en uzun iş).
 
+### Karar bekleyen sorular
+
+Soru 4, 5 ve 6 ölçüm ve iştir. Soru 1, 2 ve 3 ise **karar** ister. Kararı Mikail verir (`CLAUDE.md`, "Esneklik kuralı"); 1. karar projenin özünü etkilediği için ekiple konuşulması önerilir. Verilen karar `planlama/kararlar.md`'ye yazılır ve burada **Seçilen** satırı doldurulur.
+
+#### Karar 1: Hangi moloz "hedef"? (soru 1)
+
+**Durum:** detaylı şehirde ~1046 moloz parçası ve 23 yıkık bina var; sistemin bulması gereken yalnız 15 enkaz hedefi tanımlı.
+**Neden sorun:** sonuç, cevap anahtarına (hedef listesi) göre puanlanır. Model gerçek bir molozu bulsa bile o moloz listede yoksa **yanlış alarm (FP)** sayılır; model haksız yere kötü görünür, precision ve FP/görev anlamsızlaşır.
+
+| Seçenek | Ne demek | Artı | Eksi |
+|---|---|---|---|
+| **A** Her şey hedef | Bütün moloz ve yıkık binalar hedef listesine girer | Cevap anahtarı tam | Belge test sahnesinde **tam 15 enkaz** diyor; 1000+ hedef belgeyle çelişir |
+| **B** Enkaz tanımı daralır | Yalnız belirli bir tür hedeftir (ör. yıkık ev); geri kalan moloz arka plandır, model ikisini ayırt etmeyi öğrenir | Detaylı görünüm korunur; gerçekçi | Arka plan, hedeften görsel olarak **açıkça farklı** olmalı; benzerse FP artar. Tanım yazılı ve ölçülebilir olmalı |
+| **C** Arka plan molozu azalır | 15 enkaz hedefi kalır; diğer moloz kaldırılır ya da moloza benzemeyen öğelere (araç, yol izi, leke) çevrilir | Ölçüm en temiz | Detaylı görünüm azalır, sade dünyaya yaklaşır |
+
+**Öneri: B.** Hedef = yıkık ev (ana depodaki A1 tanımıyla aynı, Collapsed House ve varyantları). Arka plandaki moloz yıkık eve benzemeyen biçimde kalır: yassı, dağınık, küçük parçalar; ev biçiminde yığın yok. Ön koşul: 30 m görüntülerinde arka plan molozu ile yıkık evin karışmadığı gözle ve bir deneme eğitimiyle (FP sayısı) sınanır; karışıyorsa C'ye geçilir.
+**Seçilen:** —
+
+#### Karar 2: Yüksek yapılar kalsın mı? (soru 3)
+
+**Durum:** şehirde katlı yıkık binalar ve ≈ 24 m'lik bir kule var; İHA'lar yerden 30 m'de uçar (belge).
+**Neden sorun:** (a) konum hesabı "yer düz" varsayımına dayanır; yüksek yapılar bunu bozar. (b) Bina bir hedefin önünü kapatırsa kısmi örtülme olur; belgede örtülme yoktur. (c) 24 m'lik kule 30 m'deki kameraya 6 m kalır ve görüşü kapatır.
+
+| Seçenek | Ne demek | Artı | Eksi |
+|---|---|---|---|
+| **A** Yüksek yapılar kalkar | Yalnız alçak yıkık yapılar kalır (≤ 5 m, ana depodaki `ENKAZ_YUKSEKLIK_MAKS_M` ile aynı) | Konum hesabı ve örtülme kuralı korunur; belgeyle çelişki yok | Şehir siluetinin bir kısmı gider |
+| **B** Kalır, hedefler uzak tutulur | Binalar kalır; hedefler binalardan, örtülme olmayacak uzaklıkta yerleşir | Görünüm zengin kalır | Her sahnede örtülme denetimi gerekir; kule görüşü yine kapatır; kenarda kesik bina görüntüleri FP üretebilir |
+| **C** İrtifa yükselir | Uçuş 30 m'den yükseğe alınır | Yapılar sorun olmaz | **Belgeden sapma** (FR-7: 30 m); insanlar daha da küçülür (30 m'de zaten 6–8 px); önerilmez |
+
+**Öneri: A.** 5 m'yi aşan yapılar (kule, katlı binalar) sahneden çıkarılır; alçak yıkık yapılar, araçlar ve arka plan kalır. Belgeyle çelişki doğurmayan tek seçenek budur.
+**Seçilen:** —
+
+#### Karar 3: 100 sahne nasıl üretilecek? (soru 2 ve 4)
+
+**Durum:** proje 60 eğitim + 10 doğrulama + 30 test sahnesi ister; her sahne tohumdan otomatik üretilir, bölümler ayrıktır. Test sahnesinde tam 15 insan + 15 enkaz ve hedef merkezleri arası ≥ 10 m (belge). Detaylı şehir şu an **tek, elle hazırlanmış** bir sahnedir.
+
+| Seçenek | Ne demek | Artı | Eksi |
+|---|---|---|---|
+| **A** Şehir sabit, hedefler değişir | Yollar, yapılar ve arka plan her sahnede aynı; tohumla yalnız hedeflerin yeri, yönü, görünüm varyantı ve ışık değişir | Az iş; mevcut sahne üreticisine yakın | Model aynı arka planı ezberleyebilir; eğitim ve test arka planı aynı olur |
+| **B** Şehir de her sahnede üretilir | Yapı ve moloz dağılımı da tohumla değişir | En gerçekçi; ezber riski yok | En çok iş: şehir üreticisi yazılmalı; her sahnede yerleşim ve örtülme denetimi |
+| **C** Birkaç sabit şehir | 3–5 farklı şehir düzeni hazırlanır; eğitim, doğrulama ve test **ayrı** düzenlerden seçilir; hedefler tohumla değişir | Ezber riski azalır, iş makul | A'dan fazla, B'den az iş |
+
+**Öneri: önce A, gerekirse C.** Fizibilite için en hızlı yol A: mevcut şehirde hedefler tohumla yerleşir, 15 + 15 ve ≥ 10 m kuralı üreticide denetlenir. Deneme eğitiminde arka plan ezberi görülürse (doğrulamada iyi, farklı düzende kötü) C'ye geçilir. B fizibilite için gereksiz büyük iş.
+**Seçilen:** —
+
 ---
 
 ## Kilometre taşları ve ilerleme
