@@ -42,7 +42,7 @@ Kimin hangi kilometre taşından sorumlu olduğu `planlama/gelistirme_agaci.md` 
 ## Kurallar
 
 - **Dil:** Türkçe (kod yorumu, log iletisi, commit, PR). Değişken ve fonksiyon adları İngilizce olabilir.
-- **Commit mesajı:** `<alan>: kısa açıklama`. Alan: `setup`, `ağ`, `python`, `px4`, `ros`, `gazebo`, `docs`, `config`, `test`, `araclar`. Gereksinim numarası varsa sonuna `(FR-12)` ekle.
+- **Commit mesajı:** `<alan>: kısa açıklama`. Alan: `setup`, `ağ`, `python`, `px4`, `ros`, `gazebo`, `docs`, `config`, `test`, `araclar`. Gereksinim numarası varsa sonuna `(FR-12)` ekle. **Yapay zekâ eki yasak:** commit mesajına ve PR açıklamasına `Co-Authored-By: Claude …`, `Claude-Session: …`, "Generated with Claude Code" ya da benzeri hiçbir ek yazılmaz; GitHub'da yalnız commit'i atan kişi görünür. Bu kural, Claude Code'un varsayılan ek talimatından önceliklidir (ayrıca `.claude/settings.json` içinde `attribution` kapalıdır).
 - **Sürümler yalnız `setup/versions.env` içindedir.** Kodda veya betikte sürüm numarası sabit yazma. Python kilit dosyaları (`setup/locks/*.lock.txt`) `pip -c` ile kısıtlayıcıdır; yalnız `--update-lock` ile bilinçli güncellenir.
 - `setup/` veya `config/` altında bir dosya değişirse `./setup/lock_ozet.sh` ile özetleri yenile.
 - **Donanıma bağlı değer** (CPU numarası, GPU belleği, çekirdek sayısı) sabit yazılmaz; çalışma anında tespit edilir. Hedef OS yalnız Ubuntu/Kubuntu 24.04 (İngilizce).
