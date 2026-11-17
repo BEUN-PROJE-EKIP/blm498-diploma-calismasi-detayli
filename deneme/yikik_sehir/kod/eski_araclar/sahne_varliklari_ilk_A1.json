@@ -1,0 +1,342 @@
+{
+  "surum": 1,
+  "tur": "sahne_varliklari",
+  "aciklama": "A1 sahne varlıkları: kaynak, sürüm, lisans (yalnız CC0 / CC-BY), atıf ve SHA-256. Dosyalar depoya girmez; `python3 araclar/varlik_kur.py kur` indirir ve doğrular (kararlar.md, 2026-11-14 lisans kuralı).",
+  "varliklar": [
+    {
+      "kimlik": "fuel_standing_person",
+      "tur": "model",
+      "kaynak": "Gazebo Fuel, OpenRobotics",
+      "ad": "Standing person",
+      "surum": "3",
+      "url": "https://fuel.gazebosim.org/1.0/OpenRobotics/models/Standing%20person/3/Standing%20person.zip",
+      "sayfa": "https://app.gazebosim.org/OpenRobotics/fuel/models/Standing%20person/3",
+      "lisans": "CC0-1.0",
+      "lisans_url": "https://creativecommons.org/publicdomain/zero/1.0/",
+      "atif": "",
+      "indirme_tarihi": "2026-11-16",
+      "dosya": "fuel_OpenRobotics_Standing_person_v3.zip",
+      "boyut_bayt": 26080565,
+      "sha256": "385c4c518662f75b6c719849a4f47100bac7617058407c7d6db41bf802fc5c5e",
+      "klasor": "person_standing"
+    },
+    {
+      "kimlik": "fuel_casual_female",
+      "tur": "model",
+      "kaynak": "Gazebo Fuel, OpenRobotics",
+      "ad": "Casual female",
+      "surum": "4",
+      "url": "https://fuel.gazebosim.org/1.0/OpenRobotics/models/Casual%20female/4/Casual%20female.zip",
+      "sayfa": "https://app.gazebosim.org/OpenRobotics/fuel/models/Casual%20female/4",
+      "lisans": "CC0-1.0",
+      "lisans_url": "https://creativecommons.org/publicdomain/zero/1.0/",
+      "atif": "",
+      "indirme_tarihi": "2026-11-16",
+      "dosya": "fuel_OpenRobotics_Casual_female_v4.zip",
+      "boyut_bayt": 27264357,
+      "sha256": "e03944df8f010c7d6cf85fe61b2a9bf2899eed971e73fb76461f4705edeffe5d",
+      "klasor": "casual_female"
+    },
+    {
+      "kimlik": "fuel_scrubs",
+      "tur": "model",
+      "kaynak": "Gazebo Fuel, OpenRobotics",
+      "ad": "Scrubs",
+      "surum": "2",
+      "url": "https://fuel.gazebosim.org/1.0/OpenRobotics/models/Scrubs/2/Scrubs.zip",
+      "sayfa": "https://app.gazebosim.org/OpenRobotics/fuel/models/Scrubs/2",
+      "lisans": "CC-BY-4.0",
+      "lisans_url": "http://creativecommons.org/licenses/by/4.0/",
+      "atif": "\"Scrubs\" by Open Robotics, Gazebo Fuel, https://app.gazebosim.org/OpenRobotics/fuel/models/Scrubs, licensed under CC BY 4.0. Used unmodified; rendered lying (rotated).",
+      "indirme_tarihi": "2026-11-17",
+      "dosya": "fuel_OpenRobotics_Scrubs_v2.zip",
+      "boyut_bayt": 1028421,
+      "sha256": "1e4a5fbdfc8d02c688290d1c4e39430ec872bf3f976c5fc720cf6e98c740aea7",
+      "klasor": "Scrubs"
+    },
+    {
+      "kimlik": "fuel_rescue_randy",
+      "tur": "model",
+      "kaynak": "Gazebo Fuel, OpenRobotics",
+      "ad": "Rescue Randy",
+      "surum": "3",
+      "url": "https://fuel.gazebosim.org/1.0/OpenRobotics/models/Rescue%20Randy/3/Rescue%20Randy.zip",
+      "sayfa": "https://app.gazebosim.org/OpenRobotics/fuel/models/Rescue%20Randy/3",
+      "lisans": "CC-BY-4.0",
+      "lisans_url": "https://creativecommons.org/licenses/by/4.0/",
+      "atif": "\"Rescue Randy\" by Open Robotics (Ian Chen, Cole Biesemeyer), Gazebo Fuel, https://app.gazebosim.org/OpenRobotics/fuel/models/Rescue%20Randy, licensed under CC BY 4.0. Used unmodified; rendered lying (rotated) without the thermal plugin.",
+      "indirme_tarihi": "2026-11-16",
+      "dosya": "fuel_OpenRobotics_Rescue_Randy_v3.zip",
+      "boyut_bayt": 10967168,
+      "sha256": "abf964e3c417318156ad8fe6d34bc815f6be0b0843cea4ce73fa76883d40f4d2",
+      "klasor": "rescue_randy"
+    },
+    {
+      "kimlik": "acg_Ground048",
+      "tur": "doku",
+      "kaynak": "ambientCG",
+      "ad": "Ground 048 (koyu toprak)",
+      "surum": "1K-JPG",
+      "url": "https://ambientcg.com/get?file=Ground048_1K-JPG.zip",
+      "sayfa": "https://ambientcg.com/view?id=Ground048",
+      "lisans": "CC0-1.0",
+      "lisans_url": "https://docs.ambientcg.com/license/",
+      "atif": "",
+      "indirme_tarihi": "2026-11-16",
+      "dosya": "Ground048_1K-JPG.zip",
+      "boyut_bayt": 10655049,
+      "sha256": "3decfdd20e6c8f8c1ff02840cbd336922fca678e23987111af4bebb0a7a89c96",
+      "klasor": "Ground048"
+    },
+    {
+      "kimlik": "acg_Grass004",
+      "tur": "doku",
+      "kaynak": "ambientCG",
+      "ad": "Grass 004 (çim)",
+      "surum": "1K-JPG",
+      "url": "https://ambientcg.com/get?file=Grass004_1K-JPG.zip",
+      "sayfa": "https://ambientcg.com/view?id=Grass004",
+      "lisans": "CC0-1.0",
+      "lisans_url": "https://docs.ambientcg.com/license/",
+      "atif": "",
+      "indirme_tarihi": "2026-11-16",
+      "dosya": "Grass004_1K-JPG.zip",
+      "boyut_bayt": 11003149,
+      "sha256": "4b63495f459db8481f4d5144e4e9069345c81cf898cc71f2216f5dd3bb344469",
+      "klasor": "Grass004"
+    },
+    {
+      "kimlik": "acg_Gravel022",
+      "tur": "doku",
+      "kaynak": "ambientCG",
+      "ad": "Gravel 022 (çakıl)",
+      "surum": "1K-JPG",
+      "url": "https://ambientcg.com/get?file=Gravel022_1K-JPG.zip",
+      "sayfa": "https://ambientcg.com/view?id=Gravel022",
+      "lisans": "CC0-1.0",
+      "lisans_url": "https://docs.ambientcg.com/license/",
+      "atif": "",
+      "indirme_tarihi": "2026-11-16",
+      "dosya": "Gravel022_1K-JPG.zip",
+      "boyut_bayt": 10076010,
+      "sha256": "7049ff2bd4d8f87317c26bbffb8c5621208fbfcc615765038eef92fd227c220f",
+      "klasor": "Gravel022"
+    },
+    {
+      "kimlik": "acg_Concrete034",
+      "tur": "doku",
+      "kaynak": "ambientCG",
+      "ad": "Concrete 034 (beton)",
+      "surum": "1K-JPG",
+      "url": "https://ambientcg.com/get?file=Concrete034_1K-JPG.zip",
+      "sayfa": "https://ambientcg.com/view?id=Concrete034",
+      "lisans": "CC0-1.0",
+      "lisans_url": "https://docs.ambientcg.com/license/",
+      "atif": "",
+      "indirme_tarihi": "2026-11-16",
+      "dosya": "Concrete034_1K-JPG.zip",
+      "boyut_bayt": 3657575,
+      "sha256": "5839d284d94ffb8d2a56df742ec522b13dd311c52dbd42b8fd33f0409ceedb81",
+      "klasor": "Concrete034"
+    },
+    {
+      "kimlik": "acg_Bricks059",
+      "tur": "doku",
+      "kaynak": "ambientCG",
+      "ad": "Bricks 059 (tuğla)",
+      "surum": "1K-JPG",
+      "url": "https://ambientcg.com/get?file=Bricks059_1K-JPG.zip",
+      "sayfa": "https://ambientcg.com/view?id=Bricks059",
+      "lisans": "CC0-1.0",
+      "lisans_url": "https://docs.ambientcg.com/license/",
+      "atif": "",
+      "indirme_tarihi": "2026-11-16",
+      "dosya": "Bricks059_1K-JPG.zip",
+      "boyut_bayt": 8271312,
+      "sha256": "847dd2e4932563bbb67fdc2bad3cc08db72d74b3e81d242f31b663d8a3ea744b",
+      "klasor": "Bricks059"
+    },
+    {
+      "kimlik": "acg_WoodSiding008",
+      "tur": "doku",
+      "kaynak": "ambientCG",
+      "ad": "Wood Siding 008 (ahşap)",
+      "surum": "1K-JPG",
+      "url": "https://ambientcg.com/get?file=WoodSiding008_1K-JPG.zip",
+      "sayfa": "https://ambientcg.com/view?id=WoodSiding008",
+      "lisans": "CC0-1.0",
+      "lisans_url": "https://docs.ambientcg.com/license/",
+      "atif": "",
+      "indirme_tarihi": "2026-11-16",
+      "dosya": "WoodSiding008_1K-JPG.zip",
+      "boyut_bayt": 6941998,
+      "sha256": "d8bd0c00724eadc5eba0f738b382500d154ed67ba240f7567f6df74887e790b4",
+      "klasor": "WoodSiding008"
+    },
+    {
+      "kimlik": "acg_Rock030",
+      "tur": "doku",
+      "kaynak": "ambientCG",
+      "ad": "Rock 030 (kırık taş)",
+      "surum": "1K-JPG",
+      "url": "https://ambientcg.com/get?file=Rock030_1K-JPG.zip",
+      "sayfa": "https://ambientcg.com/view?id=Rock030",
+      "lisans": "CC0-1.0",
+      "lisans_url": "https://docs.ambientcg.com/license/",
+      "atif": "",
+      "indirme_tarihi": "2026-11-16",
+      "dosya": "Rock030_1K-JPG.zip",
+      "boyut_bayt": 9677446,
+      "sha256": "2fd0bc2d214e2487c19062ed0798a85dd135b41cfc12bbaed42d5acae238f989",
+      "klasor": "Rock030"
+    },
+    {
+      "kimlik": "acg_PaintedPlaster017",
+      "tur": "doku",
+      "kaynak": "ambientCG",
+      "ad": "Painted Plaster 017 (boyalı sıva)",
+      "surum": "1K-JPG",
+      "url": "https://ambientcg.com/get?file=PaintedPlaster017_1K-JPG.zip",
+      "sayfa": "https://ambientcg.com/view?id=PaintedPlaster017",
+      "lisans": "CC0-1.0",
+      "lisans_url": "https://docs.ambientcg.com/license/",
+      "atif": "",
+      "indirme_tarihi": "2026-11-16",
+      "dosya": "PaintedPlaster017_1K-JPG.zip",
+      "boyut_bayt": 4721132,
+      "sha256": "bae0380d82b6ccac8943b4980417cb3c9de5c896218339c108056f1dfb8e886c",
+      "klasor": "PaintedPlaster017"
+    }
+  ],
+  "zemin": {
+    "ag_boyu_m": 500,
+    "doku_boyu_m": 5,
+    "varyantlar": {
+      "zemin_a": "Ground048",
+      "zemin_b": "Grass004",
+      "zemin_c": "Gravel022"
+    }
+  },
+  "insan": {
+    "temas": {
+      "hucre_m": 0.05,
+      "gomulme_yuzdesi": 10
+    },
+    "varyantlar": {
+      "insan_a": {
+        "varlik": "fuel_standing_person",
+        "ag": "model://person_standing/meshes/standing.dae",
+        "malzeme": null,
+        "sinir_kutusu_m": [
+          [
+            -0.2774,
+            -0.2516,
+            -0.0063
+          ],
+          [
+            0.2668,
+            0.1105,
+            1.9108
+          ]
+        ],
+        "yatis_kalkma_m": {
+          "roll+90": 0.1649,
+          "roll-90": 0.0917
+        },
+        "on_donus_derece": 0
+      },
+      "insan_b": {
+        "varlik": "fuel_casual_female",
+        "ag": "model://casual_female/meshes/casual_female.dae",
+        "malzeme": null,
+        "sinir_kutusu_m": [
+          [
+            -0.2878,
+            -0.3617,
+            -0.0142
+          ],
+          [
+            0.3221,
+            0.2086,
+            1.6517
+          ]
+        ],
+        "yatis_kalkma_m": {
+          "roll+90": 0.1555,
+          "roll-90": 0.1515
+        },
+        "on_donus_derece": 0
+      },
+      "insan_c": {
+        "varlik": "fuel_scrubs",
+        "ag": "model://Scrubs/meshes/scrubs.obj",
+        "malzeme": null,
+        "on_donus_derece": 90,
+        "sinir_kutusu_m": [
+          [
+            -0.2966,
+            -0.1294,
+            -0.0017
+          ],
+          [
+            0.2607,
+            0.1917,
+            1.6095
+          ]
+        ],
+        "yatis_kalkma_m": {
+          "roll+90": 0.1112,
+          "roll-90": 0.0953
+        }
+      },
+      "insan_test": {
+        "varlik": "fuel_rescue_randy",
+        "ag": "model://rescue_randy/meshes/rescue_randy.dae",
+        "malzeme": {
+          "albedo_map": "model://rescue_randy/materials/textures/rescue_randy_albedo.png",
+          "normal_map": "model://rescue_randy/materials/textures/rescue_randy_normal.png",
+          "metalness_map": "model://rescue_randy/materials/textures/rescue_randy_metalness.png",
+          "roughness_map": "model://rescue_randy/materials/textures/rescue_randy_roughness.png"
+        },
+        "sinir_kutusu_m": [
+          [
+            -0.6818,
+            -0.1785,
+            0.0
+          ],
+          [
+            0.6818,
+            0.1788,
+            1.8211
+          ]
+        ],
+        "yatis_kalkma_m": {
+          "roll+90": 0.1405,
+          "roll-90": 0.149
+        },
+        "on_donus_derece": 0
+      }
+    }
+  },
+  "enkaz": {
+    "levha_orani": 0.34,
+    "varyantlar": {
+      "enkaz_a": [
+        "Concrete034",
+        "Bricks059"
+      ],
+      "enkaz_b": [
+        "Bricks059",
+        "WoodSiding008"
+      ],
+      "enkaz_c": [
+        "Concrete034",
+        "WoodSiding008"
+      ],
+      "enkaz_test": [
+        "Rock030",
+        "PaintedPlaster017"
+      ]
+    }
+  }
+}

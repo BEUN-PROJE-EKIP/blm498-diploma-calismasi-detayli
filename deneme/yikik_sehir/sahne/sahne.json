@@ -1,0 +1,265 @@
+{
+  "surum": 1,
+  "tur": "sahne",
+  "sahne_kimligi": "S-SEHIR-TEST-DENEME-5151",
+  "bolum": "test",
+  "tohum": 5151,
+  "alan": {
+    "cerceve": "yerel_ENU",
+    "merkez_m": [
+      0,
+      0
+    ],
+    "genislik_m": 300,
+    "yukseklik_m": 300
+  },
+  "isik": {
+    "gunes_azimut_derece": 230.0,
+    "gunes_yukseklik_derece": 42.0
+  },
+  "zemin": {
+    "gorunum_varyanti": "zemin_c"
+  },
+  "hedefler": [
+    {
+      "kimlik": "H01",
+      "sinif": "insan",
+      "x": -58.43,
+      "y": 91.19,
+      "yonelim_derece": 155.9,
+      "gorunum_varyanti": "insan_test"
+    },
+    {
+      "kimlik": "H02",
+      "sinif": "insan",
+      "x": 110.17,
+      "y": 60.55,
+      "yonelim_derece": 127.7,
+      "gorunum_varyanti": "insan_b"
+    },
+    {
+      "kimlik": "H03",
+      "sinif": "enkaz",
+      "x": -124.39,
+      "y": 121.92,
+      "yonelim_derece": 29.0,
+      "gorunum_varyanti": "enkaz_b"
+    },
+    {
+      "kimlik": "H04",
+      "sinif": "insan",
+      "x": 42.27,
+      "y": 106.1,
+      "yonelim_derece": 358.4,
+      "gorunum_varyanti": "insan_test"
+    },
+    {
+      "kimlik": "H05",
+      "sinif": "enkaz",
+      "x": 77.01,
+      "y": 45.4,
+      "yonelim_derece": 168.0,
+      "gorunum_varyanti": "enkaz_test"
+    },
+    {
+      "kimlik": "H06",
+      "sinif": "insan",
+      "x": 48.95,
+      "y": 23.57,
+      "yonelim_derece": 87.0,
+      "gorunum_varyanti": "insan_c"
+    },
+    {
+      "kimlik": "H07",
+      "sinif": "enkaz",
+      "x": 71.69,
+      "y": -18.73,
+      "yonelim_derece": 30.2,
+      "gorunum_varyanti": "enkaz_c"
+    },
+    {
+      "kimlik": "H08",
+      "sinif": "enkaz",
+      "x": 28.06,
+      "y": -61.89,
+      "yonelim_derece": 217.4,
+      "gorunum_varyanti": "enkaz_test"
+    },
+    {
+      "kimlik": "H09",
+      "sinif": "enkaz",
+      "x": 66.41,
+      "y": -107.48,
+      "yonelim_derece": 2.6,
+      "gorunum_varyanti": "enkaz_test"
+    },
+    {
+      "kimlik": "H10",
+      "sinif": "insan",
+      "x": 3.15,
+      "y": 87.07,
+      "yonelim_derece": 15.8,
+      "gorunum_varyanti": "insan_b"
+    },
+    {
+      "kimlik": "H11",
+      "sinif": "insan",
+      "x": -62.54,
+      "y": -113.82,
+      "yonelim_derece": 281.4,
+      "gorunum_varyanti": "insan_c"
+    },
+    {
+      "kimlik": "H12",
+      "sinif": "insan",
+      "x": -56.94,
+      "y": 48.08,
+      "yonelim_derece": 140.9,
+      "gorunum_varyanti": "insan_a"
+    },
+    {
+      "kimlik": "H13",
+      "sinif": "enkaz",
+      "x": 124.09,
+      "y": 44.35,
+      "yonelim_derece": 297.6,
+      "gorunum_varyanti": "enkaz_test"
+    },
+    {
+      "kimlik": "H14",
+      "sinif": "enkaz",
+      "x": 83.7,
+      "y": 118.62,
+      "yonelim_derece": 214.5,
+      "gorunum_varyanti": "enkaz_a"
+    },
+    {
+      "kimlik": "H15",
+      "sinif": "insan",
+      "x": 116.35,
+      "y": -49.15,
+      "yonelim_derece": 72.0,
+      "gorunum_varyanti": "insan_b"
+    },
+    {
+      "kimlik": "H16",
+      "sinif": "insan",
+      "x": -52.86,
+      "y": 132.84,
+      "yonelim_derece": 215.0,
+      "gorunum_varyanti": "insan_test"
+    },
+    {
+      "kimlik": "H17",
+      "sinif": "insan",
+      "x": -84.52,
+      "y": 4.51,
+      "yonelim_derece": 119.2,
+      "gorunum_varyanti": "insan_test"
+    },
+    {
+      "kimlik": "H18",
+      "sinif": "insan",
+      "x": 70.57,
+      "y": -0.93,
+      "yonelim_derece": 148.9,
+      "gorunum_varyanti": "insan_c"
+    },
+    {
+      "kimlik": "H19",
+      "sinif": "enkaz",
+      "x": -127.33,
+      "y": -127.85,
+      "yonelim_derece": 155.4,
+      "gorunum_varyanti": "enkaz_c"
+    },
+    {
+      "kimlik": "H20",
+      "sinif": "enkaz",
+      "x": 132.92,
+      "y": 132.4,
+      "yonelim_derece": 53.4,
+      "gorunum_varyanti": "enkaz_b"
+    },
+    {
+      "kimlik": "H21",
+      "sinif": "enkaz",
+      "x": 42.9,
+      "y": -130.02,
+      "yonelim_derece": 155.4,
+      "gorunum_varyanti": "enkaz_c"
+    },
+    {
+      "kimlik": "H22",
+      "sinif": "enkaz",
+      "x": -136.23,
+      "y": -108.66,
+      "yonelim_derece": 198.2,
+      "gorunum_varyanti": "enkaz_b"
+    },
+    {
+      "kimlik": "H23",
+      "sinif": "enkaz",
+      "x": -97.1,
+      "y": 44.77,
+      "yonelim_derece": 3.0,
+      "gorunum_varyanti": "enkaz_test"
+    },
+    {
+      "kimlik": "H24",
+      "sinif": "enkaz",
+      "x": -18.18,
+      "y": -119.99,
+      "yonelim_derece": 82.0,
+      "gorunum_varyanti": "enkaz_test"
+    },
+    {
+      "kimlik": "H25",
+      "sinif": "insan",
+      "x": 142.19,
+      "y": -10.86,
+      "yonelim_derece": 18.6,
+      "gorunum_varyanti": "insan_a"
+    },
+    {
+      "kimlik": "H26",
+      "sinif": "insan",
+      "x": -19.19,
+      "y": 1.74,
+      "yonelim_derece": 60.2,
+      "gorunum_varyanti": "insan_test"
+    },
+    {
+      "kimlik": "H27",
+      "sinif": "insan",
+      "x": -4.6,
+      "y": 54.03,
+      "yonelim_derece": 226.7,
+      "gorunum_varyanti": "insan_a"
+    },
+    {
+      "kimlik": "H28",
+      "sinif": "insan",
+      "x": 36.79,
+      "y": 4.35,
+      "yonelim_derece": 313.3,
+      "gorunum_varyanti": "insan_c"
+    },
+    {
+      "kimlik": "H29",
+      "sinif": "enkaz",
+      "x": -93.04,
+      "y": 76.1,
+      "yonelim_derece": 133.8,
+      "gorunum_varyanti": "enkaz_c"
+    },
+    {
+      "kimlik": "H30",
+      "sinif": "enkaz",
+      "x": -2.62,
+      "y": 124.39,
+      "yonelim_derece": 308.4,
+      "gorunum_varyanti": "enkaz_a"
+    }
+  ]
+}
