@@ -12,7 +12,7 @@ Kilometre taşı: `M4` gibi · Ağaç maddesi: `A1` gibi · İlgili gereksinim: 
 - [ ] Maddenin **"Bitti:" ölçütü** gerçekten sağlandı (nasıl gösterdiğini aşağıya yaz)
 - [ ] `./setup/verify_all.sh` hepsi `(+)`
 - [ ] `setup/` veya `config/` değiştiyse `./setup/lock_ozet.sh --check` `(+)`
-- [ ] Maddeyi ağaçta `[x]` işaretledim; README ilerleme bölümüne dokunmadım (depo sahibi birleştirmeden sonra yeniler)
+- [ ] Maddeyi ağaçta `[x]` işaretledim; README ilerleme bölümünü `python3 araclar/ilerleme.py --yaz` ile yeniledim
 - [ ] Kilitli değerlere (25 Mbit/s profil, çıkarım ayarları, karar kuralları, kilit dosyaları) dokunmadım
 - [ ] Depoya büyük dosya, model ağırlığı, günlük, şifre veya token girmedi
 - [ ] `docs/` içindeki kaynak belgeleri değiştirmedim

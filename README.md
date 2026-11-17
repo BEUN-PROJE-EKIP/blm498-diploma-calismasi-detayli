@@ -2,7 +2,28 @@
 
 Bu bir **simülasyon deneyidir**; gerçek uçuş ya da gömülü donanım doğrulaması ve operasyonel yeterlilik iddiası yoktur.
 
-**[İlerleme](#kilometre-taşları-ve-ilerleme) · [Gereksinimler](#sistem-gereksinimleri) · [Kurulum](#kurulum) · [Doğru kuruldu mu?](#doğru-kuruldu-mu) · [Nasıl çalışıyoruz](#nasıl-çalışıyoruz) · [Klasörler](#klasörler)**
+**[Bu deponun amacı](#bu-deponun-amacı) · [İlerleme](#kilometre-taşları-ve-ilerleme) · [Gereksinimler](#sistem-gereksinimleri) · [Kurulum](#kurulum) · [Doğru kuruldu mu?](#doğru-kuruldu-mu) · [Nasıl çalışıyoruz](#nasıl-çalışıyoruz) · [Klasörler](#klasörler)**
+
+---
+
+## Bu deponun amacı
+
+Bu depo **detaylı dünya deposudur**: projenin tamamının detaylı (yıkık şehir) dünyayla yapılıp yapılamayacağını öğrenmek için açıldı. Ana depo sade dünyayla ayrı devam eder; sonuca göre hangisinin proje olacağına ekip karar verir. Detaylı dünya: `mikail/deneme-yikik-sehir` dalı (`deneme/yikik_sehir/`); model ve doku dosyaları depoda değil, ayrı arşivle paylaşılır.
+
+**Kurallar:** belge (GŞÖA, el kitabı) ana odaktır; belgeden yalnız detaylı dünyayı kilitliyorsa sapılır ve bu açıkça sorulur. Ekibin kararları, varsayımları ve kilitli değerleri gerekirse değişebilir; karar Mikail'indir. Her değişiklik `planlama/kararlar.md`'ye yazılır. Ayrıntı: `CLAUDE.md`, "Esneklik kuralı".
+
+**Yanıtlanacak sorular** (hepsi "evet" ise detaylı dünya proje olabilir):
+
+| # | Soru | Neden kritik |
+|---|---|---|
+| 1 | **Cevap anahtarı:** sahnedeki moloz parçaları ve yıkık binalar ne olacak? Hepsi hedef listesine mi girecek, yoksa "enkaz" tanımı mı değişecek (ör. yalnız belirli yığınlar hedef, gerisi arka plan)? | Çözülmezse hedef listesinde olmayan her moloz yanlış alarm (FP) sayılır; precision ve FP ölçümü anlamsız olur. **En büyük soru.** |
+| 2 | **Test kuralı:** test sahnesinde tam 15 insan + 15 enkaz ve hedef merkezleri arası ≥ 10 m detaylı şehirde sağlanabiliyor mu? | Belge kuralı (GŞÖA) |
+| 3 | **Yüksek yapılar:** binalar ve kule (≈24 m) düz zemin varsayımını, "kısmi örtülme yok" kuralını ve 30 m uçuşu bozuyor mu? | Konum hesabı düz zemine dayanır; 30 m irtifa belgede |
+| 4 | **Eğitim verisi:** 7.200 eğitim + 1.200 doğrulama görüntüsü ve etiketleri detaylı şehirlerden, tohumla (60 + 10 + 30 farklı sahne) üretilebiliyor mu? | M4 ve M5 tamamen buna bağlı |
+| 5 | **Performans:** Mikail'in makinesinde (7500F) 3 İHA + PX4 + YOLO ile simülasyon gerçek zamanlı (RTF ≈ 1) dönüyor mu? | RTF düşerse ölçümler bozulur. Ön ölçüm (7950X, PX4 ve YOLO olmadan, 3 kamera): RTF 1,00, dünya +845 MiB GPU belleği |
+| 6 | **Koşu altyapısı:** `araclar/kosu.sh` sahne dünyasını açabiliyor mu (`GZ_SIM_RESOURCE_PATH`)? | Bu yapılmadan hiçbir koşu başlamaz; ilk iş |
+
+Önerilen sıra: önce 6 ve 5 (makine ve altyapı kaldırıyor mu), sonra 1–3 (tasarım kararları), en son 4 (en uzun iş).
 
 ---
 
@@ -129,7 +150,7 @@ Bekler: yok, başlayabilir
 </details>
 
 <details open>
-<summary>☐ <b>M6b - Bütünleşik koşu ve kabul testleri</b> [Ömer Faruk GÜNER, %0,0]</summary>
+<summary>☐ <b>M6b - Bütünleşik koşu ve kabul testleri</b> [Mikail DEĞER, %0,0]</summary>
 
 Bekler: M3, M5, M6a
 
@@ -147,7 +168,7 @@ Bekler: M3, M5, M6a
 </details>
 
 <details open>
-<summary>☐ <b>M7 - Pilotlar ve kilit</b> [Ömer Faruk GÜNER, %0,0]</summary>
+<summary>☐ <b>M7 - Pilotlar ve kilit</b> [Mikail DEĞER, %0,0]</summary>
 
 Bekler: M6a, M6b
 
@@ -162,7 +183,7 @@ Bekler: M6a, M6b
 </details>
 
 <details open>
-<summary>☐ <b>M8a - Ana deneyler</b> [Ömer Faruk GÜNER, %0,0]</summary>
+<summary>☐ <b>M8a - Ana deneyler</b> [Mikail DEĞER, %0,0]</summary>
 
 Bekler: M7
 
@@ -331,10 +352,10 @@ Yazılım bileşenlerini sınar; çoğu başsız Gazebo + PX4 açar ve kendi art
 
 ## Nasıl çalışıyoruz
 
-1. **İşin:** `planlama/gelistirme_agaci.md` kilometre taşı tablosunda adın yazan M'ler; sıradaki iş, bitmemiş en üstteki madde. Bir maddeye başlamadan ekibe haber ver; başkasının kilometre taşındaki maddeye sormadan başlama.
-2. **Dal ve PR:** `main`'e doğrudan push yok. Kendi dalında çalış (`ad/madde-kimligi-kisa-konu`), PR aç; **bir PR = bir madde**; incelenmeden birleşmez. Commit mesajı Türkçe: `alan: kısa açıklama`.
-3. **Bitti demek:** maddenin **"Bitti:" ölçütü** gerçekten sağlanınca ağaçta `[x]` yap. **README ilerlemesini yenileme**: onu depo sahibi birleştirmeden sonra yeniler (çakışmayı önler).
-4. **PR'dan önce:** `./setup/verify_all.sh` hepsi `(+)`; `setup/` ya da `config/` değiştiyse `./setup/lock_ozet.sh` ile özetleri yenile.
+1. **İşin:** `planlama/gelistirme_agaci.md` kilometre taşı tablosunda adın yazan M'ler; sıradaki iş, bitmemiş en üstteki madde. Bir maddeye başlamadan ekibe haber ver. Sorumluluk yalnız iş bölümüdür; herkes her dosyada çalışabilir.
+2. **Commit ve push:** `main`'e doğrudan commit ve push serbest; istersen dal + PR kullan. Push'tan önce `git pull`; force push yapma. Commit mesajı Türkçe: `alan: kısa açıklama`.
+3. **Bitti demek:** maddenin **"Bitti:" ölçütü** gerçekten sağlanınca ağaçta `[x]` yap. README ilerlemesini `python3 araclar/ilerleme.py --yaz` ile yenile.
+4. **Büyük değişiklikten sonra:** `./setup/verify_all.sh` hepsi `(+)`; `setup/` ya da `config/` değiştiyse `./setup/lock_ozet.sh` ile özetleri yenile.
 5. **Kilitli değerler** (25 Mbit/s ağ profili, çıkarım ayarları, karar kuralları, kilit dosyaları) sonuçlara bakılarak değiştirilmez. Yapay zekâ asistanıyla çalışıyorsan ona önce `CLAUDE.md`'yi okut; tüm kurallar orada.
 
 **Yapay zekâ asistanıyla başlarken.** Proje klasöründe Claude Code'u aç ve ilk mesaj olarak şunu yaz:
@@ -343,7 +364,7 @@ Yazılım bileşenlerini sınar; çoğu başsız Gazebo + PX4 açar ve kendi art
 Ben <Ad SOYAD>. CLAUDE.md'deki "Göreve başlarken" adımlarını uygula.
 ```
 
-Asistan `sudo`, `apt upgrade` ve `git push` çalıştırmaz; kurulumu ve push'u sen kendi Konsole'unda yaparsın. Başkasının alanında ya da ortak iskelette değişiklik istersen asistan reddeder ve sahibine iletmen için bir not hazırlar (`CLAUDE.md`, "Sahiplik sınırları").
+Asistan `sudo`, `apt upgrade` ve `git push` çalıştırmaz; kurulumu ve push'u sen kendi Konsole'unda yaparsın. Bu depoda sahiplik yasağı yoktur; asistan her dosyada çalışabilir (`CLAUDE.md`, "Sorumluluklar").
 
 ---
 

@@ -21,7 +21,7 @@ Kaynak: proje el kitabı v1.3.2 (Çalışma Takvimi, Yöntem, Risk Yönetimi) ve
 
 ## Kilometre taşları
 
-Tek kaynak bu tablodur (`araclar/ilerleme.py` okur). Her kilometre taşının **tek sahibi** vardır. `Bekler`: o kilometre taşının başlayabilmesi için bitmesi gereken kilometre taşları (yalnız M düzeyinde; bağımlılık madde düzeyinde izlenmez). Sıra ve ayrıntı: [`yol_haritası`](yol_haritasi.md).
+Tek kaynak bu tablodur (`araclar/ilerleme.py` okur). Her kilometre taşının bir **sorumlusu** vardır (yalnız iş bölümü; yasak getirmez, bkz. `CLAUDE.md`). `Bekler`: o kilometre taşının başlayabilmesi için bitmesi gereken kilometre taşları (yalnız M düzeyinde; bağımlılık madde düzeyinde izlenmez). Sıra ve ayrıntı: [`yol_haritası`](yol_haritasi.md).
 
 | M | Ad | Sorumlu | Makine | Bekler |
 |---|---|---|---|---|
@@ -33,9 +33,9 @@ Tek kaynak bu tablodur (`araclar/ilerleme.py` okur). Her kilometre taşının **
 | M4 | Veri hattı | Mikail DEĞER | 7500F | M1 |
 | M5 | Model | Mikail DEĞER | 7500F | M4 |
 | M6a | Değerlendirme ve analiz yazılımı | Miraç BOZACIOĞLU | 8945HX | M0 |
-| M6b | Bütünleşik koşu ve kabul testleri | Ömer Faruk GÜNER | 7950X | M3, M5, M6a |
-| M7 | Pilotlar ve kilit | Ömer Faruk GÜNER | 7950X | M6a, M6b |
-| M8a | Ana deneyler | Ömer Faruk GÜNER | 7950X | M7 |
+| M6b | Bütünleşik koşu ve kabul testleri | Mikail DEĞER | 7500F | M3, M5, M6a |
+| M7 | Pilotlar ve kilit | Mikail DEĞER | 7500F | M6a, M6b |
+| M8a | Ana deneyler | Mikail DEĞER | 7500F | M7 |
 | M8b | Analiz ve rapor | Miraç BOZACIOĞLU | 8945HX | M8a |
 
 Bağımlılık gerekçeleri: **M6b → M6a:** C9 (precision, FP/görev) için B18 eşleştirmesi gerekir. **M7 → M6a:** karar kuralı kodu protokol kilidinden önce yazılıp sınanmış olmalıdır (FR-30). **M4 → M1:** alan kilidi (U23).
