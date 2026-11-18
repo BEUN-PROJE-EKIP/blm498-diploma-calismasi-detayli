@@ -52,6 +52,21 @@ class Yapilandirma(unittest.TestCase):
         self.assertEqual(ESIK, 5.0)   # [belge] FR-28: en fazla 5 m
 
 
+class AtamaMaliyeti(unittest.TestCase):
+    def test_uygun_olmayan_maliyet_belgedeki_sinirdan_buyuk(self):
+        # [belge] uygun olmayan çiftin maliyeti 5 × (N + 1)'den büyük sabit
+        for n in (0, 1, 30):
+            self.assertGreater(dg.uygun_olmayan_maliyet(ESIK, n), 5 * (n + 1))
+
+    def test_sabit_maliyetli_atama_eslesme_sayilmaz(self):
+        # tek rapor, tek hedef, uzaklık eşiğin dışında: algoritma sabit maliyetle atar ama eşleşme dönmez
+        self.assertEqual(dg.sinif_icinde_ata([(10.0, 0.0)], [(0.0, 0.0)], ESIK, 1), [])
+
+    def test_hedef_sayisi_n_yi_asamaz(self):
+        with self.assertRaises(ValueError):
+            dg.sinif_icinde_ata([(0.0, 0.0)], [(0.0, 0.0), (20.0, 0.0)], ESIK, 1)
+
+
 class Eslestirme(unittest.TestCase):
     def test_tam_eslesme(self):
         s = degerlendir([rapor("R1", "insan", 0.5, 0), rapor("R2", "enkaz", 20, 1), rapor("R3", "insan", 40, -2)],
