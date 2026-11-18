@@ -124,10 +124,10 @@ def ana(argv):
             for m in kayip:
                 kay = next(i for i, r in enumerate(al) if r["olay"] == "kayip_tespit" and r["n"] == m and r.get("sonuc_durumu") == "kare_alinamadi")
                 sonraki = next((i for i, r in enumerate(al) if i > kay and r["olay"] in ("kuyruga_giris", "yok_sayildi") and isinstance(r["n"], int) and r["n"] > m), None)
-                if sonraki is None or al[sonraki]["mono_ns"] != al[kay]["mono_ns"]:
+                if sonraki is None or al[sonraki]["mono_ns"] < al[kay]["mono_ns"]:
                     sira_hatasi.append(m)
                 # kayıp kaydı, kendisinden önceki hiçbir kareden önce yazılmamış olmalı
-            sonuc(not sira_hatasi, f"kayip_zaman_sirasi_{k}", f"{len(kayip)} kayıp kaydının her biri, kendisinden sonra gelen ilk kareyle aynı alım anında (kayıt kesinleşti) ve onun kaydından önce yazıldı; ihlal: {sira_hatasi}")
+            sonuc(not sira_hatasi, f"kayip_zaman_sirasi_{k}", f"{len(kayip)} kayıp kaydının her biri, kendisinden sonra gelen ilk karenin kaydından önce yazıldı (kuyruğa giriş anı yazım sonrasıdır, bu yüzden eşitlik değil sıra denetlenir); ihlal: {sira_hatasi}")
             son_kayit = next(r for r in al if r["olay"] == "kayip_tespit" and r["n"] == n_son)
             sonuc(son_kayit["mono_ns"] == kapanis[0]["mono_ns"], f"sondaki_kayip_{k}", f"n_son={n_son} kaydı, n_son+1={n_son + 1} (kapanış) karesinin alım anında yazıldı (sondaki kayıp ilk büyük kareyle kapandı)")
             for m in gec:

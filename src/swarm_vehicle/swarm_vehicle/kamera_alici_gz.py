@@ -1,6 +1,6 @@
 """Kamera alıcısının gz-transport tarafı (B8): aracın kamera konusuna DOĞRUDAN abone olur (ros_gz_bridge yok), kareleri `kamera_alici.KameraAlici` mantığına verir,
 her kare olayını koşu klasöründe KENDİ dosyasına (kayit/kamera_alici_<araç kimliği>.jsonl) `kare_olay` şemasıyla yazar. Kabul edilen görev kareleri iç kuyruğa (numara + görüntü baytları) verilir; kuyruk tüketicisi `tuketici(n, damga_ns, mono_ns, veri, w, h)` geri çağrısını çağırır (araç süreci:
-çıkarım işçisine gönderir; geri çağrı yoksa yalnız sayar). İç kuyruk bellek içidir ve sınırsızdır, kare atılmaz (disk destekli kuyruk B13'tür). Görüntü baytları yalnız son
+çıkarım işçisine gönderir; geri çağrı yoksa yalnız sayar). İç kuyruk disk destekli `DiskKuyrugu`dur (`<koşu>/kuyruk/kamera_<araç>/`, B13): sınırsızdır, kare atılmaz; kapasite taşmasında (`KuyrukTasmasi`) kare ATILMAZ ama kuyruğa da girmez: açık hata (`hata` alanı, günlük `kamera_kuyrugu_hata`, `kuyruk_tasmasi` kaydı), araç süreci hata çıkışı yapar. Görüntü baytları yalnız son
 birkaç karenin önbelleğinde (damgaya göre) ve kuyruktaki karelerde tutulur. Kare boyutu denetlenir (CAM_WIDTH × CAM_HEIGHT × 3 bayt, RGB8, sıkıştırmasız); bozuk boyutlu kare de
 kuyruğa girer (işçi onu işlem hatası yapar).
 Hata enjeksiyonu (yalnız test, varsayılan kapalı): ortam değişkeni KAMERA_ENJEKSIYON (bkz. kamera_alici.Enjeksiyon); durumu aracın günlüğüne yazılır.
@@ -9,15 +9,15 @@ Kanal: gz-transport geri çağrı iş parçacığı → (isteğe bağlı gecikme
 import collections
 import json
 import os
-import queue
 import threading
 import time
 
+from .disk_kuyrugu import KuyrukTasmasi, kuyruk_olustur
 from .kamera_alici import Enjeksiyon, KameraAlici
 
 
 class KameraAliciGz:
-    def __init__(self, ham, arac_no, arac_kimligi, kayit_yol, log, enjeksiyon_metni=None, tuketici=None, kayip_ver=None, kayip_sirali=False):
+    def __init__(self, ham, arac_no, arac_kimligi, kayit_yol, log, enjeksiyon_metni=None, tuketici=None, kayip_ver=None, kayip_sirali=False, kuyruk_dizin=None, tasma_yol=None, aktarim_uygulanmaz=True):
         self.ham, self.arac_no, self.arac_kimligi, self.log = ham, arac_no, arac_kimligi, log
         self.hz = int(float(ham["CAM_RATE_HZ"]))
         self.w, self.h = int(ham["CAM_WIDTH"]), int(ham["CAM_HEIGHT"])
@@ -28,9 +28,18 @@ class KameraAliciGz:
         self._k = threading.RLock()
         self.enj = Enjeksiyon(enjeksiyon_metni if enjeksiyon_metni is not None else os.environ.get("KAMERA_ENJEKSIYON", ""))
         self._kayip_tuketici = kayip_ver if kayip_sirali else None     # merkezi mod: 'kare alınamadı' da görüntülerle AYNI kuyruktan, sırasını koruyarak tüketilir
-        self.alici = KameraAlici(arac_kimligi, self.hz, self._yaz, self._kuyruga, ham.get("KARE_NUMARALAMA", "izgara"), self._kayip_kuyruga if kayip_sirali else kayip_ver)
+        self.alici = KameraAlici(arac_kimligi, self.hz, self._yaz, self._kuyruga, ham.get("KARE_NUMARALAMA", "izgara"), self._kayip_kuyruga if kayip_sirali else kayip_ver, aktarim_uygulanmaz=aktarim_uygulanmaz)
         self.tuketici = tuketici
-        self._q = queue.SimpleQueue()
+        if kuyruk_dizin is None:                        # yalnız birim/duman testleri: geçici dizin (koşu içinde araç süreci her zaman koşu klasörünü verir)
+            import tempfile
+            gecici_ust = tempfile.mkdtemp(prefix="kamera_kuyrugu_")
+            kuyruk_dizin = os.path.join(gecici_ust, f"kamera_{arac_kimligi}")
+        else:
+            gecici_ust = None
+        self._kayip_sirali = bool(kayip_sirali)
+        self._q = kuyruk_olustur(f"kamera_{arac_kimligi}", kuyruk_dizin, ham, log, tasma_yol=tasma_yol, gecici_ust=gecici_ust)
+        self.hata = None                                 # ilk kuyruk taşması metni (doluysa araç süreci hata çıkışı yapar)
+        self.tasan = 0                                   # kuyruğa alınamayan kare sayısı (atılmadı: açık hata)
         self._veri = collections.OrderedDict()           # damga_ns → (genişlik, yükseklik, bayt): son kareler (kuyruğa verilirken görüntüyü bulmak için)
         self.kuyruk_maks = 0
         self.tuketilen, self.tuketilen_son = 0, -1
@@ -49,28 +58,51 @@ class KameraAliciGz:
             with self._dosya_kilit, open(self.kayit_yol, "a", encoding="utf-8") as f:
                 f.write(json.dumps(d, ensure_ascii=False) + "\n")
 
+    def _koy(self, n, oge):
+        """Kareyi disk kuyruğuna yazar. Dönen: yazma sonrası mono_ns; taşmada False (kare atılmadı, kuyruğa alınmadı; açık hata kaydı)."""
+        try:
+            yazildi_ns = self._q.koy(oge, n=n)
+        except KuyrukTasmasi as e:
+            self.tasan += 1
+            if self.hata is None:
+                self.hata = f"kamera kuyruğu taştı: {e}"
+                self.log("kamera_kuyrugu_hata", seviye="(-)", neden=str(e).replace(" ", "_"))
+            return False
+        except Exception as e:  # noqa: BLE001  (beklenmeyen disk/serileştirme hatası da açık hata: sessiz kayıp yok)
+            self.tasan += 1
+            if self.hata is None:
+                self.hata = f"kamera kuyruğuna yazılamadı: {e!r}"
+                self.log("kamera_kuyrugu_hata", seviye="(-)", neden=repr(e).replace(" ", "_"))
+            return False
+        self.kuyruk_maks = max(self.kuyruk_maks, self._q.derinlik()[0])
+        return yazildi_ns                                 # `DiskKuyrugu.koy`un yazma sonrası anı (tüketici kareyi bu andan önce almış görünmez)
+
     def _kuyruga(self, n, damga_ns, mono_ns):
         w, h, veri = self._veri.get(damga_ns, (0, 0, b""))
-        self._q.put((n, damga_ns, mono_ns, veri, w, h))
-        self.kuyruk_maks = max(self.kuyruk_maks, self._q.qsize())
+        return self._koy(n, (n, damga_ns, mono_ns, veri, w, h))
 
     def _kayip_kuyruga(self, n, mono_ns):
-        self._q.put((n, n * 10 ** 9 // self.hz, mono_ns, None, 0, 0))       # veri None: 'kare alınamadı' işareti
-        self.kuyruk_maks = max(self.kuyruk_maks, self._q.qsize())
+        self._koy(n, (n, n * 10 ** 9 // self.hz, mono_ns, None, 0, 0))       # veri None: 'kare alınamadı' işareti
 
     def _tuket(self):
-        while not self._dur.is_set() or not self._q.empty():
+        while not self._dur.is_set() or not self._q.bos_mu():
             try:
-                n, damga, mono, veri, w, h = self._q.get(timeout=0.2)
-            except queue.Empty:
+                oge = self._q.al(0.2)
+            except Exception as e:  # noqa: BLE001  (disk okuma hatası: açık hata, kuyruk durur)
+                if self.hata is None:
+                    self.hata = f"kamera kuyruğu okunamadı: {e!r}"
+                    self.log("kamera_kuyrugu_hata", seviye="(-)", neden=repr(e).replace(" ", "_"))
+                return
+            if oge is None:
                 continue
+            n, damga, mono, veri, w, h = oge
             if veri is None:
                 try:
                     self._kayip_tuketici(n, mono)
                 except Exception as e:  # noqa: BLE001
                     self.log("tuketici_hatasi", n=n, hata=repr(e))
             elif self.tuketici is not None:
-                derinlik = self._q.qsize()
+                derinlik = self._q.derinlik()[0]
                 if derinlik >= 1:
                     self.log("kuyruk_derinligi", n=n, bekleyen=derinlik)
                 try:
@@ -161,9 +193,12 @@ class KameraAliciGz:
         self._dur.set()
         for t in self._ipler:
             t.join(2)
+        kalan, _ = self._q.derinlik()                    # kapanışta kuyrukta kalan (tüketilmemiş) öğe sayısı
+        sy = self._q.sayaclar()
+        self._q.kapat()                                   # boşsa dizin silinir; değilse kalan öğe sayısı günlüğe yazılır, dizin yerinde kalır
         with self._k:
             a = self.alici
             self.log("kamera_alici_ozet", alinan=self.alinan, gorev=a.sayac["gorev"], kare_alinamadi=a.sayac["kare_alinamadi"], gec_geldi=a.sayac["gec_geldi"],
                      gorev_oncesi=a.sayac["gorev_oncesi"], kapanis_sonrasi=a.sayac["kapanis_sonrasi"], izgara_disi=a.sayac["izgara_disi"], tekrar=a.sayac["tekrar"],
-                     boyut_hatasi=self.boyut_hatasi, n_ilk=a.n_ilk, n_son=a.n_son, kuyruktan_tuketilen=self.tuketilen, son_tuketilen=self.tuketilen_son, kuyruk_maks=self.kuyruk_maks, gorev_oncesi_kabul=a.sayac["gorev_oncesi_kabul"], kapanis_zorla=a.sayac["kapanis_zorla"],
+                     boyut_hatasi=self.boyut_hatasi, n_ilk=a.n_ilk, n_son=a.n_son, kuyruktan_tuketilen=self.tuketilen, son_tuketilen=self.tuketilen_son, kuyruk_maks=self.kuyruk_maks, kuyruga_alinamadi=self.tasan, kuyruga_giren=sy["giren"], kuyrukta_kalan=kalan, kayip_kuyruga=a.sayac["kare_alinamadi"] if self._kayip_sirali else 0, son_n=a.son_gorev_numarasi, disk_kuyruk_maks_bayt=sy["maks_disk_bayt"], kuyruk_hata=str(self.hata or "yok").replace(" ", "_"), gorev_oncesi_kabul=a.sayac["gorev_oncesi_kabul"], kapanis_zorla=a.sayac["kapanis_zorla"],
                      dusurulen=",".join(map(str, self.dusurulen)) or "yok", gorev_siniri_asildi=a.sayac["gorev_siniri_asildi"])

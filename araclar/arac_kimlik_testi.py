@@ -242,5 +242,19 @@ def main():
     return 1 if KALDI else 0
 
 
+def cik(kod):
+    """Çıkış kodu kaydı (`CIKIS kod=<k>`), akışları boşalt, `os._exit`: gz-transport/mavsdk yıkıcılarının yorumlayıcı kapanışında çökmesi (çıkış 139/134) sonucu değiştirmesin."""
+    try:
+        print(f"CIKIS kod={kod}", flush=True)
+    except (OSError, ValueError):
+        pass
+    for akis in (sys.stdout, sys.stderr):
+        try:
+            akis.flush()
+        except (OSError, ValueError):
+            pass
+    os._exit(kod)
+
+
 if __name__ == "__main__":
-    sys.exit(main())
+    cik(main())

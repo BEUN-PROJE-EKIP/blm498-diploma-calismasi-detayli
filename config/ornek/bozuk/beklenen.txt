@@ -112,6 +112,10 @@ kuyruk_durumu_ileti_tutarsiz.jsonl | giren − gönderilen olmalı
 kuyruk_durumu_mono_geriye.jsonl | geriye gidiyor
 isleme_kuyrugu_ileti_tutarsiz.jsonl | giren − işlenen olmalı
 isleme_kuyrugu_islenen_geriye.jsonl | geriye gidiyor
-olay_alim_yanlis_kaynak.jsonl | 'alim' kaydını yalnız yer istasyonu yazar
+olay_aktarim_tamam_yanlis_kaynak.jsonl | 'aktarim_tamam' sayısal zamanını (merkezi mod: iletinin tam alındığı an) yalnız yer istasyonu yazar
+olay_kuyruga_giris_uygulanmaz.jsonl | 'uygulanmaz' yalnız aktarım aşamalarında
+olay_aktarim_tamam_uygulanmaz_yanlis_kaynak.jsonl | 'uygulanmaz' kaydını yalnız kamera alıcısı yazar
+kuyruk_tasmasi_kuyruk_adi_gecersiz.jsonl | 'kamera_<araç>', 'gonderim_<araç>' ya da 'isleme_<araç>' biçiminde olmalı
+kuyruk_tasmasi_alan_eksik.jsonl | bos_alan_bayt
 olay_gonderim_kuyrugu_yanlis_kaynak.jsonl | 'gonderim_kuyrugu' kaydını yalnız araç süreci yazar
 kare_sonuc_poz_gecersiz_konumlu.jsonl | poz.konum_ned_m: geçerli poz yokken null olmalı

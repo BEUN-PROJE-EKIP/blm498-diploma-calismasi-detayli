@@ -13,6 +13,7 @@ import math
 import os
 import sys
 
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 KOK = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 NS = 10 ** 9
 KALDI = 0
@@ -118,6 +119,9 @@ def ana(argv):
     damga = jsonl(os.path.join(klasor, "kayit", "gazebo_damga.jsonl"))
     yer = jsonl(os.path.join(klasor, "kayit", "yer_istasyonu_kare.jsonl"))
     son_sonuc_mono, tum_L = 0, {}
+    from sozlesme_dogrula import asama_sureleri, dogrula_kare_asamalari   # içe aktarma burada: bu modül başka araçlarca (jsonl, log_oku, yuzdelik için) içe aktarılır
+    asama_hatalari, asama_ozet = dogrula_kare_asamalari(klasor, kimlikler)
+    asama_say = asama_sureleri(klasor, kimlikler)
     for k in kimlikler:
         alog = log_oku(os.path.join(klasor, f"arac_{k}.log"))
         bit = alog["tarama_bitis_yayimlandi"][0]
@@ -143,6 +147,12 @@ def ana(argv):
         sonuc(int(ozet["verilen"]) == len(aralik) and int(ozet["yayimlanan"]) == len(aralik) and int(ozet["hata"]) == 0 and ozet["onaylandi"] == "True" and "sonuc_yayin_uyari" not in alog,
               f"yayim_ozeti_{k}", f"verilen {ozet['verilen']}, yayımlanan {ozet['yayimlanan']}, yayım hatası {ozet['hata']}, tüm iletiler onaylandı={ozet['onaylandi']}, yayım kuyruğu en çok {ozet['kuyruk_maks']}")
         son_sonuc_mono = max(son_sonuc_mono, max(r["mono_ns"] for r in y))
+        asama_hata = [x for x in asama_hatalari if x.startswith(f"araç {k} ")]
+        sonuc(not asama_hata and asama_ozet.get(k, {}) != {}, f"asama_damgalari_{k}", f"her kare için aşama damgaları tam ve sıralı (uçta mod: aktarim_tamam 'uygulanmaz'; sonuç durumuna göre, §8.3): {asama_ozet.get(k)}; hata {asama_hata[:3]}")
+        sure = asama_say.get(k)
+        if sure:
+            print("OLCUM araç %d: aşama süreleri (ms; ortanca / p95 / en çok; sonuc ve tespit_yok kareleri): " % k + "; ".join(
+                f"{ad} {yuzdelik(v, 50):.1f} / {yuzdelik(v, 95):.1f} / {max(v):.1f} (n={len(v)})" for ad, v in sure.items() if v))
         # L: yalnız sonuc / tespit_yok (işlem hatası ve kare alınamadı L'ye girmez)
         uretim = {r["n"]: r["mono_ns"] for r in damga if r["arac_kimligi"] == k and r["olay"] == "uretim" and isinstance(r["n"], int)}
         L = [(r["mono_ns"] - uretim[r["n"]]) / 1e6 for r in y if r["sonuc_durumu"] in ("sonuc", "tespit_yok") and r["n"] in uretim]

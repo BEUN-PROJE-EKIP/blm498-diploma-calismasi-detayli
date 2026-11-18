@@ -134,7 +134,7 @@ def ana(argv):
         yazicilar += list(isleme_yazicilar.values())
         kanal = MerkeziAlici(ham, kimlikler, log, islemciler, olay_yaz=alici.olay_ekle, sha_yaz=(lambda a, d: sha_yazicilar[a].ver(d)) if sha_yazicilar else None,
                              enjeksiyon_metni=os.environ.get("MERKEZI_ENJEKSIYON", ""), kalibrasyon_kimligi=rota.kalibrasyon_kimligi_oku(), defter_tamam=alici.defter.arac_tamam,
-                             isleme_yaz=(lambda a, d: isleme_yazicilar[a].ver(d)) if isleme_yazicilar else None)
+                             isleme_yaz=(lambda a, d: isleme_yazicilar[a].ver(d)) if isleme_yazicilar else None, kosu_klasoru=klasor)
         try:
             kanal.baslat()      # önce port denetimi (geçici aralıktaki dinleme portu açık hata), sonra dinleme; GPU çıkarım işçileri bundan SONRA başlar
         except (PortAraligiHatasi, OSError) as e:

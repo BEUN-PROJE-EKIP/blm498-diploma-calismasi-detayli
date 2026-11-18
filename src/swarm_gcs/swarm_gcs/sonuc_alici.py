@@ -70,7 +70,7 @@ class SonucAlici:
         self._kabul(int(arac), int(n), durum, sonuc_durumu, int(sim_damga_ns), mono)
 
     def olay_ekle(self, kayit):
-        """Yer istasyonu kare olay kaydını (ör. merkezi modda `alim`) `kullanilabilir` kayıtlarıyla aynı dosyaya yazar (tek yazıcı)."""
+        """Yer istasyonu kare olay kaydını (ör. merkezi modda `aktarim_tamam`) `kullanilabilir` kayıtlarıyla aynı dosyaya yazar (tek yazıcı)."""
         if self.kayit_yol:
             self._q.put(kayit)
 

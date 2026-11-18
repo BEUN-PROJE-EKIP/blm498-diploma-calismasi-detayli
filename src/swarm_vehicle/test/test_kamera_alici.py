@@ -2,7 +2,10 @@
 Beklenenler elle hesaplanmıştır (hz = 2: n = 2·t; damga ns = n · 5·10^8)."""
 import os
 import sys
+import threading
+import time
 import unittest
+from unittest import mock
 
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), ".."))
 from swarm_vehicle import kamera_alici as ka  # noqa: E402
@@ -37,6 +40,110 @@ class Cihaz:
 
     def alinamadi(self):
         return sorted(r["n"] for r in self.olaylar("kayip_tespit", sonuc_durumu="kare_alinamadi"))
+
+
+class KuyrukAsamalari(unittest.TestCase):
+    """B13: `kuyruga_giris` disk kuyruğuna yazıldıktan sonraki an; uçta modda `aktarim_tamam` = "uygulanmaz"; taşan kare için kayıt yazılmaz."""
+
+    def test_uc_modda_aktarim_tamam_uygulanmaz_ve_giris_yazma_sonrasi(self):
+        kayit = []
+        a = ka.KameraAlici(1, 2, kayit.append, lambda n, d, m: 5_000_000 + m)         # geri çağrı yazma sonrası anı döndürür
+        a.tarama_basladi(10 * NS)
+        a.kare(damga(20), 1000)
+        gir = [r for r in kayit if r["olay"] == "kuyruga_giris"]
+        akt = [r for r in kayit if r["olay"] == "aktarim_tamam"]
+        self.assertEqual([(r["n"], r["mono_ns"]) for r in gir], [(20, 5_001_000)])
+        self.assertEqual([(r["n"], r["mono_ns"], r["kaynak"]) for r in akt], [(20, "uygulanmaz", "kamera_alicisi")])
+
+    def test_merkezi_modda_alici_aktarim_tamam_yazmaz(self):
+        kayit = []
+        a = ka.KameraAlici(1, 2, kayit.append, lambda n, d, m: None, aktarim_uygulanmaz=False)
+        a.tarama_basladi(10 * NS)
+        a.kare(damga(20), 1000)
+        self.assertEqual([r["olay"] for r in kayit if r["n"] == 20], ["kuyruga_giris"])
+        self.assertEqual(kayit[-1]["mono_ns"], 1000, "geri çağrı anı döndürmezse alım anı kullanılır")
+
+    def test_kuyruga_alinamayan_kare_icin_kayit_yazilmaz_ama_sayilir(self):
+        kayit = []
+        a = ka.KameraAlici(1, 2, kayit.append, lambda n, d, m: n != 21 and None)       # n=21 taşar (False)
+        a.tarama_basladi(10 * NS)
+        for n in (20, 21, 22):
+            a.kare(damga(n), 1000 + n)
+        self.assertEqual([r["n"] for r in kayit if r["olay"] == "kuyruga_giris"], [20, 22])
+        self.assertEqual([r["n"] for r in kayit if r["olay"] == "aktarim_tamam"], [20, 22])
+        self.assertEqual((a.sayac["gorev"], a.sayac["kuyruga_alinamadi"]), (3, 1))
+        self.assertEqual([r for r in kayit if r["olay"] == "kayip_tespit"], [], "taşan kare 'kare alınamadı' değildir; sessiz atlama yok, açık hata çağıranda")
+
+
+class KameraAliciGzDisk(unittest.TestCase):
+    """B13: kamera alıcısının iç kuyruğu disk destekli (gz içe aktarılmadan; geri çağrı elle çağrılır). Tüketici iş parçacığı kareleri sırayla alır; taşmada kare ATILMAZ ama kuyruğa girmez: açık hata."""
+
+    def _kur(self, tasma=None):
+        import tempfile
+        from swarm_vehicle import rota
+        from swarm_vehicle.kamera_alici_gz import KameraAliciGz
+        self._gecici = tempfile.TemporaryDirectory()
+        self.addCleanup(self._gecici.cleanup)
+        ham = dict(rota.deney_env_oku())
+        kayit = os.path.join(self._gecici.name, "kamera_alici_1.jsonl")
+        self.alinan, self.loglar = [], []
+        with mock.patch.dict(os.environ, {"KUYRUK_TEST_TASMA": tasma or ""}):
+            g = KameraAliciGz(ham, 1, 1, kayit, lambda o, **kv: self.loglar.append((o, kv)), enjeksiyon_metni="", tuketici=lambda n, d, m, v, w, h: self.alinan.append((n, len(v))),
+                              kuyruk_dizin=os.path.join(self._gecici.name, "kuyruk", "kamera_1"), tasma_yol=os.path.join(self._gecici.name, "tasma.jsonl"))
+        self.g, self.kayit_yol = g, kayit
+        return g
+
+    @staticmethod
+    def _mesaj(n, boyut=1000):
+        class S:
+            pass
+        m = S()
+        m.header = S()
+        m.header.stamp = S()
+        m.header.stamp.sec, m.header.stamp.nsec = divmod(n * 500_000_000, 10 ** 9)
+        m.width, m.height, m.data, m.pixel_format_type = 640, 480, bytes([n % 256]) * boyut, 3
+        return m
+
+    def _olaylar(self):
+        import json
+        with open(self.kayit_yol, encoding="utf-8") as f:
+            return [json.loads(x) for x in f]
+
+    def test_kareler_diskten_sirayla_tuketilir_ve_olaylar_yazma_sonrasi(self):
+        g = self._kur()
+        g.alici.tarama_basladi(10 * NS)
+        th = threading.Thread(target=g._tuket)
+        th.start()
+        for n in range(20, 26):
+            g._gz_geri_cagrisi(self._mesaj(n))
+        sinir = time.monotonic() + 5
+        while len(self.alinan) < 6 and time.monotonic() < sinir:
+            time.sleep(0.02)
+        g._dur.set()
+        th.join(5)
+        self.assertEqual(self.alinan, [(n, 1000) for n in range(20, 26)])
+        ol = self._olaylar()
+        self.assertEqual([r["n"] for r in ol if r["olay"] == "kuyruga_giris"], list(range(20, 26)))
+        self.assertEqual([(r["n"], r["mono_ns"]) for r in ol if r["olay"] == "aktarim_tamam"], [(n, "uygulanmaz") for n in range(20, 26)])
+        self.assertEqual(g.hata, None)
+        g.kapat()
+        self.assertFalse(os.path.exists(os.path.join(self._gecici.name, "kuyruk", "kamera_1")), "boş kuyruk dizini kapanışta silinir")
+
+    def test_tasma_acik_hata_kare_sessiz_atilmaz(self):
+        g = self._kur(tasma="kamera_1:3")
+        g.alici.tarama_basladi(10 * NS)
+        for n in range(20, 26):
+            g._gz_geri_cagrisi(self._mesaj(n))
+        self.assertIn("kamera kuyruğu taştı", g.hata)
+        self.assertEqual((g.tasan, g._q.derinlik()[0]), (4, 2), "6 kare: 2 kuyrukta, 4'ü taşma sonrası kuyruğa alınamadı (sayıldı; sessiz kayıp yok)")
+        ol = self._olaylar()
+        self.assertEqual([r["n"] for r in ol if r["olay"] == "kuyruga_giris"], [20, 21], "kuyruğa alınamayan kare için kuyruga_giris yazılmaz")
+        self.assertEqual(g.alici.sayac["kuyruga_alinamadi"], 4)
+        self.assertEqual(len([1 for o, kv in self.loglar if o == "kamera_kuyrugu_hata"]), 1)
+        self.assertEqual(len([1 for o, kv in self.loglar if o == "kuyruk_tasmasi"]), 1)
+        self.assertEqual([o for o, kv in self.loglar if o == "test_anahtari_acik"], ["test_anahtari_acik"])
+        g.kapat()
+        self.assertTrue(os.path.isdir(os.path.join(self._gecici.name, "kuyruk", "kamera_1")), "kuyrukta kalan 2 kare dizinde bırakıldı")
 
 
 class Numaralandirma(unittest.TestCase):
@@ -75,7 +182,7 @@ class GorevKabulu(unittest.TestCase):
         self.assertEqual(c.kuyruk, [20, 21, 23, 24])
         # kayıp, sonraki kare gelince üretilir: "kare alınamadı" kaydı n=23'ün kuyruga_giris kaydından önce yazılır (zaman sırası)
         sira = [(r["olay"], r["n"]) for r in c.kayit if r["n"] in (22, 23)]
-        self.assertEqual(sira, [("kayip_tespit", 22), ("kuyruga_giris", 23)])
+        self.assertEqual(sira, [("kayip_tespit", 22), ("kuyruga_giris", 23), ("aktarim_tamam", 23)])
 
     def test_ardisik_coklu_kayip(self):
         c = Cihaz(10.0, 12.0)

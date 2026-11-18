@@ -6,6 +6,7 @@ Kullanım:  python3 -I araclar/merkezi_analiz.py <koşu_klasörü> --arac N [--h
   --basinc    yer istasyonu alıcısı `MERKEZI_ENJEKSIYON=okuma_dur=<başlangıç>:<süre>` ile okumayı durdurdu: kuyruk büyümeli, kare atılmamalı, hepsi gelmeli
   --sha       `MERKEZI_SHA=1` kayıtları (gönderilen / alınan görüntü SHA-256'sı) numara bazında karşılaştırılır
   --tc-once/--tc-sonra  tc htb 1:10 'Sent' sayaçları (bayt): araç→yer istasyonu bayt sayısı hesabıyla karşılaştırılır
+  --tasma <kuyruk adı>  taşma senaryosu (`KUYRUK_TEST_TASMA` ile `gonderim_<araç>` kuyruğu): hiçbir kare sessiz atılmadı; `kuyruk_tasmasi` kaydı + `(-)` günlük, koşu `yarida_kaldi`, sayaç denkliği (diğer ölçütler çalışmaz)
   --uc-klasoru  aynı rota için uçta mod koşusu: L ve CPU eşlemesi yan yana raporlanır (yalnız rapor)
   --tek-klasoru aynı makinede tek araç merkezi koşusu: ortak her araç için L (ortanca/p95/en çok) farkı raporlanır (yalnız rapor; değer kilitlenmez)
 --arac N (N = 1, 2 ya da 3): her ölçüt HER ARAÇ İÇİN ayrı sınanır (`_<araç kimliği>` son ekli SONUC satırları); üç araçta ayrıca kontrol iletilerinin (ScanStart/COMPLETE) alım gecikmesi raporlanır.
@@ -19,6 +20,7 @@ import sys
 KOK = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, os.path.join(KOK, "src", "swarm_vehicle"))
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from sozlesme_dogrula import asama_sureleri, dogrula_kare_asamalari, dogrula_kuyruk_tasmasi_dosyasi, Yapilandirma, yapilandirma_yukle  # noqa: E402
 from uc_mod_analiz import jsonl, log_oku, yuzdelik  # noqa: E402
 
 NS = 10 ** 9
@@ -100,13 +102,80 @@ def cpu_beklenen(ham, k_sira):
     return Y.cpu_ata(k_sira, kumeler, int(ham["ISCI_MANTIKSAL_CPU"]), izinli=os.sched_getaffinity(0))
 
 
+def tasma_analiz(klasor, kos, kimlikler, kuyruk_adi):
+    """Taşma senaryosu (`KUYRUK_TEST_TASMA=<kuyruk adı>:<n>`; bitti ölçütü: kapasite taşması sessiz kare atlamaz). Taşan kuyruk `gonderim_<araç>` (araç tarafı) ya da `isleme_<araç>` (yer istasyonu) olabilir."""
+    onek, _, arac_s = kuyruk_adi.rpartition("_")
+    k = int(arac_s)
+    c = Yapilandirma(yapilandirma_yukle(os.path.join(KOK, "config", "deney.env")))
+    sonuc(onek in ("gonderim", "isleme", "kamera") and k in kimlikler, "tasma_kuyrugu", f"taşan kuyruk {kuyruk_adi!r} (araç {k})")
+    # 1) açık taşma kaydı: tam bir kayıt, doğrulayıcıdan geçer
+    yol = os.path.join(klasor, "kayit", f"kuyruk_tasmasi_{kuyruk_adi}.jsonl")
+    kayitlar = isteye_bagli(yol)
+    hatalar = ["kayıt dosyası yok ya da boş"]
+    if kayitlar:
+        with open(yol, encoding="utf-8") as f:
+            hatalar = dogrula_kuyruk_tasmasi_dosyasi(c, f.read().split("\n")[:-1])
+    sonuc(len(kayitlar) == 1 and not hatalar and kayitlar[0]["kuyruk"] == kuyruk_adi, "tasma_kaydi", f"kuyruk_tasmasi kaydı: {len(kayitlar)} satır, doğrulayıcı {hatalar or 'geçti'}; {kayitlar[0] if kayitlar else '-'}")
+    # 2) (-) günlük satırı
+    gunluk_yol = os.path.join(klasor, "yer_istasyonu.log" if onek == "isleme" else f"arac_{k}.log")
+    if not os.path.isfile(gunluk_yol):
+        sonuc(False, "tasma_gunlugu", f"günlük dosyası yok: {os.path.basename(gunluk_yol)}")
+        return 1
+    g = log_oku(gunluk_yol)
+    t = g.get("kuyruk_tasmasi", [])
+    sonuc(len(t) == 1 and t[0].get("seviye") == "(-)" and t[0].get("kuyruk") == kuyruk_adi, "tasma_gunlugu", f"{os.path.basename(gunluk_yol)}: kuyruk_tasmasi günlük satırı {len(t)} adet, seviye {t[0].get('seviye') if t else '-'}")
+    ta = kos.get("test_anahtarlari", [])
+    sonuc("KUYRUK_TEST_TASMA" in ta, "test_anahtari_izi", f"kosu.json test_anahtarlari {ta}")
+    # 3) koşu yarida_kaldi, COMPLETE yok
+    sonuc(kos.get("bitis_durumu") == "yarida_kaldi" or kos.get("bitis_durumu") is None, "kosu_yarida", f"kosu.json bitis_durumu {kos.get('bitis_durumu')!r} (kosu.sh durdur sonrası 'yarida_kaldi' beklenir)")
+    gorev = isteye_bagli(os.path.join(klasor, "kayit", "yer_istasyonu_gorev.jsonl"))
+    sonuc(not any(x["olay"] in ("t1", "tamamlandi") for x in gorev), "complete_yok", "COMPLETE/t1 yayımlanmadı (koşu tamamlanamadı; sessiz tamamlanma yok)")
+    # 4) sayaç denkliği: hiçbir kare sessiz atılmadı
+    if onek == "gonderim":
+        alog_ = log_oku(os.path.join(klasor, f"arac_{k}.log"))
+        ka = (alog_.get("kamera_alici_ozet") or [None])[-1]
+        sonuc(ka is not None, "kamera_ozeti", "araç günlüğünde kamera_alici_ozet var" if ka else "araç günlüğünde kamera_alici_ozet YOK")
+        if ka:
+            # (1) Gazebo üretimi → kamera alıcısı: üretilen her numara [n_ilk, son_n] ya görev karesi ya da kayıp (kare alınamadı) sayıldı
+            n_ilk_, son_n_ = int(ka["n_ilk"]), int(ka["son_n"])
+            uretim = {r["n"] for r in isteye_bagli(os.path.join(klasor, "kayit", "gazebo_damga.jsonl")) if r["arac_kimligi"] == k and r["olay"] == "uretim" and isinstance(r["n"], int) and n_ilk_ <= r["n"] <= son_n_}
+            gorev_, kayip_ = int(ka["gorev"]), int(ka["kare_alinamadi"])
+            sonuc(len(uretim) == gorev_ + kayip_, f"sayac_denkligi_gazebo_kamera_{k}", f"Gazebo üretimi [{n_ilk_}, {son_n_}] = {len(uretim)} kare = kamera alıcısı görev karesi {gorev_} + kare alınamadı {kayip_}")
+            # (2) kamera alıcısı → kamera disk kuyruğu: görev + kayıp işareti = kuyruğa giren + kuyruğa alınamayan; giren = tüketilen + kuyrukta kalan
+            giren_k, tas_k, tuk, kal_k, kayip_k = (int(ka[a]) for a in ("kuyruga_giren", "kuyruga_alinamadi", "kuyruktan_tuketilen", "kuyrukta_kalan", "kayip_kuyruga"))
+            sonuc(gorev_ + kayip_k == giren_k + tas_k, f"sayac_denkligi_kamera_kuyruk_{k}", f"kamera kuyruğuna verilmek istenen {gorev_} görev + {kayip_k} kayıp işareti = kuyruğa giren {giren_k} + kuyruğa alınamayan {tas_k}")
+            sonuc(giren_k == tuk + kal_k, f"sayac_denkligi_kamera_tuketim_{k}", f"kamera kuyruğuna giren {giren_k} = hazırlayıcıya tüketilen {tuk} + kuyrukta kalan {kal_k} (kalanlar diskte durur; atılmadı)")
+        ko = (alog_.get("kuyruk_ozeti") or [None])[-1]
+        sonuc(ko is not None, "kuyruk_ozeti", "araç günlüğünde kuyruk_ozeti var" if ko else "araç günlüğünde kuyruk_ozeti YOK")
+        if ko:
+            v, giren, tasan, dusen, gon, kalan = (int(ko[a]) for a in ("verilen", "kuyruga_giren", "tasan", "dusen", "gonderilen", "kuyrukta_kalan"))
+            if ka:
+                sonuc(v == int(ka["kuyruktan_tuketilen"]), f"sayac_denkligi_kamera_hazirlayici_{k}", f"kamera kuyruğundan tüketilen {ka['kuyruktan_tuketilen']} = hazırlayıcıya verilen {v}")
+            sonuc(tasan >= 1 and v == giren + tasan + dusen, f"sayac_denkligi_hazirlayici_{k}", f"araçta hazırlayıcıya verilen {v} = kuyruğa giren {giren} + taşan {tasan} + hata sonrası düşen {dusen} (taşan/düşen kare açık hata kaydıyla sayıldı, sessiz kayıp yok)")
+            sonuc(giren == gon + kalan, f"sayac_denkligi_kuyruk_{k}", f"kuyruğa giren {giren} = gönderilen {gon} + kuyrukta kalan {kalan} (kalanlar diskte durur; atılmadı)")
+            yer = log_oku(os.path.join(klasor, "yer_istasyonu.log")).get("merkezi_ozet", [])
+            oz = {}
+            for kv in yer:
+                for ad, vv in kv.items():
+                    if ad.startswith("arac"):
+                        oz[int(ad[4:])] = json.loads(vv)
+            o = oz.get(k, {})
+            sonuc(o.get("alinan_ileti") == gon, f"alinan_gonderilen_{k}", f"yer istasyonunda alınan {o.get('alinan_ileti')} = araçta gönderilen {gon}")
+            sn = isteye_bagli(os.path.join(klasor, "kayit", f"kare_sonuc_{k}.jsonl"))
+            sonuc(len(sn) == o.get("islenen") == o.get("alinan_ileti") and int(o.get("birakilan", 0)) == 0, f"alinan_her_kare_sonuclu_{k}", f"alınan her kare için kare sonucu yazıldı: alınan {o.get('alinan_ileti')}, işlenen {o.get('islenen')}, sonuç kaydı {len(sn)}")
+            sonuc(kalan == 0 or os.path.isdir(os.path.join(klasor, "kuyruk", kuyruk_adi)), f"kalan_diskte_{k}", f"kuyrukta kalan {kalan} ileti dizinde bırakıldı ({'dizin var' if os.path.isdir(os.path.join(klasor, 'kuyruk', kuyruk_adi)) else 'dizin yok'})")
+    else:
+        print(f"OLCUM taşma senaryosu '{onek}' için ayrıntılı denklik yok (araç tarafı senaryosu `gonderim_<araç>` ile sınanır)")
+    return 1 if KALDI else 0
+
+
 def ana(argv):
     a = list(argv)
     if not a:
         print(__doc__, file=sys.stderr)
         return 2
     klasor = a.pop(0)
-    n_arac, hata, basinc, sha, tc0, tc1, uc, tek = 0, False, None, False, None, None, None, None
+    n_arac, hata, basinc, sha, tc0, tc1, uc, tek, tasma = 0, False, None, False, None, None, None, None, None
     while a:
         k = a.pop(0)
         if k == "--arac" and a:
@@ -126,6 +195,8 @@ def ana(argv):
             uc = a.pop(0)
         elif k == "--tek-klasoru" and a:
             tek = a.pop(0)
+        elif k == "--tasma" and a:
+            tasma = a.pop(0)
         else:
             print(__doc__, file=sys.stderr)
             return 2
@@ -134,8 +205,17 @@ def ana(argv):
     ham = rota.deney_env_oku()
     kimlikler = [int(x) for x in ham["UAV_SYS_IDS"].split()][:n_arac]
     hz = int(float(ham["CAM_RATE_HZ"]))
+    gerekli = [os.path.join(klasor, "kosu.json"), os.path.join(klasor, "yer_istasyonu.log")] + [os.path.join(klasor, f"arac_{x}.log") for x in kimlikler]
+    if not tasma:
+        gerekli += [os.path.join(klasor, "kayit", "yer_istasyonu_kare.jsonl"), os.path.join(klasor, "kayit", "yer_istasyonu_gorev.jsonl"), os.path.join(klasor, "kayit", "gazebo_damga.jsonl")]
+    yok = [os.path.relpath(y, klasor) for y in gerekli if not os.path.isfile(y)]
+    if yok:
+        sonuc(False, "kayit_dosyalari", f"çözümleme için gerekli dosyalar yok: {', '.join(yok)}")
+        return 1
     kos = json.load(open(os.path.join(klasor, "kosu.json"), encoding="utf-8"))
     sonuc(kos.get("mimari_modu") == "merkezi", "mimari_modu", f"kosu.json mimari_modu = {kos.get('mimari_modu')!r}")
+    if tasma:
+        return tasma_analiz(klasor, kos, kimlikler, tasma)
     glog = log_oku(os.path.join(klasor, "yer_istasyonu.log"))
     kal = rota.kalibrasyon_kimligi_oku()
     kar = isteye_bagli(os.path.join(klasor, "kayit", "yer_istasyonu_kare.jsonl"))
@@ -165,6 +245,8 @@ def ana(argv):
                 ozet_g[int(ad[4:])] = json.loads(v)
     son_sonuc_mono = 0
     tum = {}
+    asama_hatalari, asama_ozet = dogrula_kare_asamalari(klasor, kimlikler)
+    asama_say = asama_sureleri(klasor, kimlikler)
     for sira, k in enumerate(kimlikler, 1):
         alog = log_oku(os.path.join(klasor, f"arac_{k}.log"))
         sonuc("merkezi_mod" in alog and "isci_baslatildi" not in alog and "isci_hazir" not in alog and "kare_sonuc" not in alog and "sonuc_yayin_ozet" not in alog
@@ -177,11 +259,17 @@ def ana(argv):
         # gönderilen = alınan = işlenen = sonuç
         gon = [r for r in isteye_bagli(os.path.join(klasor, "kayit", f"arac_sureci_{k}.jsonl")) if r["olay"] == "gonderim"]
         kuy = [r for r in isteye_bagli(os.path.join(klasor, "kayit", f"arac_sureci_{k}.jsonl")) if r["olay"] == "gonderim_kuyrugu"]
-        alim = [r for r in kar if r["arac_kimligi"] == k and r["olay"] == "alim"]
+        alim = [r for r in kar if r["arac_kimligi"] == k and r["olay"] == "aktarim_tamam" and isinstance(r["mono_ns"], int)]
         kul = [r for r in kar if r["arac_kimligi"] == k and r["olay"] == "kullanilabilir"]
         sn = {r["n"]: r for r in isteye_bagli(os.path.join(klasor, "kayit", f"kare_sonuc_{k}.jsonl"))}
         sonuc(sorted(r["n"] for r in gon) == aralik and sorted(r["n"] for r in kuy) == aralik and sorted(r["n"] for r in alim) == aralik and sorted(sn) == aralik and sorted(r["n"] for r in kul) == aralik,
               f"sayilar_{k}", f"[{n_ilk}, {n_son}] {len(aralik)} numara: araçta kuyruğa giren {len(kuy)}, gönderilen {len(gon)}; yer istasyonunda alınan {len(alim)}, sonuç {len(sn)}, kullanılabilir {len(kul)}; her numara bir kez")
+        asama_hata = [x for x in asama_hatalari if x.startswith(f"araç {k} ")]
+        sonuc(not asama_hata and asama_ozet.get(k, {}) != {}, f"asama_damgalari_{k}", f"her kare için aşama damgaları tam ve sıralı (sonuç durumuna göre; §8.3): {asama_ozet.get(k)}; hata {asama_hata[:3]}")
+        sure = asama_say.get(k)
+        if sure:
+            print("OLCUM araç %d: aşama süreleri (ms; ortanca / p95 / en çok; sonuc ve tespit_yok kareleri): " % k + "; ".join(
+                f"{ad} {yuzdelik(v, 50):.1f} / {yuzdelik(v, 95):.1f} / {max(v):.1f} (n={len(v)})" for ad, v in sure.items() if v))
         durumlar = {}
         for r in kul:
             durumlar[r["sonuc_durumu"]] = durumlar.get(r["sonuc_durumu"], 0) + 1
@@ -246,6 +334,7 @@ def ana(argv):
             print(f"OLCUM CPU: uçta modda araç {k} işçisi {ucpu}; merkezi modda yer istasyonu işçisi {','.join(map(str, cpu_g))}")
         # üretim hızı, kuyruk
         print(f"OLCUM üretim: gerçek üretim hızı {oz['gercek_uretim_hz']} kare/sn (gz geri çağrıları, duvar saati); kare sayısı {oz['uretilen']}; kamera iç kuyruğu en çok {oz['kamera_kuyruk_maks']}; gönderim kuyruğu en çok {oz['kuyruk_maks_ileti']} ileti / {oz['kuyruk_maks_bayt']} bayt")
+        print(f"OLCUM disk kuyruğu (araç {k}): gönderim kuyruğu en çok {oz['kuyruk_maks_bayt']} bayt ({int(oz['kuyruk_maks_bayt']) / 1e6:.1f} MB), diskte en çok {oz['disk_maks_bayt']} bayt ({int(oz['disk_maks_bayt']) / 1e6:.1f} MB); yer istasyonu işleme kuyruğu diskte en çok {ozet_g.get(k, {}).get('disk_maks_bayt')} bayt; taşan 0")
         kd = isteye_bagli(os.path.join(klasor, "kayit", f"gonderim_kuyrugu_{k}.jsonl"))
         if kd:
             m = max(r["ileti"] for r in kd)

@@ -4,14 +4,16 @@
 Kullanım:
   sozlesme_dogrula.py [--yapilandirma config/deney.env] <dosya.json> [--sahne sahne.json]
   sozlesme_dogrula.py [--yapilandirma ...] --hedef-listesi-uret <sahne.json>
+  sozlesme_dogrula.py [--yapilandirma ...] --kare-asamalari <koşu_klasörü>   (kare başına aşama damgası tamlığı ve sırası; §8.3)
 Dosya türü dosyadaki "tur" alanından anlaşılır (sahne | bolge_rota | kamera_kalibrasyon | hedef_listesi | kosu_ustveri | nihai_rapor | kosu_olcum | sayac_kaydi).
-Uzantısı .jsonl olan dosya JSON Lines'tır (satır başına bir JSON nesnesi): tur: kare_olay (öntanımlı), arac_durum_kaydi, kare_sonuc, isci_kaynak, gorev_olay, telemetri, kare_poz, kuyruk_durumu ya da isleme_kuyrugu (ilk dolu satırdan anlaşılır).
+Uzantısı .jsonl olan dosya JSON Lines'tır (satır başına bir JSON nesnesi): tur: kare_olay (öntanımlı), arac_durum_kaydi, kare_sonuc, isci_kaynak, gorev_olay, telemetri, kare_poz, kuyruk_durumu, isleme_kuyrugu ya da kuyruk_tasmasi (ilk dolu satırdan anlaşılır).
 --sahne yalnız hedef_listesi için: listenin verilen sahnedeki hedeflerle birebir aynı olduğu da denetlenir.
 Çıkış: 0 geçerli, 1 geçersiz (Türkçe, alan yoluyla "nokta nokta" hata listesi), 2 kullanım/okuma hatası.
 Yalnız standart kitaplık kullanılır. Eşikler ve aralıklar config/deney.env'den okunur (tek kaynak); biçimler planlama/sozlesmeler.md'dedir.
 """
 import json
 import math
+import os
 import re
 import sys
 
@@ -83,11 +85,12 @@ class Yapilandirma:
     @staticmethod
     def _sabit_port_denetimi(ham):
         """Sabit portlar (gRPC, PX4 MAVLink, merkezi mod ve sentetik yük dinleme portları) Linux geçici port aralığının dışında olmalı; aralık makinenin ayarıdır ve
-        çalışma anında okunur (sabit yazılmaz; okunamıyorsa denetlenemez ve geçer)."""
+        çalışma anında okunur (sabit yazılmaz; okunamıyorsa denetlenemez: sessiz geçilmez, stderr'e `(!)` uyarısı yazılır)."""
         try:
             with open("/proc/sys/net/ipv4/ip_local_port_range", encoding="ascii") as f:
                 alt, ust = (int(x) for x in f.read().split())
-        except (OSError, ValueError):
+        except (OSError, ValueError) as e:
+            print(f"(!) UYARI: geçici port aralığı okunamadı (/proc/sys/net/ipv4/ip_local_port_range: {e!r}); sabit portların aralık dışında olduğu DENETLENEMEDİ", file=sys.stderr)
             return
         n = len(ham["UAV_SYS_IDS"].split())
         portlar = [("MAVSDK_GRPC_PORTS", int(p)) for p in ham.get("MAVSDK_GRPC_PORTS", "").split()]
@@ -499,10 +502,10 @@ def dogrula_kalibrasyon(c, d):
 # Koşu kaydı: koşu üst verisi (kosu.json) ve kare olay kaydı (JSON Lines)
 # ---------------------------------------------------------------------------------------------------------------------------------
 BITIS_DURUMLARI = ("tamamlandi", "zorla_kapatildi", "yarida_kaldi")
-OLAY_TURLERI = ("uretim", "kuyruga_giris", "aktarim_tamam", "cikarim_basi", "cikarim_sonu", "kullanilabilir", "gonderim", "kayip_tespit", "gec_geldi", "yok_sayildi", "gonderim_kuyrugu", "alim")
+OLAY_TURLERI = ("uretim", "kuyruga_giris", "aktarim_tamam", "cikarim_basi", "cikarim_sonu", "kullanilabilir", "gonderim", "kayip_tespit", "gec_geldi", "yok_sayildi", "gonderim_kuyrugu")
 YEREL_OLAYLAR = ("kayip_tespit", "gec_geldi", "yok_sayildi")   # kamera alıcısının YEREL kayıtları (zaman aşaması değil): kayıp tespiti (yer istasyonundaki "kullanılabilir" kaydı değildir), geç gelen kare, görev girdisi olmayan kare
 YOK_SAYILMA_NEDENLERI = ("gorev_oncesi", "kapanis_sonrasi", "izgara_disi", "tekrar")
-UYGULANMAZ_OLABILEN = ("kuyruga_giris", "aktarim_tamam")   # [belge] yalnız aktarım aşamaları "uygulanmaz" olabilir
+UYGULANMAZ_OLABILEN = ("aktarim_tamam",)   # [belge] yalnız aktarım aşaması "uygulanmaz" olabilir (B13: kuyruga_giris iki modda da gerçek zamandır)
 KAYNAKLAR = ("gazebo_damga", "kamera_alicisi", "arac_sureci", "cikarim_iscisi", "yer_istasyonu")
 SONUC_DURUMLARI = ("sonuc", "tespit_yok", "kare_alinamadi", "islem_hatasi")     # "geç geldi" burada YOKTUR: ağa gönderilmez, yalnız alıcının yerel kaydıdır (olay: gec_geldi)
 SHA_RE = re.compile(r"^[0-9a-f]{64}$")
@@ -669,8 +672,11 @@ def dogrula_kare_olay(c, d):
         h.ekle("neden", "yalnız 'yok_sayildi' olayında bulunabilir")
     if olay in ("gonderim", "gonderim_kuyrugu") and d.get("kaynak") != "arac_sureci":
         h.ekle("kaynak", f"'{olay}' kaydını yalnız araç süreci yazar (kaynak: 'arac_sureci'; bulunan: {d.get('kaynak')!r})")
-    if olay == "alim" and d.get("kaynak") != "yer_istasyonu":
-        h.ekle("kaynak", f"'alim' kaydını yalnız yer istasyonu yazar (kaynak: 'yer_istasyonu'; bulunan: {d.get('kaynak')!r})")
+    if olay == "aktarim_tamam":                     # B13: sayısal zaman = gerçek aktarımın tamamlanma anı (merkezi mod, yalnız yer istasyonu); "uygulanmaz" = aktarım yok (uçta mod, kamera alıcısı)
+        if mono == "uygulanmaz" and d.get("kaynak") != "kamera_alicisi":
+            h.ekle("kaynak", f"'aktarim_tamam' = 'uygulanmaz' kaydını yalnız kamera alıcısı yazar (uçta mod: görüntü aktarımı yok; kaynak: 'kamera_alicisi'; bulunan: {d.get('kaynak')!r})")
+        elif mono != "uygulanmaz" and d.get("kaynak") != "yer_istasyonu":
+            h.ekle("kaynak", f"'aktarim_tamam' sayısal zamanını (merkezi mod: iletinin tam alındığı an) yalnız yer istasyonu yazar (kaynak: 'yer_istasyonu'; bulunan: {d.get('kaynak')!r})")
     if olay in YEREL_OLAYLAR and d.get("kaynak") != "kamera_alicisi":
         h.ekle("kaynak", f"'{olay}' yerel kaydını yalnız kamera alıcısı yazar (kaynak: 'kamera_alicisi'; bulunan: {d.get('kaynak')!r})")
     return h.liste
@@ -1523,9 +1529,196 @@ TURLER = {"sahne": dogrula_sahne, "bolge_rota": dogrula_bolge_rota, "kamera_kali
           "kosu_ustveri": dogrula_kosu_ustveri, "nihai_rapor": dogrula_nihai_rapor, "kosu_olcum": dogrula_kosu_olcum, "sayac_kaydi": dogrula_sayac_kaydi}
 
 
+def dogrula_kuyruk_tasmasi(c, d):
+    """Tek bir kuyruk taşması kaydı (§8.13): disk destekli uygulama kuyruğu taştı (yazma hatası ya da boş alan alt sınırın altında); öğe ATILMADI ama kuyruğa da alınmadı, bileşen açık hatayla durdu."""
+    h = Hatalar()
+    if not alan_denetle(h, "", d, ["surum", "tur", "kuyruk", "n", "mono_ns", "neden", "oge_bayt", "ileti", "kuyruk_bayt", "bos_alan_bayt", "alt_sinir_bayt"]):
+        return h.liste
+    ust_alanlar(h, d, "kuyruk_tasmasi")
+    if not (isinstance(d.get("kuyruk"), str) and re.fullmatch(r"(kamera|gonderim|isleme)_\d+", d["kuyruk"])):
+        h.ekle("kuyruk", f"'kamera_<araç>', 'gonderim_<araç>' ya da 'isleme_<araç>' biçiminde olmalı (bulunan: {d.get('kuyruk')!r})")
+    elif int(d["kuyruk"].rpartition("_")[2]) not in c.arac_kimlikleri:
+        h.ekle("kuyruk", f"araç kimliği UAV_SYS_IDS değerlerinden biri olmalı ({c.arac_kimlikleri}; bulunan: {d['kuyruk']!r})")
+    if not ((tam_sayi_mi(d.get("n")) and d["n"] >= 0) or d.get("n") == "bilinmiyor"):
+        h.ekle("n", "negatif olmayan tam sayı ya da 'bilinmiyor' olmalı")
+    if not (tam_sayi_mi(d.get("mono_ns")) and d["mono_ns"] > 0):
+        h.ekle("mono_ns", "pozitif tam sayı (CLOCK_MONOTONIC, ns) olmalı")
+    if not (isinstance(d.get("neden"), str) and d["neden"]):
+        h.ekle("neden", "boş olmayan metin olmalı")
+    for alan in ("oge_bayt", "ileti", "kuyruk_bayt", "alt_sinir_bayt"):
+        if not (tam_sayi_mi(d.get(alan)) and d[alan] >= 0):
+            h.ekle(alan, "negatif olmayan tam sayı olmalı")
+    if not (d.get("bos_alan_bayt") is None or (tam_sayi_mi(d.get("bos_alan_bayt")) and d["bos_alan_bayt"] >= 0)):
+        h.ekle("bos_alan_bayt", "negatif olmayan tam sayı ya da null (okunamadı) olmalı")
+    return h.liste
+
+
+def dogrula_kuyruk_tasmasi_dosyasi(c, satirlar):
+    """Taşma kaydı dosyası (kuyruk başına bir dosya): tek kuyruk adı, zaman geriye gitmez, boş satır yok. Taşan kuyruk sonraki öğeleri kabul etmediği için tipik olarak tek kayıt vardır."""
+    hatalar, kuyruk, son, dolu = [], None, None, 0
+    for no, ham in enumerate(satirlar, 1):
+        if not ham.strip():
+            hatalar.append(f"satır {no}: boş satır olamaz")
+            continue
+        try:
+            d = json.loads(ham)
+        except json.JSONDecodeError as e:
+            hatalar.append(f"satır {no}: JSON geçersiz: {e}")
+            continue
+        dolu += 1
+        hs = dogrula_kuyruk_tasmasi(c, d)
+        hatalar.extend(f"satır {no}: {x}" for x in hs)
+        if hs:
+            continue
+        if kuyruk is None:
+            kuyruk = d["kuyruk"]
+        elif d["kuyruk"] != kuyruk:
+            hatalar.append(f"satır {no}: kuyruk: dosyadaki kayıtların kuyruğu aynı olmalı ('{kuyruk}' ile '{d['kuyruk']}' karışık)")
+        if son is not None and d["mono_ns"] < son:
+            hatalar.append(f"satır {no}: mono_ns geriye gidemez")
+        son = d["mono_ns"]
+    if dolu == 0 and not hatalar:
+        hatalar.append("dosya boş: en az bir kayıt olmalı")
+    return hatalar
+
+
+# ---------------------------------------------------------------------------------------------------------------------------------
+# Kare başına aşama damgaları (§8.3, B13): koşu klasöründeki bütün kare olay dosyaları birlikte (kareyi gören tek dosya yoktur)
+# ---------------------------------------------------------------------------------------------------------------------------------
+ASAMA_SIRASI = ("uretim", "kuyruga_giris", "aktarim_tamam", "cikarim_basi", "cikarim_sonu", "kullanilabilir")
+# Sonuç durumuna göre ZORUNLU olaylar: sonuc/tespit_yok → altısı da; islem_hatasi → çıkarım aşamaları işlemeden önce hata verebildiği için (cikarim_basi/sonu) isteğe bağlıdır; kare_alinamadi → kare hiç üretilip taşınmadı:
+# yalnız alıcının `kayip_tespit` kaydı ve yer istasyonunun `kullanilabilir` kaydı (aktarım iletisi merkezi modda yine de gelir; yazılmışsa denetlenir).
+ASAMA_ZORUNLU = {"sonuc": ASAMA_SIRASI, "tespit_yok": ASAMA_SIRASI, "islem_hatasi": ("uretim", "kuyruga_giris", "aktarim_tamam", "kullanilabilir"), "kare_alinamadi": ("kayip_tespit", "kullanilabilir")}
+
+
+def _jsonl_oku_yumusak(yol):
+    if not os.path.isfile(yol):
+        return []
+    sonuc = []
+    with open(yol, encoding="utf-8") as f:
+        for ham in f:
+            if ham.strip():
+                try:
+                    d = json.loads(ham)
+                except json.JSONDecodeError:
+                    continue
+                if isinstance(d, dict):
+                    sonuc.append(d)
+    return sonuc
+
+
+def kare_asamalari_oku(klasor):
+    """Koşu klasörü `kayit/` altındaki kare olay dosyalarından {(araç, n): {olay: mono_ns | 'uygulanmaz'}}, {(araç, n): sonuç durumu} ve yinelenen (araç, n, olay) listesi.
+    Aşama olaylarına ek olarak merkezi moddaki `gonderim_kuyrugu`/`gonderim` tanı kayıtları alt süre hesabı için okunur (`arac_sureci_<araç>.jsonl`; yalnız `aktarim_tamam` sayısalsa anlamlıdır)."""
+    kayit = os.path.join(klasor, "kayit")
+    dosyalar = [os.path.join(kayit, "gazebo_damga.jsonl"), os.path.join(kayit, "yer_istasyonu_kare.jsonl")]
+    if os.path.isdir(kayit):
+        dosyalar += sorted(os.path.join(kayit, f) for f in os.listdir(kayit) if re.fullmatch(r"(kamera_alici|cikarim_iscisi|arac_sureci)_\d+\.jsonl", f))
+    asama, durum, tekrar = {}, {}, []
+    alinan = ASAMA_SIRASI + ("kayip_tespit", "gonderim_kuyrugu", "gonderim")
+    for yol in dosyalar:
+        for d in _jsonl_oku_yumusak(yol):
+            if d.get("tur") != "kare_olay" or not isinstance(d.get("n"), int) or d.get("olay") not in alinan:
+                continue
+            anahtar = (d.get("arac_kimligi"), d["n"])
+            o = asama.setdefault(anahtar, {})
+            if d["olay"] in o and d["olay"] != "kayip_tespit":
+                tekrar.append((anahtar[0], anahtar[1], d["olay"]))               # ikinci kayıt gizlenmez (hata)
+                continue
+            o[d["olay"]] = d.get("mono_ns")
+            if d["olay"] == "kullanilabilir":
+                durum[anahtar] = d.get("sonuc_durumu")
+    return asama, durum, tekrar
+
+
+def _mimari_oku(klasor):
+    try:
+        with open(os.path.join(klasor, "kosu.json"), encoding="utf-8") as f:
+            return json.load(f).get("mimari_modu")
+    except (OSError, json.JSONDecodeError):
+        return None
+
+
+def dogrula_kare_asamalari(klasor, kimlikler=None):
+    """Koşu klasöründeki kare aşama damgaları: (a) `kosu.json` mimari moduna göre `aktarim_tamam` türü (merkezi sayısal, uçta `"uygulanmaz"`), (b) aynı (araç, n, olay) ikinci kez yok,
+    (c) sonuç durumuna göre zorunlu olaylar ve sıra, (d) tarama bitişi bildirilmiş her araç için [n_ilk, n_son] içindeki her numarada `kullanilabilir` kaydı var. Dönen: (hata listesi, özet {araç: {durum: kare sayısı}})."""
+    asama, durum, tekrar = kare_asamalari_oku(klasor)
+    hatalar, ozet = [], {}
+    mimari = _mimari_oku(klasor)
+    if mimari not in ("ucta", "merkezi"):
+        hatalar.append(f"kosu.json mimari_modu okunamadı ya da geçersiz ({mimari!r}); `aktarim_tamam` türü denetlenemez")
+    for k, n, o in tekrar:
+        if kimlikler is None or k in kimlikler:
+            hatalar.append(f"araç {k} n {n}: '{o}' olayı ikinci kez yazılmış (her aşama bir kez)")
+    for (k, n), sd in sorted(durum.items(), key=lambda x: (x[0][0] or 0, x[0][1])):
+        if kimlikler is not None and k not in kimlikler:
+            continue
+        ozet.setdefault(k, {}).setdefault(sd, 0)
+        ozet[k][sd] += 1
+        gerekli = ASAMA_ZORUNLU.get(sd)
+        if gerekli is None:
+            hatalar.append(f"araç {k} n {n}: bilinmeyen sonuç durumu {sd!r}")
+            continue
+        olaylar = asama[(k, n)]
+        eksik = [o for o in gerekli if o not in olaylar]
+        if eksik:
+            hatalar.append(f"araç {k} n {n} ({sd}): eksik aşama damgası: {', '.join(eksik)}")
+            continue
+        if "aktarim_tamam" in olaylar and mimari in ("ucta", "merkezi"):
+            a = olaylar["aktarim_tamam"]
+            sayisal = isinstance(a, int) and not isinstance(a, bool)
+            if mimari == "ucta" and a != "uygulanmaz":
+                hatalar.append(f"araç {k} n {n} ({sd}): uçta modda aktarim_tamam 'uygulanmaz' olmalı (bulunan: {a!r})")
+            elif mimari == "merkezi" and not sayisal:
+                hatalar.append(f"araç {k} n {n} ({sd}): merkezi modda aktarim_tamam sayısal olmalı (bulunan: {a!r})")
+        sayisal_z = [(o, olaylar[o]) for o in ASAMA_SIRASI if isinstance(olaylar.get(o), int) and not isinstance(olaylar.get(o), bool)]
+        for (o1, t1), (o2, t2) in zip(sayisal_z, sayisal_z[1:]):
+            if t2 < t1:
+                hatalar.append(f"araç {k} n {n} ({sd}): aşama sırası bozuk: {o2} ({t2}) < {o1} ({t1})")
+                break
+    for d in _jsonl_oku_yumusak(os.path.join(klasor, "kayit", "yer_istasyonu_gorev.jsonl")):      # (d) bildirilen aralıkta sonuçsuz görev karesi
+        if d.get("olay") == "tarama_bitisi" and isinstance(d.get("n_ilk"), int) and isinstance(d.get("n_son"), int) and (kimlikler is None or d.get("arac_kimligi") in kimlikler):
+            k = d.get("arac_kimligi")
+            yok = [n for n in range(d["n_ilk"], d["n_son"] + 1) if (k, n) not in durum]
+            if yok:
+                hatalar.append(f"araç {k}: [{d['n_ilk']}, {d['n_son']}] aralığında 'kullanilabilir' kaydı olmayan {len(yok)} görev karesi (ilk: {yok[:5]})")
+    return hatalar, ozet
+
+
+def asama_sureleri(klasor, kimlikler=None):
+    """Aşama süreleri (ms listeleri; yalnız `sonuc`/`tespit_yok` kareleri; merkezi modda `aktarim` = aktarim_hazirlik (poz + kodlama: gonderim_kuyrugu − kuyruga_giris) + aktarim_gonderim_kuyrugu (gonderim − gonderim_kuyrugu) + aktarim_tel (aktarim_tamam − gonderim; `gonderim` çekirdek arabelleği sınırıyla)): kuyrukta_bekleme (uçta: cikarim_basi − kuyruga_giris; merkezi: cikarim_basi − aktarim_tamam), aktarim (merkezi:
+    aktarim_tamam − kuyruga_giris; uçta 'uygulanmaz' ise yok), cikarim (cikarim_sonu − cikarim_basi), sonuc_sonrasi (kullanilabilir − cikarim_sonu). Dönen: {araç: {ad: [ms, ...]}}."""
+    asama, durum, _ = kare_asamalari_oku(klasor)
+    sonuc = {}
+    for (k, n), sd in durum.items():
+        if sd not in ("sonuc", "tespit_yok") or (kimlikler is not None and k not in kimlikler):
+            continue
+        o = asama[(k, n)]
+        sayi = lambda a: o.get(a) if isinstance(o.get(a), int) and not isinstance(o.get(a), bool) else None  # noqa: E731
+        gir, akt, cb, cs, ku = sayi("kuyruga_giris"), sayi("aktarim_tamam"), sayi("cikarim_basi"), sayi("cikarim_sonu"), sayi("kullanilabilir")
+        d = sonuc.setdefault(k, {"kuyrukta_bekleme": [], "aktarim": [], "aktarim_hazirlik": [], "aktarim_gonderim_kuyrugu": [], "aktarim_tel": [], "cikarim": [], "sonuc_sonrasi": []})
+        if cb is not None:
+            ref = akt if akt is not None else gir
+            if ref is not None:
+                d["kuyrukta_bekleme"].append((cb - ref) / 1e6)
+        if gir is not None and akt is not None:
+            d["aktarim"].append((akt - gir) / 1e6)
+            gq, gon = sayi("gonderim_kuyrugu"), sayi("gonderim")          # merkezi mod alt süreleri (toplamı `aktarim`: hazırlık + gönderim kuyruğunda bekleme + tel)
+            if gq is not None and gon is not None:
+                d["aktarim_hazirlik"].append((gq - gir) / 1e6)
+                d["aktarim_gonderim_kuyrugu"].append((gon - gq) / 1e6)
+                d["aktarim_tel"].append((akt - gon) / 1e6)
+        if cb is not None and cs is not None:
+            d["cikarim"].append((cs - cb) / 1e6)
+        if cs is not None and ku is not None:
+            d["sonuc_sonrasi"].append((ku - cs) / 1e6)
+    return sonuc
+
+
+
 JSONL_TURLERI = {"arac_durum_kaydi": dogrula_arac_durum_dosyasi, "kare_sonuc": dogrula_kare_sonuc_dosyasi, "isci_kaynak": dogrula_isci_kaynak_dosyasi, "gorev_olay": dogrula_gorev_olay_dosyasi,
                 "telemetri": dogrula_telemetri_dosyasi, "kare_poz": dogrula_kare_poz_dosyasi, "kuyruk_durumu": dogrula_kuyruk_durumu_dosyasi,
-                 "isleme_kuyrugu": lambda c, satirlar: dogrula_kuyruk_durumu_dosyasi(c, satirlar, "isleme_kuyrugu")}
+                 "isleme_kuyrugu": lambda c, satirlar: dogrula_kuyruk_durumu_dosyasi(c, satirlar, "isleme_kuyrugu"), "kuyruk_tasmasi": dogrula_kuyruk_tasmasi_dosyasi}
 
 
 def json_oku(yol):
@@ -1538,6 +1731,7 @@ def ana(argv):
     sahne_yolu = None
     uret = None
     dosya = None
+    asama_klasoru = None
     i = 0
     while i < len(argv):
         a = argv[i]
@@ -1550,6 +1744,8 @@ def ana(argv):
             sahne_yolu = argv[i + 1]; i += 2; continue
         if a == "--hedef-listesi-uret" and i + 1 < len(argv):
             uret = argv[i + 1]; i += 2; continue
+        if a == "--kare-asamalari" and i + 1 < len(argv):
+            asama_klasoru = argv[i + 1]; i += 2; continue
         if a.startswith("--") or dosya is not None:
             print(f"Bilinmeyen/yinelenen argüman: {a}", file=sys.stderr)
             return 2
@@ -1566,6 +1762,16 @@ def ana(argv):
     except (OSError, ValueError) as e:
         print(f"Yapılandırma okunamadı ({yap_yolu}): {e}", file=sys.stderr)
         return 2
+    if asama_klasoru:                                # koşu klasörü: kare başına aşama damgası tamlığı ve sırası (§8.3)
+        hatalar, ozet = dogrula_kare_asamalari(asama_klasoru, c.arac_kimlikleri)
+        for ln in hatalar:
+            print(f"HATA {asama_klasoru}: {ln}")
+        say = {k: dict(v) for k, v in ozet.items()}
+        if hatalar or not say:
+            print(f"SONUÇ: GEÇERSİZ ({len(hatalar) or 1} hata; kare sayıları {say})" if hatalar else f"SONUÇ: GEÇERSİZ (hiç kullanilabilir kare yok; {asama_klasoru})")
+            return 1
+        print(f"SONUÇ: GEÇERLİ (kare aşamaları, {sum(sum(v.values()) for v in say.values())} kare; {say})")
+        return 0
     try:
         if uret:
             d = json_oku(uret)

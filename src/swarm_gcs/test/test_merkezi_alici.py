@@ -4,6 +4,7 @@ import socket
 import sys
 import time
 import unittest
+from unittest import mock
 
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), ".."))
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", "swarm_vehicle"))
@@ -82,11 +83,62 @@ class Alici(unittest.TestCase):
         self.assertEqual([x[:2] for x in sahte.cagrilar], [("goruntu", 10), ("goruntu", 11), ("kayip", 12), ("goruntu", 13)])
         self.assertEqual(sahte.cagrilar[0][4], POZ)
         self.assertEqual(sahte.cagrilar[2][2], POZ_YOK)
-        self.assertEqual([(o["olay"], o["n"], o["kaynak"]) for o in olaylar], [("alim", n, "yer_istasyonu") for n in (10, 11, 12, 13)])
+        self.assertEqual([(o["olay"], o["n"], o["kaynak"]) for o in olaylar], [("aktarim_tamam", n, "yer_istasyonu") for n in (10, 11, 12, 13)])
         o = a.ozet()[1]
         self.assertEqual((o["alinan_ileti"], o["goruntu"], o["kare_alinamadi"], o["tekrar"], o["geriye"], o["atlanan"], o["islenen"]), (4, 3, 1, 0, 0, 0, 4))
         self.assertTrue(a.bagli_mi(1))
         c.close()
+
+    def test_isleme_kuyrugu_disk_destekli_ve_tasma_acik_hata(self):
+        """B13: işleme kuyruğu diske yazar; taşma (yapay ENOSPC, 3. yazma) kareyi ATMAZ: açık kanal hatası, `kuyruk_tasmasi` günlüğü; önceki kareler işlenir; kalan iletiler okunmaz."""
+        with mock.patch.dict(os.environ, {"KUYRUK_TEST_TASMA": "isleme_1:3"}):
+            a, sahte, olaylar, loglar, port = kur()
+        self.addCleanup(a.kapat)
+        self.assertTrue(os.path.isdir(a._kuyruk[1].dizin))
+        c = baglan(port)
+        for n in (10, 11, 12, 13, 14):
+            c.sendall(gi.kodla(goruntu(n)))
+        self.assertTrue(bekle(lambda: a.hata_var()))
+        self.assertIn("işleme kuyruğu taştı", a.hata_var()[1])
+        self.assertTrue(bekle(lambda: len(sahte.cagrilar) == 2))
+        time.sleep(0.2)
+        self.assertEqual([x[1] for x in sahte.cagrilar], [10, 11], "taşmadan önce kuyruğa alınanlar işlenir; taşan ve sonrası işlenmez")
+        o = a.ozet()[1]
+        self.assertEqual((o["islem_kuyrugu_tasan"], o["islenen"]), (1, 2))
+        # taşma sonrası denklik: çözülen = kuyruğa giren (2) + taşan (1) + bırakılan; bırakılan = aynı okumadan çözülmüş ama kuyruğa alınmamış (okuma sınırına göre 0..2; soketteki okunmamış sayılmaz)
+        self.assertEqual(o["alinan_ileti"], 3, "taşan ileti alınmış sayılır")
+        self.assertIn(o["birakilan"], (0, 1, 2))
+        self.assertLessEqual(o["alinan_ileti"] + o["birakilan"], 5)
+        g = [kv for ad, kv in loglar if ad == "kuyruk_tasmasi"]
+        self.assertEqual((len(g), g[0]["seviye"], g[0]["kuyruk"], g[0]["n"]), (1, "(-)", "isleme_1", 12))
+        self.assertIn("merkezi_kanal_hatasi", [ad for ad, _ in loglar])
+        c.close()
+
+    def test_ayni_okumadan_cozulen_iletiler_birakilan_olarak_sayilir(self):
+        with mock.patch.dict(os.environ, {"KUYRUK_TEST_TASMA": "isleme_1:2"}):
+            a, sahte, olaylar, loglar, port = kur()
+        self.addCleanup(a.kapat)
+        c = baglan(port)
+        c.sendall(b"".join(gi.kodla(kayip(n)) for n in (10, 11, 12, 13, 14)))      # küçük iletiler tek sendall: beşi de aynı okumada çözülür
+        self.assertTrue(bekle(lambda: a.hata_var()))
+        time.sleep(0.2)
+        o = a.ozet()[1]
+        self.assertEqual(o["islem_kuyrugu_tasan"], 1)
+        self.assertEqual((o["alinan_ileti"], o["birakilan"]), (2, 3), "2. yazma taştı: 1 kuyrukta + 1 taşan; kalan 3 ileti bırakıldı ve sayıldı")
+        b = [kv for ad, kv in loglar if ad == "merkezi_kuyruk_tasti_birakilan"]
+        self.assertEqual((len(b), int(b[0]["birakilan"])), (1, o["birakilan"]))
+        c.close()
+
+    def test_kapanista_kuyruk_bosken_dizin_silinir(self):
+        a, sahte, olaylar, loglar, port = kur()
+        c = baglan(port)
+        c.sendall(gi.kodla(goruntu(10)))
+        self.assertTrue(bekle(lambda: len(sahte.cagrilar) == 1))
+        dizin = a._kuyruk[1].dizin
+        c.close()
+        a.kapat()
+        self.assertFalse(os.path.exists(dizin), "işleme tamamlandı: kuyruk dizini silinmeli")
+        self.assertNotIn("merkezi_kapanis_zaman_asimi", [ad for ad, _ in loglar])
 
     def test_tekrar_geriye_ve_atlanan_sayilir_islenmez(self):
         a, sahte, olaylar, loglar, port = kur()
