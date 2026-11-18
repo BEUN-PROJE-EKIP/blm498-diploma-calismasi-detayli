@@ -23,10 +23,16 @@ Bu depo, **"Afet Bölgelerinde Haberleşme Altyapısından Bağımsız Olarak Ç
 ## Göreve başlarken
 
 1. Kullanıcıya adını sor (söylediyse onu kullan).
-2. **Kullanıcı Mikail ise önce kararlar:** `planlama/amac_ve_kararlar.md` içindeki **"Karar bekleyen sorular"** bölümünü oku. **Seçilen** satırı boş (`—`) olan her kararı sırayla kısaca göster: durum, seçenekler (birer cümle) ve öneri. Sonra hangisini seçtiğini sor. Mikail seçerse: seçimi `planlama/kararlar.md`'ye yaz (tarih, karar, gerekçe; belgeden sapmaysa hangi gereksinim) ve aynı dosyadaki **Seçilen** satırını doldur. Mikail kararı sonraya bırakırsa maddelere geç. Bütün kararlar seçilmişse bu adımı atla.
-3. `planlama/gelistirme_agaci.md` içindeki **Kilometre taşları** tablosunda o kişinin sorumlu olduğu M'leri bul.
-4. Her M için `Bekler` sütunundaki M'lerin bitip bitmediğine bak.
-5. Başlayabilir M'lerde **bitmemiş en üstteki maddeyi** ve onun **"Bitti:" ölçütünü** kullanıcıya göster; maddeye başlamadan önce ilgili sözleşme bölümünü (`planlama/sozlesmeler.md`) ve kararları (`planlama/kararlar.md`) oku.
+2. **Ortam hatırlatması (herkes için, her açılışta):** kim olursa olsun (Mikail, Miraç, Ömer…) kullanıcıya şu iki komutu kendi terminalinde çalıştırıp çalıştırmadığını sor; çalıştırmadıysa çalıştırmasını hatırlat:
+   ```bash
+   ./setup/60_ag_emulasyon_tc.sh   # sürü ağını (tc) kurar; sudo ister, yeniden başlatmada silinir
+   ./setup/ortam_saglik.sh         # ortamın sağlam olup olmadığını özetler (salt okunur)
+   ```
+   İlki `sudo` istediği için asistan çalıştırmaz (bkz. Sistem güvenliği); kullanıcı çalıştırır. Kullanıcı çıktıyı paylaşırsa `(-)` satırları varsa maddelere geçmeden önce onlara bakılır.
+3. **Kullanıcı Mikail ise önce kararlar:** `planlama/amac_ve_kararlar.md` içindeki **"Karar bekleyen sorular"** bölümünü oku. **Seçilen** satırı boş (`—`) olan her kararı sırayla kısaca göster: durum, seçenekler (birer cümle) ve öneri. Sonra hangisini seçtiğini sor. Mikail seçerse: seçimi `planlama/kararlar.md`'ye yaz (tarih, karar, gerekçe; belgeden sapmaysa hangi gereksinim) ve aynı dosyadaki **Seçilen** satırını doldur. Mikail kararı sonraya bırakırsa maddelere geç. Bütün kararlar seçilmişse bu adımı atla.
+4. `planlama/gelistirme_agaci.md` içindeki **Kilometre taşları** tablosunda o kişinin sorumlu olduğu M'leri bul.
+5. Her M için `Bekler` sütunundaki M'lerin bitip bitmediğine bak.
+6. Başlayabilir M'lerde **bitmemiş en üstteki maddeyi** ve onun **"Bitti:" ölçütünü** kullanıcıya göster; maddeye başlamadan önce ilgili sözleşme bölümünü (`planlama/sozlesmeler.md`) ve kararları (`planlama/kararlar.md`) oku.
 
 ## Sorumluluklar
 
