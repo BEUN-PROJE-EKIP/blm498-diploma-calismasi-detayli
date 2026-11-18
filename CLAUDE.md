@@ -29,6 +29,12 @@ Bu depo, **"Afet Bölgelerinde Haberleşme Altyapısından Bağımsız Olarak Ç
    ./setup/ortam_saglik.sh         # ortamın sağlam olup olmadığını özetler (salt okunur)
    ```
    İlki `sudo` istediği için asistan çalıştırmaz (bkz. Sistem güvenliği); kullanıcı çalıştırır. Kullanıcı çıktıyı paylaşırsa `(-)` satırları varsa maddelere geçmeden önce onlara bakılır.
+   **Klasör düzeni sonrası temiz derleme (tek seferlik):** `src/swarm_vehicle`, `src/swarm_gcs` ve `araclar/` alt klasörlere ayrıldı (`planlama/mimari.md` §1, README "Klasörler"). `colcon build` artık `src`'de olmayan eski dosyaları `install/` içinden silmez; eski kopyalar kalırsa unutulmuş eski bir içe aktarma o makinede hata vermez, temiz makinede çöker. Asistan şunu denetler: `ls install/swarm_vehicle/lib/python3*/site-packages/swarm_vehicle/rota.py` (eski düz yerleşim). **Dosya varsa** kullanıcıya şunları çalıştırmasını söyler (sudo gerekmez; asistan da çalıştırabilir, yalnız proje içindeki üretilmiş dosyaları siler):
+   ```bash
+   rm -rf build/swarm_vehicle build/swarm_gcs install/swarm_vehicle install/swarm_gcs
+   ./setup/50_proje_derleme.sh
+   ```
+   Dosya yoksa bu adım atlanır. Ayrıca kullanıcının açık dalında `araclar/` köküne yeni betik eklenmişse yeni düzene göre alt klasöre (`analiz/`, `deneme/`, `olcum/`, `uretim/`, `egitim/`) taşınmasını önerir.
 3. **Kullanıcı Mikail ise önce kararlar:** `planlama/amac_ve_kararlar.md` içindeki **"Karar bekleyen sorular"** bölümünü oku. **Seçilen** satırı boş (`—`) olan her kararı sırayla kısaca göster: durum, seçenekler (birer cümle) ve öneri. Sonra hangisini seçtiğini sor. Mikail seçerse: seçimi `planlama/kararlar.md`'ye yaz (tarih, karar, gerekçe; belgeden sapmaysa hangi gereksinim) ve aynı dosyadaki **Seçilen** satırını doldur. Mikail kararı sonraya bırakırsa maddelere geç. Bütün kararlar seçilmişse bu adımı atla.
 4. `planlama/gelistirme_agaci.md` içindeki **Kilometre taşları** tablosunda o kişinin sorumlu olduğu M'leri bul.
 5. Her M için `Bekler` sütunundaki M'lerin bitip bitmediğine bak.
