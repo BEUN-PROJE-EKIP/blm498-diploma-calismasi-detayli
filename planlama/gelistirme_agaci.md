@@ -136,7 +136,7 @@ Projenin ana hedefleri (GŞÖA v2 3.1 "Amaç" ve "Hedefler", 3.2 "Ürün Değeri
 - [x] **E1a** · w1 · M6a · geliştirme · Eşleştirme analiz betiği · Hedef eşleştirme ve R, precision, FP; iki mod için mutlak ve sınıf bazlı (betik; sentetik veriyle sınanmış) · FR-24, FR-28 · Bitti: betik sentetik örneklerde beklenen çıktıyı üretir, biçim sabit
 - [x] **E2a** · w1 · M6a · geliştirme · İyileşme analiz betiği · D, B, T için sahne başına yüzde iyileşme; L için medyan ve 95. yüzdelik farkları (betik; sentetik veriyle sınanmış) · FR-29 · Bitti: betik sentetik örneklerde beklenen çıktıyı üretir, biçim sabit
 - [x] **E3a** · w1 · M6a · geliştirme · Bootstrap betiği · %95 percentile bootstrap, 10.000 yeniden örnekleme, eşleştirme bozulmadan (betik; sentetik veriyle sınanmış) · FR-29 · Bitti: betik sentetik örneklerde beklenen çıktıyı üretir, biçim sabit
-- [ ] **E4a** · w1 · M6a · geliştirme · Karar kuralı betiği · Ölçüt ölçüt karar kuralı; R için üç sonuçlu kural; tek ortak başarı kararı yok; "fark gösterilemedi" eşdeğerlik değil (betik; sentetik veriyle sınanmış) · FR-30 · Bitti: betik sentetik örneklerde beklenen çıktıyı üretir, biçim sabit
+- [x] **E4a** · w1 · M6a · geliştirme · Karar kuralı betiği · Ölçüt ölçüt karar kuralı; R için üç sonuçlu kural; tek ortak başarı kararı yok; "fark gösterilemedi" eşdeğerlik değil (betik; sentetik veriyle sınanmış) · FR-30 · Bitti: betik sentetik örneklerde beklenen çıktıyı üretir, biçim sabit
 - [ ] **E5a** · w1 · M6a · geliştirme · Sansürlü koşu betiği · Tamamlanamayan koşular: sansürlü süre gösterimi, kısmi trafik, tamamlanan çiftlerle koşullu analiz (betik; sentetik veriyle sınanmış) · FR-27 · Bitti: betik sentetik örneklerde beklenen çıktıyı üretir, biçim sabit
 
 ## M6b · Bütünleşik koşu ve kabul testleri
