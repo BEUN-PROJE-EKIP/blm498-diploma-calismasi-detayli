@@ -29,7 +29,7 @@ from mavsdk import System  # noqa: E402
 from mavsdk.mission import MissionItem, MissionPlan  # noqa: E402
 
 from . import komut_yolu as _komut  # noqa: E402
-from . import konum_hesap as _konum  # noqa: E402
+from ..cikarim import konum_hesap as _konum  # noqa: E402
 from . import port_denetimi as _port  # noqa: E402
 from . import poz_tamponu as _poz  # noqa: E402
 from . import rota as _rota  # noqa: E402

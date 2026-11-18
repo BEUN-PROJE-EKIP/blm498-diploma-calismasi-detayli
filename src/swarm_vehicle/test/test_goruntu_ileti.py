@@ -11,10 +11,10 @@ import time
 import unittest
 
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), ".."))
-from swarm_vehicle import disk_kuyrugu as dk  # noqa: E402
-from swarm_vehicle import goruntu_ileti as gi  # noqa: E402
-from swarm_vehicle import goruntu_kanali as gk  # noqa: E402
-from swarm_vehicle import poz_tamponu as pz  # noqa: E402
+from swarm_vehicle.kamera import disk_kuyrugu as dk  # noqa: E402
+from swarm_vehicle.merkezi_mod import goruntu_ileti as gi  # noqa: E402
+from swarm_vehicle.merkezi_mod import goruntu_kanali as gk  # noqa: E402
+from swarm_vehicle.ucus import poz_tamponu as pz  # noqa: E402
 
 W, H = 640, 480
 _GECICI = []

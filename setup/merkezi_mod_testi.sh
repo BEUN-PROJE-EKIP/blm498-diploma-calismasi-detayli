@@ -92,7 +92,7 @@ check_prereqs() {
     local c f
     for c in gz ss pgrep python3 awk colcon git tc; do check "Araç mevcut: $c" command -v "$c"; done
     check "venv Python (.venv)" test -x "$VENV_PY"
-    for f in "$KOSU" "$ANALIZ" "$UC_ANALIZ" "${BIRIM_TESTLER[@]}" "$PKG_DIR/swarm_vehicle/goruntu_ileti.py" "$PKG_DIR/swarm_vehicle/goruntu_kanali.py" "$GCS_DIR/swarm_gcs/merkezi_alici.py"; do
+    for f in "$KOSU" "$ANALIZ" "$UC_ANALIZ" "${BIRIM_TESTLER[@]}" "$PKG_DIR/swarm_vehicle/merkezi_mod/goruntu_ileti.py" "$PKG_DIR/swarm_vehicle/merkezi_mod/goruntu_kanali.py" "$GCS_DIR/swarm_gcs/merkezi_mod/merkezi_alici.py"; do
         check "Dosya: ${f#"$ROOT_DIR"/}" test -f "$f"
     done
     check "Yapılandırılmış sürü ağı (lo üzerinde htb)" bash -c '[[ "$(tc qdisc show dev lo)" == *htb* ]]'
@@ -312,22 +312,22 @@ test_birim() {
     else
         log_warn "birim: geçici port aralığı okunamadı; yer istasyonu aralık reddi atlandı"
     fi
-    for mod in swarm_vehicle.goruntu_ileti swarm_vehicle.goruntu_kanali swarm_vehicle.disk_kuyrugu swarm_gcs.merkezi_alici; do
+    for mod in swarm_vehicle.merkezi_mod.goruntu_ileti swarm_vehicle.merkezi_mod.goruntu_kanali swarm_vehicle.kamera.disk_kuyrugu swarm_gcs.merkezi_mod.merkezi_alici; do
         rc=0
         # shellcheck disable=SC2016  # tek tırnak bilerek: Python kodu
         "$VENV_PY" -I -c 'import sys; sys.path[:0] = sys.argv[1:3]; import importlib; importlib.import_module(sys.argv[3]); assert "rclpy" not in sys.modules and "mavsdk" not in sys.modules' "$PKG_DIR" "$GCS_DIR" "$mod" > "$TMP_DIR/ice.log" 2>&1 || rc=$?
         if [[ "$rc" -eq 0 ]]; then log_ok "birim: $mod rclpy ve mavsdk olmadan içe aktarıldı"; else log_fail "birim: $mod içe aktarma hatası"; tail -n 5 "$TMP_DIR/ice.log"; fi
     done
     rc=0
-    "$VENV_PY" -m py_compile "$PKG_DIR"/swarm_vehicle/{goruntu_ileti,goruntu_kanali,disk_kuyrugu,arac,kare_isleyici,kare_sonuc,kamera_alici,kamera_alici_gz,rota,port_denetimi}.py "$GCS_DIR"/swarm_gcs/{merkezi_alici,sonuc_alici,gorev_koordinatoru,gorev_mantik}.py "$ANALIZ" "$DOGRULA" > "$TMP_DIR/pyc.log" 2>&1 || rc=$?
+    "$VENV_PY" -m py_compile "$PKG_DIR"/swarm_vehicle/{merkezi_mod/goruntu_ileti,merkezi_mod/goruntu_kanali,kamera/disk_kuyrugu,arac,cikarim/kare_isleyici,cikarim/kare_sonuc,kamera/kamera_alici,kamera/kamera_alici_gz,ucus/rota,ucus/port_denetimi}.py "$GCS_DIR"/swarm_gcs/{merkezi_mod/merkezi_alici,uc_mod/sonuc_alici,gorev_koordinatoru,gorev/gorev_mantik}.py "$ANALIZ" "$DOGRULA" > "$TMP_DIR/pyc.log" 2>&1 || rc=$?
     if [[ "$rc" -eq 0 ]]; then log_ok "birim: py_compile temiz"; else log_fail "birim: py_compile hata"; tail -n 5 "$TMP_DIR/pyc.log"; fi
     out="$(git -C "$ROOT_DIR" grep --untracked -nE '^\s*(from|import) mavsdk' -- src || true)"
-    if [[ -n "$out" && "$(awk -F: '{print $1}' <<< "$out" | sort -u)" == "src/swarm_vehicle/swarm_vehicle/px4_adapter.py" ]]; then log_ok "birim: src/ altında mavsdk'yı içe aktaran tek dosya px4_adapter.py"; else log_fail "birim: mavsdk içe aktarımı beklenenden farklı: $out"; fi
-    out="$(git -C "$ROOT_DIR" grep --untracked -nE '\.action\.|\.mission\b|\.mission_raw|\.param\.set|set_param|set_rate_|\.offboard\.|send_message' -- src ':!src/swarm_vehicle/swarm_vehicle/px4_adapter.py' || true)"
+    if [[ -n "$out" && "$(awk -F: '{print $1}' <<< "$out" | sort -u)" == "src/swarm_vehicle/swarm_vehicle/ucus/px4_adapter.py" ]]; then log_ok "birim: src/ altında mavsdk'yı içe aktaran tek dosya px4_adapter.py"; else log_fail "birim: mavsdk içe aktarımı beklenenden farklı: $out"; fi
+    out="$(git -C "$ROOT_DIR" grep --untracked -nE '\.action\.|\.mission\b|\.mission_raw|\.param\.set|set_param|set_rate_|\.offboard\.|send_message' -- src ':!src/swarm_vehicle/swarm_vehicle/ucus/px4_adapter.py' || true)"
     if [[ -z "$out" ]]; then log_ok "birim: src/ altında px4_adapter.py dışında PX4'e yazan çağrı yok"; else log_fail "birim: dış çağrı: $out"; fi
-    out="$(grep -cE '^[[:space:]]*self\.komut_sayaci \+= 1' "$PKG_DIR/swarm_vehicle/px4_adapter.py" || true)"
+    out="$(grep -cE '^[[:space:]]*self\.komut_sayaci \+= 1' "$PKG_DIR/swarm_vehicle/ucus/px4_adapter.py" || true)"
     if [[ "$out" == "1" ]]; then log_ok "birim: komut sayacını artıran tek yer _yaz (px4_adapter.py)"; else log_fail "birim: komut_sayaci artışı $out yerde"; fi
-    out="$(git -C "$ROOT_DIR" grep --untracked -nE '127\.0\.0\.1' -- src/swarm_vehicle/swarm_vehicle/goruntu_kanali.py src/swarm_gcs/swarm_gcs/merkezi_alici.py || true)"
+    out="$(git -C "$ROOT_DIR" grep --untracked -nE '127\.0\.0\.1' -- src/swarm_vehicle/swarm_vehicle/merkezi_mod/goruntu_kanali.py src/swarm_gcs/swarm_gcs/merkezi_mod/merkezi_alici.py || true)"
     if [[ -z "$out" ]]; then log_ok "birim: kanal kodunda 127.0.0.1 yok (kanal ölçülen sürü ağı adreslerini kullanır)"; else log_fail "birim: kanal kodunda 127.0.0.1: $out"; fi
     out="$(iz_tara)"
     if [[ -z "$out" ]]; then log_ok "birim: çalışma ağacı farkında, yeni dosyalarda ve son commit'te süreç izi yok"; else log_fail "birim: süreç izi: $(head -n 3 <<< "$out" | tr '\n' ';')"; fi

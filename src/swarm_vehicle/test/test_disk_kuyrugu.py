@@ -8,7 +8,7 @@ import time
 import unittest
 
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), ".."))
-from swarm_vehicle import disk_kuyrugu as dk  # noqa: E402
+from swarm_vehicle.kamera import disk_kuyrugu as dk  # noqa: E402
 
 
 class Gunluk:

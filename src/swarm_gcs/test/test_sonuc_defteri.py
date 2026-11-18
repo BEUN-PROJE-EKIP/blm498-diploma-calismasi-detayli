@@ -7,7 +7,7 @@ import unittest
 
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), ".."))
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", "swarm_vehicle"))
-from swarm_gcs.sonuc_defteri import DURUMLAR, SonucDefteri  # noqa: E402
+from swarm_gcs.birlestirme.sonuc_defteri import DURUMLAR, SonucDefteri  # noqa: E402
 
 
 class Defter(unittest.TestCase):
@@ -96,7 +96,7 @@ class TaramaBitisiGorevKimligi(unittest.TestCase):
 
     def _alici(self, mission_id):
         from types import SimpleNamespace
-        from swarm_gcs.sonuc_alici import SonucAlici
+        from swarm_gcs.uc_mod.sonuc_alici import SonucAlici
         a = SonucAlici.__new__(SonucAlici)
         a.log = lambda olay, **kv: a.gunluk.append((olay, kv))
         a.gunluk = []

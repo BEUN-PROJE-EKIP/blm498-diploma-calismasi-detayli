@@ -23,9 +23,9 @@ sys.path.insert(0, os.path.join(KOK, "src", "swarm_vehicle"))
 sys.path.insert(0, os.path.join(KOK, "src", "swarm_gcs"))
 
 import numpy as np  # noqa: E402
-from swarm_vehicle import konum_hesap as kh  # noqa: E402
-from swarm_vehicle import poz_tamponu as pt  # noqa: E402
-from swarm_vehicle import rota as _rota  # noqa: E402
+from swarm_vehicle.cikarim import konum_hesap as kh  # noqa: E402
+from swarm_vehicle.ucus import poz_tamponu as pt  # noqa: E402
+from swarm_vehicle.ucus import rota as _rota  # noqa: E402
 
 NS = 10 ** 9
 ESIK_M = 5.0
@@ -333,7 +333,7 @@ def mod_rota(klasor, arac, ham, kimlik, baslangic, kayma_ms):
 def nihai_rapor_cevrimdisi(klasor, ham, mod):
     """Koşunun `nihai_rapor.json` dosyası, aynı koşunun kare sonuç kayıtlarından (`kayit/kare_sonuc_<araç>.jsonl`, görev kaydındaki [n_ilk, n_son] aralığında) ve Gazebo damga kaydından
     ÇEVRİM DIŞI yeniden birleştirilen raporla karşılaştırılır (iki mod aynı birleştirme fonksiyonunu kullanır). Uçta modda güven `float32`'ye yuvarlanarak (DDS duyarlığı) yeniden birleştirilir; karşılaştırma güvende 1e-6, konumda 1e-9 m toleranslıdır."""
-    from swarm_gcs import hedef_birlestirme as hb
+    from swarm_gcs.birlestirme import hedef_birlestirme as hb
     gorev = jsonl(os.path.join(klasor, "kayit", "yer_istasyonu_gorev.jsonl"))
     aralik = {x["arac_kimligi"]: (x["n_ilk"], x["n_son"]) for x in gorev if x["olay"] == "tarama_bitisi"}
     f32 = (lambda v: float(np.float32(v))) if mod == "ucta" else (lambda v: v)     # uçta modda güven DDS float32 olarak gelir: aynı duyarlıkla yeniden birleştirilir (eşitlikte yanlış "farklı" çıkmasın)

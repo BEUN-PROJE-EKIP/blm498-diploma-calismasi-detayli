@@ -19,7 +19,7 @@ import time
 KOK = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, os.path.join(KOK, "src", "swarm_vehicle"))
 
-from swarm_vehicle import rota  # noqa: E402
+from swarm_vehicle.ucus import rota  # noqa: E402
 
 
 def ana(argv):

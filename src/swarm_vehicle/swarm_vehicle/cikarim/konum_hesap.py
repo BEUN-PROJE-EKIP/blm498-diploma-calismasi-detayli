@@ -17,7 +17,7 @@ import json
 import math
 import os
 
-from . import rota as _rota
+from ..ucus import rota as _rota
 
 NEDEN_POZ_YOK, NEDEN_KESISIM_YOK = "poz_yok", "kesisim_yok"
 NEDENLER = (NEDEN_POZ_YOK, NEDEN_KESISIM_YOK)

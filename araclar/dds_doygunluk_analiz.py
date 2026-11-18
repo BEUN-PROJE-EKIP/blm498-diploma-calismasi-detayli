@@ -218,7 +218,7 @@ def ana(argv):
         print(__doc__, file=sys.stderr)
         return 2
     sys.path.insert(0, os.path.join(KOK, "src", "swarm_vehicle"))
-    from swarm_vehicle import rota
+    from swarm_vehicle.ucus import rota
     ham = rota.deney_env_oku()
     kimlikler = [int(x) for x in ham["UAV_SYS_IDS"].split()]
     sn = sorted(yollar)

@@ -14,8 +14,8 @@ except ImportError:
     ROS = False
 
 if ROS:
-    from swarm_gcs.sonuc_alici import SonucAlici
-    from swarm_vehicle import rota
+    from swarm_gcs.uc_mod.sonuc_alici import SonucAlici
+    from swarm_vehicle.ucus import rota
 
 
 def ileti(arac, n, durum, sinif_no=None, guven=0.8, konum=(1.0, 2.0)):

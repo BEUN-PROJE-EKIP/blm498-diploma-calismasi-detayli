@@ -14,7 +14,8 @@ def _kok_bul():
     ortam = os.environ.get("PROJE_ROOT")
     if ortam and os.path.isfile(os.path.join(ortam, "config", "deney.env")):
         return ortam
-    return os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
+    # src/swarm_vehicle/swarm_vehicle/ucus/rota.py → depo kökü beş üst klasör yukarıdadır.
+    return os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))))
 
 
 KOK = _kok_bul()

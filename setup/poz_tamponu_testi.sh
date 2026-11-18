@@ -85,7 +85,7 @@ check_prereqs() {
     for c in gz ss pgrep python3 awk colcon git tc; do check "Araç mevcut: $c" command -v "$c"; done
     check "venv Python (.venv)" test -x "$VENV_PY"
     check "setup/env.sh" test -f "$ENV_SH"
-    for f in "$KOSU" "$ANALIZ" "$KAYIT" "$BIRIM_TEST" "$PKG_DIR/swarm_vehicle/poz_tamponu.py" "$PKG_DIR/swarm_vehicle/px4_adapter.py"; do
+    for f in "$KOSU" "$ANALIZ" "$KAYIT" "$BIRIM_TEST" "$PKG_DIR/swarm_vehicle/ucus/poz_tamponu.py" "$PKG_DIR/swarm_vehicle/ucus/px4_adapter.py"; do
         check "Dosya: ${f#"$ROOT_DIR"/}" test -f "$f"
     done
     check "Yapılandırılmış sürü ağı (lo üzerinde htb)" bash -c '[[ "$(tc qdisc show dev lo)" == *htb* ]]'
@@ -251,18 +251,18 @@ test_birim() {
         tail -n 12 "$out" | while IFS= read -r l; do log_info "  | $l"; done
     fi
     # shellcheck disable=SC2016  # tek tırnak bilerek: Python kodu
-    "$VENV_PY" -I -c 'import sys; sys.path.insert(0, sys.argv[1]); import importlib; importlib.import_module("swarm_vehicle.poz_tamponu"); assert "rclpy" not in sys.modules and "mavsdk" not in sys.modules' "$PKG_DIR" > "$TMP_DIR/ice.log" 2>&1 || rc=$?
-    if [[ "$rc" -eq 0 ]]; then log_ok "birim: swarm_vehicle.poz_tamponu rclpy ve mavsdk olmadan içe aktarıldı"; else log_fail "birim: poz_tamponu içe aktarma hatası"; tail -n 5 "$TMP_DIR/ice.log"; fi
+    "$VENV_PY" -I -c 'import sys; sys.path.insert(0, sys.argv[1]); import importlib; importlib.import_module("swarm_vehicle.ucus.poz_tamponu"); assert "rclpy" not in sys.modules and "mavsdk" not in sys.modules' "$PKG_DIR" > "$TMP_DIR/ice.log" 2>&1 || rc=$?
+    if [[ "$rc" -eq 0 ]]; then log_ok "birim: swarm_vehicle.ucus.poz_tamponu rclpy ve mavsdk olmadan içe aktarıldı"; else log_fail "birim: poz_tamponu içe aktarma hatası"; tail -n 5 "$TMP_DIR/ice.log"; fi
     rc=0
-    "$VENV_PY" -m py_compile "$PKG_DIR/swarm_vehicle/poz_tamponu.py" "$PKG_DIR/swarm_vehicle/px4_adapter.py" "$PKG_DIR/swarm_vehicle/arac.py" "$PKG_DIR/swarm_vehicle/kare_isleyici.py" "$ANALIZ" "$KAYIT" "$DOGRULA" > "$TMP_DIR/pyc.log" 2>&1 || rc=$?
+    "$VENV_PY" -m py_compile "$PKG_DIR/swarm_vehicle/ucus/poz_tamponu.py" "$PKG_DIR/swarm_vehicle/ucus/px4_adapter.py" "$PKG_DIR/swarm_vehicle/arac.py" "$PKG_DIR/swarm_vehicle/cikarim/kare_isleyici.py" "$ANALIZ" "$KAYIT" "$DOGRULA" > "$TMP_DIR/pyc.log" 2>&1 || rc=$?
     if [[ "$rc" -eq 0 ]]; then log_ok "birim: py_compile temiz"; else log_fail "birim: py_compile hata"; tail -n 5 "$TMP_DIR/pyc.log"; fi
     out="$(cd "$ROOT_DIR" && git grep --untracked -nE '^\s*(from|import) mavsdk' -- src || true)"
-    if [[ -n "$out" && "$(awk -F: '{print $1}' <<< "$out" | sort -u)" == "src/swarm_vehicle/swarm_vehicle/px4_adapter.py" ]]; then log_ok "birim: src/ altında mavsdk'yı içe aktaran tek dosya px4_adapter.py"; else log_fail "birim: mavsdk içe aktarımı beklenenden farklı: $out"; fi
-    out="$(cd "$ROOT_DIR" && git grep --untracked -nE '\.action\.|\.mission\b|\.mission_raw|\.param\.set|set_param|set_rate_|\.offboard\.|send_message' -- src ':!src/swarm_vehicle/swarm_vehicle/px4_adapter.py' || true)"
+    if [[ -n "$out" && "$(awk -F: '{print $1}' <<< "$out" | sort -u)" == "src/swarm_vehicle/swarm_vehicle/ucus/px4_adapter.py" ]]; then log_ok "birim: src/ altında mavsdk'yı içe aktaran tek dosya px4_adapter.py"; else log_fail "birim: mavsdk içe aktarımı beklenenden farklı: $out"; fi
+    out="$(cd "$ROOT_DIR" && git grep --untracked -nE '\.action\.|\.mission\b|\.mission_raw|\.param\.set|set_param|set_rate_|\.offboard\.|send_message' -- src ':!src/swarm_vehicle/swarm_vehicle/ucus/px4_adapter.py' || true)"
     if [[ -z "$out" ]]; then log_ok "birim: src/ altında px4_adapter.py dışında PX4'e yazan çağrı yok"; else log_fail "birim: dış çağrı: $out"; fi
     out="$(git -C "$ROOT_DIR" grep --untracked -niE 'set_rate_|set_message_interval' -- src || true)"
     if [[ -z "$out" ]]; then log_ok "birim: src/ altında telemetri hızı artırma çağrısı yok (set_rate_*, SET_MESSAGE_INTERVAL)"; else log_fail "birim: hız komutu: $out"; fi
-    out="$(grep -cE '^[[:space:]]*self\.komut_sayaci \+= 1' "$PKG_DIR/swarm_vehicle/px4_adapter.py" || true)"
+    out="$(grep -cE '^[[:space:]]*self\.komut_sayaci \+= 1' "$PKG_DIR/swarm_vehicle/ucus/px4_adapter.py" || true)"
     if [[ "$out" == "1" ]]; then log_ok "birim: komut sayacını artıran tek yer _yaz (px4_adapter.py)"; else log_fail "birim: komut_sayaci artışı $out yerde"; fi
     out="$(iz_tara)"
     if [[ -z "$out" ]]; then log_ok "birim: çalışma ağacı farkında, yeni dosyalarda ve son commit'te süreç izi yok"; else log_fail "birim: süreç izi: $(head -n 3 <<< "$out" | tr '\n' ';')"; fi

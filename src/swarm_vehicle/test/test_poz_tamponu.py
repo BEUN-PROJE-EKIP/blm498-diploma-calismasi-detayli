@@ -11,9 +11,9 @@ import unittest
 from unittest import mock
 
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), ".."))
-from swarm_vehicle import kare_isleyici as ki  # noqa: E402
-from swarm_vehicle import poz_tamponu as pt  # noqa: E402
-from swarm_vehicle import rota  # noqa: E402
+from swarm_vehicle.cikarim import kare_isleyici as ki  # noqa: E402
+from swarm_vehicle.ucus import poz_tamponu as pt  # noqa: E402
+from swarm_vehicle.ucus import rota  # noqa: E402
 
 MS = 10 ** 6
 Q0 = (1.0, 0.0, 0.0, 0.0)

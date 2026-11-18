@@ -17,7 +17,7 @@ import sys
 KOK = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, os.path.join(KOK, "src", "swarm_vehicle"))
 
-from swarm_vehicle import rota  # noqa: E402
+from swarm_vehicle.ucus import rota  # noqa: E402
 
 HEDEF_AYRIM_M = 10.0   # [belge] hedef merkezleri arası en az uzaklık (deney.env SAHNE_*)
 

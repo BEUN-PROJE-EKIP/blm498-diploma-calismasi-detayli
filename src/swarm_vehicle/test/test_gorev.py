@@ -5,7 +5,7 @@ import tempfile
 import unittest
 
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), ".."))
-from swarm_vehicle import gorev, komut_yolu, rota  # noqa: E402
+from swarm_vehicle.ucus import gorev, komut_yolu, rota  # noqa: E402
 
 DOSYA = os.path.join(rota.KOK, "config", "bolge_rota.json")
 
@@ -83,7 +83,7 @@ class AdaptorKomutIsle(unittest.TestCase):
     """px4_adapter.komut_isle PX4'e YAZMAZ: `_yaz` çağrılırsa test düşer; komut sayacı artmaz; günlükte `komut_reddedildi` olayı."""
 
     def test_yaz_cagrilmaz(self):
-        from swarm_vehicle import px4_adapter
+        from swarm_vehicle.ucus import px4_adapter
         klasor = tempfile.mkdtemp()
         a = px4_adapter.Px4Adapter(2, deney_env=rota.deney_env_oku(), gunluk_dizini=klasor)
 

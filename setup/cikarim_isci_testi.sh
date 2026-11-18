@@ -95,8 +95,8 @@ check_prereqs() {
     check "venv Python (.venv)" test -x "$VENV_PY"
     check "setup/env.sh" test -f "$ENV_SH"
     check "ROS 2 setup.bash" test -f "$ROS_SETUP"
-    for f in "$KOSU" "$KOORD" "$ANALIZ" "$CANLI" "$ISCI_DENEME" "$BIRIM_TEST" "$BIRIM_TEST2" "$BIRIM_TEST3" "$PKG_DIR/swarm_vehicle/arac.py" "$PKG_DIR/swarm_vehicle/cikarim_isci.py" "$PKG_DIR/swarm_vehicle/cikarim_istemci.py" \
-        "$PKG_DIR/swarm_vehicle/cikarim_yardimci.py" "$PKG_DIR/swarm_vehicle/kare_sonuc.py" "$PKG_DIR/swarm_vehicle/kare_isleyici.py" "$PKG_DIR/swarm_vehicle/kamera_alici.py" "$PKG_DIR/swarm_vehicle/kamera_alici_gz.py"; do
+    for f in "$KOSU" "$KOORD" "$ANALIZ" "$CANLI" "$ISCI_DENEME" "$BIRIM_TEST" "$BIRIM_TEST2" "$BIRIM_TEST3" "$PKG_DIR/swarm_vehicle/arac.py" "$PKG_DIR/swarm_vehicle/cikarim/cikarim_isci.py" "$PKG_DIR/swarm_vehicle/cikarim/cikarim_istemci.py" \
+        "$PKG_DIR/swarm_vehicle/cikarim/cikarim_yardimci.py" "$PKG_DIR/swarm_vehicle/cikarim/kare_sonuc.py" "$PKG_DIR/swarm_vehicle/cikarim/kare_isleyici.py" "$PKG_DIR/swarm_vehicle/kamera/kamera_alici.py" "$PKG_DIR/swarm_vehicle/kamera/kamera_alici_gz.py"; do
         check "Dosya: ${f#"$ROOT_DIR"/}" test -f "$f"
     done
     # shellcheck disable=SC2016  # tek tırnak bilerek: alt kabukta açılır
@@ -281,11 +281,11 @@ test_birim() {
             "$PKG_DIR" "$mod" > "$TMP_DIR/ice_$mod.log" 2>&1 || rc=$?
         if [[ "$rc" -eq 0 ]]; then log_ok "birim: swarm_vehicle.$mod rclpy/mavsdk/gz/torch/numpy olmadan içe aktarıldı"; else log_fail "birim: swarm_vehicle.$mod içe aktarma hatası"; tail -n 5 "$TMP_DIR/ice_$mod.log"; fi
     done
-    out="$(git -C "$ROOT_DIR" grep --untracked -nE '^\s*(import|from)\s+(rclpy|rcl_interfaces|swarm_msgs|gz|mavsdk)\b' -- 'src/swarm_vehicle/swarm_vehicle/cikarim_*.py' 'src/swarm_vehicle/swarm_vehicle/kare_sonuc.py' 'src/swarm_vehicle/swarm_vehicle/kare_isleyici.py' || true)"
+    out="$(git -C "$ROOT_DIR" grep --untracked -nE '^\s*(import|from)\s+(rclpy|rcl_interfaces|swarm_msgs|gz|mavsdk)\b' -- 'src/swarm_vehicle/swarm_vehicle/cikarim/cikarim_*.py' 'src/swarm_vehicle/swarm_vehicle/cikarim/kare_sonuc.py' 'src/swarm_vehicle/swarm_vehicle/cikarim/kare_isleyici.py' || true)"
     if [[ -z "$out" ]]; then log_ok "birim: işçi/istemci/yardımcı/kare sonucu modüllerinde rclpy, swarm_msgs, gz, mavsdk içe aktarımı yok"; else log_fail "birim: yasak içe aktarım: $out"; fi
     rc=0
-    "$VENV_PY" -m py_compile "$PKG_DIR/swarm_vehicle/arac.py" "$PKG_DIR/swarm_vehicle/cikarim_isci.py" "$PKG_DIR/swarm_vehicle/cikarim_istemci.py" "$PKG_DIR/swarm_vehicle/cikarim_yardimci.py" "$PKG_DIR/swarm_vehicle/kare_sonuc.py" \
-        "$PKG_DIR/swarm_vehicle/kare_isleyici.py" "$PKG_DIR/swarm_vehicle/kamera_alici.py" "$PKG_DIR/swarm_vehicle/kamera_alici_gz.py" "$PKG_DIR/swarm_vehicle/px4_adapter.py" "$ANALIZ" "$CANLI" "$ISCI_DENEME" "$DOGRULA" > "$TMP_DIR/pyc.log" 2>&1 || rc=$?
+    "$VENV_PY" -m py_compile "$PKG_DIR/swarm_vehicle/arac.py" "$PKG_DIR/swarm_vehicle/cikarim/cikarim_isci.py" "$PKG_DIR/swarm_vehicle/cikarim/cikarim_istemci.py" "$PKG_DIR/swarm_vehicle/cikarim/cikarim_yardimci.py" "$PKG_DIR/swarm_vehicle/cikarim/kare_sonuc.py" \
+        "$PKG_DIR/swarm_vehicle/cikarim/kare_isleyici.py" "$PKG_DIR/swarm_vehicle/kamera/kamera_alici.py" "$PKG_DIR/swarm_vehicle/kamera/kamera_alici_gz.py" "$PKG_DIR/swarm_vehicle/ucus/px4_adapter.py" "$ANALIZ" "$CANLI" "$ISCI_DENEME" "$DOGRULA" > "$TMP_DIR/pyc.log" 2>&1 || rc=$?
     if [[ "$rc" -eq 0 ]]; then log_ok "birim: py_compile temiz"; else log_fail "birim: py_compile hata"; tail -n 5 "$TMP_DIR/pyc.log"; fi
     rc=0
     bash -n "${BASH_SOURCE[0]}" && bash -n "$SETUP_DIR/yayim_olcum_testi.sh" && bash -n "$SETUP_DIR/runtime_smoke.sh" || rc=$?
@@ -334,7 +334,7 @@ test_duzeltme() {
     for ad in PX4A_HEARTBEAT_SN PX4A_BASLAT_TOLERANS_M ISCI_ARKA_UC ISCI_CPU_SABITLE; do
         if grep -qE "^${ad}=" "$DENEY_ENV"; then log_ok "duzeltme: deney.env anahtarı var: $ad=${!ad}"; else log_fail "duzeltme: deney.env anahtarı yok: $ad"; fi
     done
-    out="$(git -C "$ROOT_DIR" grep -nE 'time\.monotonic\(\) \+ 5\b|_kabul_m \+ 1\.0|_yukseklik_tol \+ 1\.0' -- src/swarm_vehicle/swarm_vehicle/px4_adapter.py || true)"
+    out="$(git -C "$ROOT_DIR" grep -nE 'time\.monotonic\(\) \+ 5\b|_kabul_m \+ 1\.0|_yukseklik_tol \+ 1\.0' -- src/swarm_vehicle/swarm_vehicle/ucus/px4_adapter.py || true)"
     if [[ -z "$out" ]]; then log_ok "duzeltme: px4_adapter.py'de sabit '+ 5' sn bekleme ve '+ 1.0' tolerans kalmadı (deney.env'den okunur)"; else log_fail "duzeltme: sabit değer kaldı: $out"; fi
     out="$(grep -nF 'PX4_SIM_MODEL=gz_x500' "$SETUP_DIR/runtime_smoke.sh" | grep -vE '^[0-9]+:\s*#' || true)"
     if [[ -z "$out" ]] && grep -q 'SIM_MODEL_TEMEL' "$SETUP_DIR/runtime_smoke.sh"; then log_ok "duzeltme: runtime_smoke.sh sabit gz_x500 yerine SIM_MODEL_TEMEL kullanıyor"; else log_fail "duzeltme: runtime_smoke.sh'ta sabit gz_x500 kaldı: $out"; fi

@@ -8,8 +8,8 @@ from unittest import mock
 
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), ".."))
 from swarm_vehicle import arac as ar  # noqa: E402
-from swarm_vehicle import poz_tamponu as pt  # noqa: E402
-from swarm_vehicle import rota  # noqa: E402
+from swarm_vehicle.ucus import poz_tamponu as pt  # noqa: E402
+from swarm_vehicle.ucus import rota  # noqa: E402
 
 
 class Sahte:

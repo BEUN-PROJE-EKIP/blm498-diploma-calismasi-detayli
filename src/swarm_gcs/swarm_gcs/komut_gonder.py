@@ -5,7 +5,7 @@ import os
 import sys
 import time
 
-from swarm_vehicle import rota
+from swarm_vehicle.ucus import rota
 
 
 def ana(argv):
@@ -32,7 +32,7 @@ def ana(argv):
     os.environ["SWARM_BIND_ADDR"] = ham["GCS_ADDR"]
     import rclpy
     from rclpy.node import Node
-    from .komut_arayuzu import KomutArayuzu
+    from .gorev.komut_arayuzu import KomutArayuzu
     klasor = rota.aktif_kosu_klasoru()
     rclpy.init()
     dugum = Node("komut_gonder", namespace="/gcs")

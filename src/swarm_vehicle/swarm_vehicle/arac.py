@@ -21,15 +21,15 @@ import sys
 import threading
 import time
 
-from . import gorev as _gorev
-from . import rota as _rota
-from .cikarim_istemci import IsciIstemcisi
-from .kamera_alici import n_ilk_hesapla
-from .kamera_alici_gz import KameraAliciGz
-from .kare_isleyici import KareIsleyici
-from .konum_hesap import KonumHesaplayici
-from .sonuc_yayin import SonucYayinci
-from .durum_makinesi import (AD, STATE_BARIYER_BEKLE, STATE_HAZIR, STATE_TAMAMLANDI, STATE_TARAMA, STATE_WAIT, DurumMakinesi)
+from .ucus import gorev as _gorev
+from .ucus import rota as _rota
+from .cikarim.cikarim_istemci import IsciIstemcisi
+from .kamera.kamera_alici import n_ilk_hesapla
+from .kamera.kamera_alici_gz import KameraAliciGz
+from .cikarim.kare_isleyici import KareIsleyici
+from .cikarim.konum_hesap import KonumHesaplayici
+from .uc_mod.sonuc_yayin import SonucYayinci
+from .ucus.durum_makinesi import (AD, STATE_BARIYER_BEKLE, STATE_HAZIR, STATE_TAMAMLANDI, STATE_TARAMA, STATE_WAIT, DurumMakinesi)
 
 CIKIS_KIMLIK = 3
 CIKIS_MISSION_UYUSMUYOR = 4        # alınan Mission yerel bolge_rota.json ile birebir eşit değil: yükleme yok
@@ -202,7 +202,7 @@ class Arac:
 
     def _kare_sonucu_uret(self, kayit):
         """Kare sonucu kaydından `FrameResult` iletisini oluşturur, yerel kancaya verir ve DDS yayım kuyruğuna koyar."""
-        from . import kare_sonuc as ks
+        from .cikarim import kare_sonuc as ks
         m = ks.mesaj_olustur(kayit, self._FrameResult, self._Detection, self._zaman)
         self.kare_sonucu_mesaj_sayisi += 1
         if self.kare_sonucu_kancasi is not None:
@@ -384,7 +384,7 @@ class Arac:
 
     def _kanali_bosalt(self, aralik):
         """Merkezi mod kapanışı: kamera iç kuyruğu ve gönderim kuyruğu boşalır, kanal kapanır; her koşunun gerçek üretim hızı, kare sayısı ve kuyruk durumu günlüğe yazılır."""
-        from .goruntu_kanali import rss_zirve_mib
+        from .merkezi_mod.goruntu_kanali import rss_zirve_mib
         n_ilk, n_son = aralik
         t0 = time.monotonic()
         zamaninda, zorla, _ = self.isleyici_beklenen_tamamla(n_ilk, n_son)
@@ -488,9 +488,9 @@ class Arac:
 
     def _merkezi_kur(self):
         """Merkezi mod bileşenleri: gönderim kuyruğu, göndericisi, ileti hazırlayıcısı ve kamera alıcısı (tüketici = ileti hazırlayıcısı; kare alınamadı da aynı kuyruktan, sırasıyla)."""
-        from .disk_kuyrugu import kuyruk_olustur
-        from .goruntu_kanali import Gonderici, IletiHazirlayici
-        from .poz_tamponu import SatirYazici
+        from .kamera.disk_kuyrugu import kuyruk_olustur
+        from .merkezi_mod.goruntu_kanali import Gonderici, IletiHazirlayici
+        from .ucus.poz_tamponu import SatirYazici
         h = self.ham
         kal = _rota.kalibrasyon_kimligi_oku()
         yaz = lambda yol: SatirYazici(yol, self.log) if yol else None  # noqa: E731
@@ -554,7 +554,7 @@ class Arac:
         from rclpy.node import Node
         from rclpy.qos import DurabilityPolicy, HistoryPolicy, QoSProfile, ReliabilityPolicy
         from swarm_msgs.msg import Command, Complete, Mission, ScanFinished, ScanStart, VehicleState
-        from . import px4_adapter
+        from .ucus import px4_adapter
         self._rclpy = rclpy
         self._Command = Command
 

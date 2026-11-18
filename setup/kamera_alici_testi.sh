@@ -92,7 +92,7 @@ check_prereqs() {
     check "venv Python (.venv)" test -x "$VENV_PY"
     check "setup/env.sh" test -f "$ENV_SH"
     check "ROS 2 setup.bash" test -f "$ROS_SETUP"
-    for f in "$KOSU" "$KOORD" "$ANALIZ" "$GORUS" "$KAMERA_URET" "$BIRIM_TEST" "$BIRIM_TEST2" "$PKG_DIR/swarm_vehicle/arac.py" "$PKG_DIR/swarm_vehicle/kamera_alici.py" "$PKG_DIR/swarm_vehicle/kamera_alici_gz.py" "$PKG_DIR/swarm_vehicle/px4_adapter.py" "$ROOT_DIR/src/yayim_damga/yayim_damga.cc"; do
+    for f in "$KOSU" "$KOORD" "$ANALIZ" "$GORUS" "$KAMERA_URET" "$BIRIM_TEST" "$BIRIM_TEST2" "$PKG_DIR/swarm_vehicle/arac.py" "$PKG_DIR/swarm_vehicle/kamera/kamera_alici.py" "$PKG_DIR/swarm_vehicle/kamera/kamera_alici_gz.py" "$PKG_DIR/swarm_vehicle/ucus/px4_adapter.py" "$ROOT_DIR/src/yayim_damga/yayim_damga.cc"; do
         check "Dosya: ${f#"$ROOT_DIR"/}" test -f "$f"
     done
     check "Yapılandırılmış sürü ağı (lo üzerinde htb)" bash -c '[[ "$(tc qdisc show dev lo)" == *htb* ]]'
@@ -281,11 +281,11 @@ test_birim() {
         if [[ "$rc" -eq 0 ]]; then log_ok "birim: swarm_vehicle.$mod rclpy/mavsdk/gz olmadan içe aktarıldı"; else log_fail "birim: swarm_vehicle.$mod içe aktarma hatası"; tail -n 5 "$TMP_DIR/ice_$mod.log"; fi
     done
     rc=0
-    "$VENV_PY" -m py_compile "$PKG_DIR/swarm_vehicle/arac.py" "$PKG_DIR/swarm_vehicle/kamera_alici.py" "$PKG_DIR/swarm_vehicle/kamera_alici_gz.py" "$KAMERA_URET" "$GORUS" "$ANALIZ" "$KOORD" > "$TMP_DIR/pyc.log" 2>&1 || rc=$?
+    "$VENV_PY" -m py_compile "$PKG_DIR/swarm_vehicle/arac.py" "$PKG_DIR/swarm_vehicle/kamera/kamera_alici.py" "$PKG_DIR/swarm_vehicle/kamera/kamera_alici_gz.py" "$KAMERA_URET" "$GORUS" "$ANALIZ" "$KOORD" > "$TMP_DIR/pyc.log" 2>&1 || rc=$?
     if [[ "$rc" -eq 0 ]]; then log_ok "birim: py_compile temiz"; else log_fail "birim: py_compile hata"; tail -n 5 "$TMP_DIR/pyc.log"; fi
     out="$(cd "$ROOT_DIR" && git grep --untracked -nE '^\s*(from|import) mavsdk' -- src || true)"
-    if [[ -n "$out" && "$(awk -F: '{print $1}' <<< "$out" | sort -u)" == "src/swarm_vehicle/swarm_vehicle/px4_adapter.py" ]]; then log_ok "birim: src/ altında mavsdk'yı içe aktaran tek dosya px4_adapter.py"; else log_fail "birim: mavsdk içe aktarımı beklenenden farklı: $out"; fi
-    out="$(cd "$ROOT_DIR" && git grep --untracked -nE '\.action\.|\.mission\b|\.mission_raw|\.param\.set|set_param|set_rate_|\.offboard\.|send_message' -- src ':!src/swarm_vehicle/swarm_vehicle/px4_adapter.py' || true)"
+    if [[ -n "$out" && "$(awk -F: '{print $1}' <<< "$out" | sort -u)" == "src/swarm_vehicle/swarm_vehicle/ucus/px4_adapter.py" ]]; then log_ok "birim: src/ altında mavsdk'yı içe aktaran tek dosya px4_adapter.py"; else log_fail "birim: mavsdk içe aktarımı beklenenden farklı: $out"; fi
+    out="$(cd "$ROOT_DIR" && git grep --untracked -nE '\.action\.|\.mission\b|\.mission_raw|\.param\.set|set_param|set_rate_|\.offboard\.|send_message' -- src ':!src/swarm_vehicle/swarm_vehicle/ucus/px4_adapter.py' || true)"
     if [[ -z "$out" ]]; then log_ok "birim: src/ altında px4_adapter.py dışında PX4'e yazan çağrı yok"; else log_fail "birim: dış çağrı: $out"; fi
     log_info "birim: PX4 model dizininde 'kamera' adlı dosya/dizin sayısı (0 beklenir; PX4 kaynağına dokunulmaz): $(find "$ROOT_DIR/third_party/PX4-Autopilot/Tools/simulation/gz/models" -maxdepth 1 -name '*kamera*' | wc -l)"
 }

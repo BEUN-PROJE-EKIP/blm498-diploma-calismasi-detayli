@@ -20,7 +20,7 @@ import time
 KOK = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, os.path.join(KOK, "src", "swarm_vehicle"))
 
-from swarm_vehicle import rota  # noqa: E402
+from swarm_vehicle.ucus import rota  # noqa: E402
 
 ESIK_KIRMIZI, ESIK_DIGER = 200, 60
 MIN_ALAN_PX = 30
@@ -96,7 +96,7 @@ def ana(argv):
     from gz.msgs10.entity_factory_pb2 import EntityFactory
     from gz.msgs10.image_pb2 import Image
     from gz.transport13 import Node
-    from swarm_vehicle.kamera_alici import n_hesapla
+    from swarm_vehicle.kamera.kamera_alici import n_hesapla
 
     hz = int(float(ham["CAM_RATE_HZ"]))
     w, h = int(ham["CAM_WIDTH"]), int(ham["CAM_HEIGHT"])

@@ -34,7 +34,7 @@ def jsonl(yol):
 
 def env_oku():
     sys.path.insert(0, os.path.join(KOK, "src", "swarm_vehicle"))
-    from swarm_vehicle import rota
+    from swarm_vehicle.ucus import rota
     return rota.deney_env_oku()
 
 

@@ -174,7 +174,7 @@ def ana(argv):
     if not cikti:
         print(__doc__, file=sys.stderr)
         return 2
-    from swarm_vehicle import rota
+    from swarm_vehicle.ucus import rota
     ham = rota.deney_env_oku()
     n_arac = n_arac or len(ham["UAV_SYS_IDS"].split())
     kare_bayt = int(ham["CAM_WIDTH"]) * int(ham["CAM_HEIGHT"]) * 3

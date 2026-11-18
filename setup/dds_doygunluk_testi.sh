@@ -280,7 +280,7 @@ test_birim() {
     out="$(grep -nE '10\.10\.0\.[0-9]+' "$YUK" || true)"
     if [[ -z "$out" ]]; then log_ok "birim: yük aracı adresleri koda gömmez (UAVn_ADDR/GCS_ADDR yapılandırmadan okunur)"; else log_fail "birim: yük aracında sabit adres: $out"; fi
     out="$(cd "$ROOT_DIR" && git grep --untracked -nE '^\s*(from|import) mavsdk' -- src araclar/sentetik_yuk.py araclar/tc_izle.py || true)"
-    if [[ -n "$out" && "$(awk -F: '{print $1}' <<< "$out" | sort -u)" == "src/swarm_vehicle/swarm_vehicle/px4_adapter.py" ]]; then log_ok "birim: mavsdk'yı içe aktaran tek dosya px4_adapter.py"; else log_fail "birim: mavsdk içe aktarımı beklenenden farklı: $out"; fi
+    if [[ -n "$out" && "$(awk -F: '{print $1}' <<< "$out" | sort -u)" == "src/swarm_vehicle/swarm_vehicle/ucus/px4_adapter.py" ]]; then log_ok "birim: mavsdk'yı içe aktaran tek dosya px4_adapter.py"; else log_fail "birim: mavsdk içe aktarımı beklenenden farklı: $out"; fi
     out="$(cd "$ROOT_DIR" && git grep --untracked -nE 'tc (qdisc|class|filter) (add|change|replace|del)|sudo_run|\["sudo"' -- araclar/sentetik_yuk.py araclar/tc_izle.py araclar/dds_doygunluk_analiz.py | grep -vE '^\S+:[0-9]+:\s*#' || true)"
     if [[ -z "$out" ]]; then log_ok "birim: yeni araçlar tc'yi DEĞİŞTİRMEZ (yalnız okur) ve sudo çağırmaz"; else log_fail "birim: tc değiştiren ya da sudo çağıran satır: $out"; fi
     out="$(cd "$ROOT_DIR" && git grep --untracked -nIiE '[d]enetleyici|[c]laude|\b[k]art(ta|tır|lar|ın)?\b|\b[T]-0[0-9]{2}b?\b' -- src araclar setup config planlama | grep -viE 'ekran kartı' || true)"

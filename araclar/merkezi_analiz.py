@@ -97,7 +97,7 @@ def cpu_beklenen(ham, k_sira):
     """Uçta modda araç k_sira'nın işçisinin alacağı CPU kümesi (aynı işlev: cikarim_yardimci.cpu_ata)."""
     if ham.get("ISCI_CPU_SABITLE", "0") != "1":
         return [], "sabitleme kapalı"
-    from swarm_vehicle import cikarim_yardimci as Y
+    from swarm_vehicle.cikarim import cikarim_yardimci as Y
     kumeler = Y.cpu_cekirdek_kumeleri()
     return Y.cpu_ata(k_sira, kumeler, int(ham["ISCI_MANTIKSAL_CPU"]), izinli=os.sched_getaffinity(0))
 
@@ -200,8 +200,8 @@ def ana(argv):
         else:
             print(__doc__, file=sys.stderr)
             return 2
-    from swarm_vehicle import goruntu_ileti as gi
-    from swarm_vehicle import rota
+    from swarm_vehicle.merkezi_mod import goruntu_ileti as gi
+    from swarm_vehicle.ucus import rota
     ham = rota.deney_env_oku()
     kimlikler = [int(x) for x in ham["UAV_SYS_IDS"].split()][:n_arac]
     hz = int(float(ham["CAM_RATE_HZ"]))

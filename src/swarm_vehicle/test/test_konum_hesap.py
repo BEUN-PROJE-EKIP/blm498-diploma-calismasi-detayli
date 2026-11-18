@@ -12,12 +12,12 @@ import time
 import unittest
 
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), ".."))
-from swarm_vehicle import goruntu_ileti as gi  # noqa: E402
-from swarm_vehicle import kare_isleyici as ki  # noqa: E402
-from swarm_vehicle import kare_sonuc as ks  # noqa: E402
-from swarm_vehicle import konum_hesap as kh  # noqa: E402
-from swarm_vehicle import poz_tamponu as pt  # noqa: E402
-from swarm_vehicle import rota  # noqa: E402
+from swarm_vehicle.merkezi_mod import goruntu_ileti as gi  # noqa: E402
+from swarm_vehicle.cikarim import kare_isleyici as ki  # noqa: E402
+from swarm_vehicle.cikarim import kare_sonuc as ks  # noqa: E402
+from swarm_vehicle.cikarim import konum_hesap as kh  # noqa: E402
+from swarm_vehicle.ucus import poz_tamponu as pt  # noqa: E402
+from swarm_vehicle.ucus import rota  # noqa: E402
 
 HAM = rota.deney_env_oku()
 KAL = kh.kalibrasyon_oku()

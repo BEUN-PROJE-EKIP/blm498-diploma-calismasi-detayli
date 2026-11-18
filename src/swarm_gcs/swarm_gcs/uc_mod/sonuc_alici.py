@@ -12,9 +12,9 @@ import queue
 import threading
 import time
 
-from swarm_vehicle import rota as _rota
+from swarm_vehicle.ucus import rota as _rota
 
-from .sonuc_defteri import SonucDefteri
+from ..birlestirme.sonuc_defteri import SonucDefteri
 
 _NS = 10 ** 9
 

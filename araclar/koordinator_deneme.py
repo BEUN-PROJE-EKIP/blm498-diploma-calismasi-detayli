@@ -9,8 +9,8 @@ Kullanım:  python araclar/koordinator_deneme.py --arac N [--erken-scan-start] [
   --sonuc-zaman-asimi-sn tarama bitişleri alındıktan sonra kare sonuçlarını bekleme üst sınırı (öntanımlı: genel --zaman-asimi-sn'den kalan); dolarsa COMPLETE YAYIMLANMAZ, çıkış 1 (yalnız test)
   --yanlis-complete      bütün tarama bitişleri alınınca önce YANLIŞ kimlikli COMPLETE, --yanlis-bekle-sn (öntanımlı 6) sonra doğru COMPLETE yayımlar
 Akış: N aracın BARIYER_BEKLE durumunu görünce VE kare sonucu konusunda N yayımcıyla eşleşince (keşif gecikmesiyle t0 sonrası ilk sonuçlar kaybolmasın) bir tarama başlatma yayımlar (t0: monotonik ns + simülasyon ns);
-N tarama bitişi alınınca VE her aracın [n_ilk, n_son] aralığındaki her numara için tam bir kare sonucu (dört durumdan biri; yer istasyonu alıcı modülü `swarm_gcs.sonuc_alici`) gelince COMPLETE yayımlar (t1);
-N aracın TAMAMLANDI durumunu görünce çıkar. COMPLETE'ten önce nihai hedef birleştirme (FR-5, `swarm_gcs.hedef_birlestirme`; rapor `nihai_rapor.json`) yapılır, `birlestirme_tamam` günlüğe yazılır; hata olursa COMPLETE yayımlanmaz, çıkış 1. Kaydı koşu klasöründe `koordinator_deneme.jsonl` (serbest biçimli, test çıktısı; şema değildir). Gazebo model pozları
+N tarama bitişi alınınca VE her aracın [n_ilk, n_son] aralığındaki her numara için tam bir kare sonucu (dört durumdan biri; yer istasyonu alıcı modülü `swarm_gcs.uc_mod.sonuc_alici`) gelince COMPLETE yayımlar (t1);
+N aracın TAMAMLANDI durumunu görünce çıkar. COMPLETE'ten önce nihai hedef birleştirme (FR-5, `swarm_gcs.birlestirme.hedef_birlestirme`; rapor `nihai_rapor.json`) yapılır, `birlestirme_tamam` günlüğe yazılır; hata olursa COMPLETE yayımlanmaz, çıkış 1. Kaydı koşu klasöründe `koordinator_deneme.jsonl` (serbest biçimli, test çıktısı; şema değildir). Gazebo model pozları
 t0 anında ve her tarama bitişi alındığında kaydedilir (bağımsız doğrulama). Ortam: GZ_PARTITION, GZ_IP, setup/env.sh. Çıkış: 0 tamam, 1 zaman aşımı/hata, 2 kullanım.
 """
 import json
@@ -23,8 +23,8 @@ KOK = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, os.path.join(KOK, "src", "swarm_vehicle"))
 sys.path.insert(0, os.path.join(KOK, "src", "swarm_gcs"))
 
-from swarm_vehicle import rota  # noqa: E402
-from swarm_vehicle.durum_makinesi import AD  # noqa: E402
+from swarm_vehicle.ucus import rota  # noqa: E402
+from swarm_vehicle.ucus.durum_makinesi import AD  # noqa: E402
 
 
 class Kayit:
@@ -82,7 +82,7 @@ def ana(argv):
     from gz.transport13 import Node as GzNode
     from rclpy.node import Node
     from rclpy.qos import DurabilityPolicy, HistoryPolicy, QoSProfile, ReliabilityPolicy
-    from swarm_gcs.sonuc_alici import SonucAlici
+    from swarm_gcs.uc_mod.sonuc_alici import SonucAlici
     from swarm_msgs.msg import Complete, ScanFinished, ScanStart, VehicleState
 
     klasor = rota.aktif_kosu_klasoru()
@@ -140,7 +140,7 @@ def ana(argv):
     pub_start = dugum.create_publisher(ScanStart, ham["KONU_TARAMA_BASLAT"], kontrol(1))
     from geometry_msgs.msg import Point
     from swarm_msgs.msg import Mission
-    from swarm_vehicle import gorev as gorev_mod
+    from swarm_vehicle.ucus import gorev as gorev_mod
     pub_mission = dugum.create_publisher(Mission, ham["KONU_GOREV"], kontrol(10))
     br = gorev_mod.bolge_rota_oku(os.path.join(KOK, "config", "bolge_rota.json"))
     for k_ in kimlikler:                      # araçlar rotayı yüklemeden önce kendi Mission'larını bekler (transient_local: araçlar sonradan başlasa da alır)
@@ -205,7 +205,7 @@ def ana(argv):
             return 1
         kayit.yaz("sonuclar_tamam", sayilar={str(a): v for a, v in alici.defter.sayilar().items()}, son_sonuc_mono_ns=alici.son_sonuc_mono_ns, tamam_mono_ns=alici.defter.tamam_mono_ns,
                   gecersiz=alici.gecersiz, tekrar=len(alici.defter.tekrarlar), bilinmeyen_arac=len(alici.defter.bilinmeyen_arac))
-        from swarm_gcs import hedef_birlestirme as hb
+        from swarm_gcs.birlestirme import hedef_birlestirme as hb
         klasor_b = rota.aktif_kosu_klasoru()
         ust = {}
         if klasor_b and os.path.isfile(os.path.join(klasor_b, "kosu.json")):

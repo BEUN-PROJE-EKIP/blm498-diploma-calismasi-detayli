@@ -50,6 +50,9 @@ Notlar:
 - Yer istasyonu komutları `swarm_gcs → araç komut konusu → px4_adapter → MAVSDK-Python → MAVLink → PX4` yolundan gider; ikinci bir doğrudan PX4 komut yolu yoktur.
 - Telemetri yolu: `PX4 → MAVLink → mavsdk_server → MAVSDK-Python → px4_adapter → durum önbelleği → durum/görev modülü → DDS (2 Hz)`.
 - Yazılım üç pakette toplanır: `swarm_msgs` (yalnız mesaj tanımları), `swarm_vehicle` (araç süreci), `swarm_gcs` (yer istasyonu süreci).
+- Paket içi klasörler (giriş noktaları paket kökünde kalır: `swarm_vehicle.arac`, `swarm_gcs.gorev_koordinatoru`, `swarm_gcs.komut_gonder`):
+  - `swarm_vehicle/`: `ucus/` (PX4 bağdaştırıcısı, rota, görev, durum makinesi, komut yolu, port denetimi, poz tamponu), `kamera/` (kamera alıcısı, disk kuyruğu), `cikarim/` (çıkarım işçisi ve istemcisi, kare işleyici, kare sonucu, konum hesabı; merkezi modda yer istasyonu da bunları kullanır), `uc_mod/` (sonuç yayını), `merkezi_mod/` (görüntü iletisi ve TCP görüntü kanalı).
+  - `swarm_gcs/`: `gorev/` (görev mantığı ve kaydı, izleme, komut arayüzü), `birlestirme/` (hedef birleştirme, sonuç defteri), `uc_mod/` (sonuç alıcısı), `merkezi_mod/` (merkezi görüntü alıcısı).
 
 ## 2. Uçta mod ve merkezi mod
 

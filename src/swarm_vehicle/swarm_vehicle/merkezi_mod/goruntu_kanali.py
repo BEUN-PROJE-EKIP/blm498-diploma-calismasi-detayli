@@ -15,8 +15,8 @@ import threading
 import time
 
 from . import goruntu_ileti as gi
-from .disk_kuyrugu import KuyrukTasmasi
-from . import poz_tamponu as pz
+from ..kamera.disk_kuyrugu import KuyrukTasmasi
+from ..ucus import poz_tamponu as pz
 
 _NS = 10 ** 9
 

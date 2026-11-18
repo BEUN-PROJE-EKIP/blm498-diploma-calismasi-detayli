@@ -9,9 +9,9 @@ import unittest
 KOK = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 sys.path.insert(0, os.path.join(KOK, "src", "swarm_gcs"))
 sys.path.insert(0, os.path.join(KOK, "src", "swarm_vehicle"))
-from swarm_gcs import gorev_mantik as gm  # noqa: E402
-from swarm_gcs.gorev_kayit import GorevKaydi  # noqa: E402
-from swarm_gcs.izleme import DurumIzleyici  # noqa: E402
+from swarm_gcs.gorev import gorev_mantik as gm  # noqa: E402
+from swarm_gcs.gorev.gorev_kayit import GorevKaydi  # noqa: E402
+from swarm_gcs.gorev.izleme import DurumIzleyici  # noqa: E402
 
 A = [1, 2, 3]
 BARIYER, TAMAM = 2, 5

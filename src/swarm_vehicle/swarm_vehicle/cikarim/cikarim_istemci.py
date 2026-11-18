@@ -54,7 +54,7 @@ class IsciIstemcisi:
             ana, cocuk = socket.socketpair(socket.AF_UNIX, socket.SOCK_STREAM)
             cpu, aciklama = self._cpu_secimi()
             self.cpu_aciklama = aciklama
-            komut = [sys.executable, "-m", "swarm_vehicle.cikarim_isci", "--fd", str(cocuk.fileno()), "--arac-kimligi", str(self.arac_kimligi), "--arac-sirasi", str(self.arac_no)]
+            komut = [sys.executable, "-m", "swarm_vehicle.cikarim.cikarim_isci", "--fd", str(cocuk.fileno()), "--arac-kimligi", str(self.arac_kimligi), "--arac-sirasi", str(self.arac_no)]
             if cpu:
                 komut += ["--cpu", ",".join(map(str, cpu))]
             if self.arka_uc:

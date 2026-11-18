@@ -23,7 +23,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, os.path.join(KOK, "src", "swarm_vehicle"))
 
 import arac_sureci_analiz as asa  # noqa: E402
-from swarm_vehicle import rota as rota_mod  # noqa: E402
+from swarm_vehicle.ucus import rota as rota_mod  # noqa: E402
 
 NS = 10 ** 9
 KALDI = 0

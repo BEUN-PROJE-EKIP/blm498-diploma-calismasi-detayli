@@ -3,7 +3,7 @@
 
 Kullanım:  python araclar/cikarim_canli_denetim.py <araç_pid> <çıktı.json> [--aralik-sn 2]
 Araç süreci yaşadığı sürece her aralıkta: (1) araç sürecinin inet soketleri (yerel adres:port, protokol, durum; /proc/<pid>/fd + /proc/net/{tcp,udp,tcp6,udp6}) — gz-transport'un 127.0.0.1'de
-kaldığını göstermek için; (2) araç sürecinin çocuklarından komut satırında `swarm_vehicle.cikarim_isci` geçenler (işçi): pid, `sched_getaffinity` CPU kümesi (taskset -p ile aynı), soket türleri
+kaldığını göstermek için; (2) araç sürecinin çocuklarından komut satırında `swarm_vehicle.cikarim.cikarim_isci` geçenler (işçi): pid, `sched_getaffinity` CPU kümesi (taskset -p ile aynı), soket türleri
 (unix/tcp/udp...). Gözlemlerin birleşimi çıktı dosyasına her turda yazılır (süreç ani ölse bile dosya vardır). Yalnız standart kitaplık; hiçbir süreç değiştirilmez.
 """
 import json
@@ -105,7 +105,7 @@ def ana(argv):
         for s in soketler:
             gozlem["arac_inet"][f"{s['tur']} {s['yerel']} {s['durum']}"] = True
         for cp, komut in cocuklar(pid):
-            if "swarm_vehicle.cikarim_isci" not in komut:
+            if "swarm_vehicle.cikarim.cikarim_isci" not in komut:
                 continue
             try:
                 cpu = sorted(os.sched_getaffinity(cp))

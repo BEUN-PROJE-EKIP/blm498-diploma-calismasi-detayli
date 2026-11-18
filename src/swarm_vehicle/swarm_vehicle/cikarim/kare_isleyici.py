@@ -16,7 +16,7 @@ import time
 
 from . import kare_sonuc as ks
 from . import konum_hesap as kh
-from . import poz_tamponu as pz
+from ..ucus import poz_tamponu as pz
 from .cikarim_yardimci import SinifEsleme
 
 _NS = 10 ** 9

@@ -8,7 +8,7 @@ import unittest
 from unittest import mock
 
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), ".."))
-from swarm_vehicle import kamera_alici as ka  # noqa: E402
+from swarm_vehicle.kamera import kamera_alici as ka  # noqa: E402
 
 NS = 10 ** 9
 YARIM = NS // 2
@@ -80,8 +80,8 @@ class KameraAliciGzDisk(unittest.TestCase):
 
     def _kur(self, tasma=None):
         import tempfile
-        from swarm_vehicle import rota
-        from swarm_vehicle.kamera_alici_gz import KameraAliciGz
+        from swarm_vehicle.ucus import rota
+        from swarm_vehicle.kamera.kamera_alici_gz import KameraAliciGz
         self._gecici = tempfile.TemporaryDirectory()
         self.addCleanup(self._gecici.cleanup)
         ham = dict(rota.deney_env_oku())

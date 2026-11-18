@@ -20,9 +20,9 @@ import socket
 import threading
 import time
 
-from swarm_vehicle import goruntu_ileti as gi
-from swarm_vehicle.disk_kuyrugu import KuyrukTasmasi, kuyruk_olustur
-from swarm_vehicle import port_denetimi as _port
+from swarm_vehicle.merkezi_mod import goruntu_ileti as gi
+from swarm_vehicle.kamera.disk_kuyrugu import KuyrukTasmasi, kuyruk_olustur
+from swarm_vehicle.ucus import port_denetimi as _port
 
 _NS = 10 ** 9
 

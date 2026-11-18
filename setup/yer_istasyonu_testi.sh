@@ -228,7 +228,7 @@ test_birim() {
         log_fail "birim: proje derlemesi BAŞARISIZ; günlük: ${out#"$ROOT_DIR"/}"
         tail -n 12 "$out" | while IFS= read -r l; do log_info "  | $l"; done
     fi
-    for mod in swarm_gcs.gorev_mantik swarm_gcs.izleme swarm_gcs.gorev_kayit swarm_gcs.sonuc_defteri swarm_vehicle.gorev swarm_vehicle.komut_yolu; do
+    for mod in swarm_gcs.gorev.gorev_mantik swarm_gcs.gorev.izleme swarm_gcs.gorev.gorev_kayit swarm_gcs.birlestirme.sonuc_defteri swarm_vehicle.ucus.gorev swarm_vehicle.ucus.komut_yolu; do
         rc=0
         # shellcheck disable=SC2016  # tek tırnak bilerek: Python kodu
         "$VENV_PY" -I -c 'import sys; sys.path[:0] = sys.argv[1:3]; import importlib; importlib.import_module(sys.argv[3]); assert "rclpy" not in sys.modules and "mavsdk" not in sys.modules' \
@@ -236,13 +236,13 @@ test_birim() {
         if [[ "$rc" -eq 0 ]]; then log_ok "birim: $mod rclpy ve mavsdk olmadan içe aktarıldı"; else log_fail "birim: $mod içe aktarma hatası"; tail -n 5 "$TMP_DIR/ice_$mod.log"; fi
     done
     rc=0
-    "$VENV_PY" -m py_compile "$ROOT_DIR"/src/swarm_gcs/swarm_gcs/*.py "$ROOT_DIR"/src/swarm_vehicle/swarm_vehicle/*.py "$ROOT_DIR/araclar/koordinator_deneme.py" "$ANALIZ" > "$TMP_DIR/pyc.log" 2>&1 || rc=$?
+    "$VENV_PY" -m py_compile "$ROOT_DIR"/src/swarm_gcs/swarm_gcs/*.py "$ROOT_DIR"/src/swarm_gcs/swarm_gcs/*/*.py "$ROOT_DIR"/src/swarm_vehicle/swarm_vehicle/*.py "$ROOT_DIR"/src/swarm_vehicle/swarm_vehicle/*/*.py "$ROOT_DIR/araclar/koordinator_deneme.py" "$ANALIZ" > "$TMP_DIR/pyc.log" 2>&1 || rc=$?
     if [[ "$rc" -eq 0 ]]; then log_ok "birim: py_compile temiz"; else log_fail "birim: py_compile hata"; tail -n 5 "$TMP_DIR/pyc.log"; fi
     out="$(cd "$ROOT_DIR" && git grep --untracked -nE '^\s*(from|import) mavsdk' -- src || true)"
-    if [[ -n "$out" && "$(awk -F: '{print $1}' <<< "$out" | sort -u)" == "src/swarm_vehicle/swarm_vehicle/px4_adapter.py" ]]; then log_ok "birim: src/ altında mavsdk'yı içe aktaran tek dosya px4_adapter.py (yer istasyonunun PX4'e doğrudan bağlantısı yok)"; else log_fail "birim: mavsdk içe aktarımı beklenenden farklı: $out"; fi
-    out="$(cd "$ROOT_DIR" && git grep --untracked -nE '\.action\.|\.mission\b|\.mission_raw|\.param\.set|set_param|set_rate_|\.offboard\.|send_message' -- src ':!src/swarm_vehicle/swarm_vehicle/px4_adapter.py' || true)"
+    if [[ -n "$out" && "$(awk -F: '{print $1}' <<< "$out" | sort -u)" == "src/swarm_vehicle/swarm_vehicle/ucus/px4_adapter.py" ]]; then log_ok "birim: src/ altında mavsdk'yı içe aktaran tek dosya px4_adapter.py (yer istasyonunun PX4'e doğrudan bağlantısı yok)"; else log_fail "birim: mavsdk içe aktarımı beklenenden farklı: $out"; fi
+    out="$(cd "$ROOT_DIR" && git grep --untracked -nE '\.action\.|\.mission\b|\.mission_raw|\.param\.set|set_param|set_rate_|\.offboard\.|send_message' -- src ':!src/swarm_vehicle/swarm_vehicle/ucus/px4_adapter.py' || true)"
     if [[ -z "$out" ]]; then log_ok "birim: src/ altında px4_adapter.py dışında PX4'e yazan çağrı yok"; else log_fail "birim: dış çağrı: $out"; fi
-    govde="$(awk '/    def komut_isle\(/ {f=1; next} f && /^    (def|async def) |^    # ---/ {exit} f {print}' "$ROOT_DIR/src/swarm_vehicle/swarm_vehicle/px4_adapter.py")"
+    govde="$(awk '/    def komut_isle\(/ {f=1; next} f && /^    (def|async def) |^    # ---/ {exit} f {print}' "$ROOT_DIR/src/swarm_vehicle/swarm_vehicle/ucus/px4_adapter.py")"
     if [[ -n "$govde" && "$govde" != *"_yaz("* && "$govde" != *"self._sys"* && "$govde" != *"komut_sayaci"* ]]; then log_ok "birim: px4_adapter.komut_isle gövdesi _yaz, MAVSDK sistemi ve komut sayacına dokunmaz"; else log_fail "birim: komut_isle gövdesi PX4'e yazabilir: $govde"; fi
     # süreç izi: depoya giren kodda/belgede süreç ifadesi yok (ekran kartı gibi meşru kullanımlar hariç)
     out="$(cd "$ROOT_DIR" && git grep --untracked -nIiE '[d]enetleyici|[c]laude|\b[k]art(ta|tır|lar|ın)?\b|\b[T]-0[0-9]{2}b?\b' -- src araclar setup config planlama | grep -viE 'ekran kartı' || true)"

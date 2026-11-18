@@ -11,11 +11,11 @@ PKG = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..")
 sys.path.insert(0, PKG)
 os.environ["PYTHONPATH"] = os.path.abspath(PKG) + os.pathsep + os.environ.get("PYTHONPATH", "")   # alt süreç işçisi paketi bulsun
 from swarm_vehicle import arac  # noqa: E402
-from swarm_vehicle import cikarim_istemci as ci  # noqa: E402
-from swarm_vehicle import cikarim_yardimci as Y  # noqa: E402
-from swarm_vehicle import kare_isleyici as ki  # noqa: E402
-from swarm_vehicle import kare_sonuc as ks  # noqa: E402
-from swarm_vehicle import rota  # noqa: E402
+from swarm_vehicle.cikarim import cikarim_istemci as ci  # noqa: E402
+from swarm_vehicle.cikarim import cikarim_yardimci as Y  # noqa: E402
+from swarm_vehicle.cikarim import kare_isleyici as ki  # noqa: E402
+from swarm_vehicle.cikarim import kare_sonuc as ks  # noqa: E402
+from swarm_vehicle.ucus import rota  # noqa: E402
 
 KOK = rota.KOK
 HAM = rota.deney_env_oku()
@@ -419,14 +419,14 @@ class KareIsleyiciTesti(unittest.TestCase):
 class DosyaKurallari(unittest.TestCase):
     def test_isci_modulu_rclpy_ice_aktarmaz(self):
         for ad in ("cikarim_isci.py", "cikarim_istemci.py", "cikarim_yardimci.py", "kare_sonuc.py", "kare_isleyici.py"):
-            with open(os.path.join(PKG, "swarm_vehicle", ad), encoding="utf-8") as f:
+            with open(os.path.join(PKG, "swarm_vehicle", "cikarim", ad), encoding="utf-8") as f:
                 kod = f.read()
             self.assertIsNone(re.search(r"^\s*(import|from)\s+(rclpy|rcl_interfaces|swarm_msgs|gz|mavsdk)\b", kod, re.M), ad)
 
     def test_saf_moduller_agir_kitaplik_olmadan_yuklenir(self):
         import subprocess
         kod = ("import sys; sys.path.insert(0, sys.argv[1]); "
-               "from swarm_vehicle import cikarim_yardimci, cikarim_istemci, cikarim_isci, kare_sonuc, kare_isleyici; "
+               "from swarm_vehicle.cikarim import cikarim_yardimci, cikarim_istemci, cikarim_isci, kare_sonuc, kare_isleyici; "
                "agir = {'rclpy', 'gz', 'mavsdk', 'torch', 'numpy', 'ultralytics', 'onnxruntime', 'cv2'} & set(sys.modules); "
                "sys.exit(1 if agir else 0)")
         r = subprocess.run([sys.executable, "-I", "-c", kod, os.path.abspath(PKG)], capture_output=True, text=True, check=False)

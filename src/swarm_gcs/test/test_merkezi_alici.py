@@ -8,11 +8,11 @@ from unittest import mock
 
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), ".."))
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", "swarm_vehicle"))
-from swarm_gcs.merkezi_alici import MerkeziAlici, okuma_dur_ayristir  # noqa: E402
-from swarm_gcs.sonuc_defteri import SonucDefteri  # noqa: E402
-from swarm_vehicle import goruntu_ileti as gi  # noqa: E402
-from swarm_vehicle import kare_isleyici as ki  # noqa: E402
-from swarm_vehicle import rota  # noqa: E402
+from swarm_gcs.merkezi_mod.merkezi_alici import MerkeziAlici, okuma_dur_ayristir  # noqa: E402
+from swarm_gcs.birlestirme.sonuc_defteri import SonucDefteri  # noqa: E402
+from swarm_vehicle.merkezi_mod import goruntu_ileti as gi  # noqa: E402
+from swarm_vehicle.cikarim import kare_isleyici as ki  # noqa: E402
+from swarm_vehicle.ucus import rota  # noqa: E402
 
 KAL = "KAL-65-640x480-v1"
 W, H = 640, 480
@@ -334,7 +334,7 @@ class SonucZinciri(unittest.TestCase):
 
 class PortAraligi(unittest.TestCase):
     def test_aralik_ici_dinleme_portu_acik_hata_soket_acilmaz(self):
-        from swarm_vehicle import port_denetimi
+        from swarm_vehicle.ucus import port_denetimi
         aralik = port_denetimi.gecici_aralik()
         if aralik is None:
             self.skipTest("geçici port aralığı okunamıyor")
@@ -347,7 +347,7 @@ class PortAraligi(unittest.TestCase):
     def test_aralik_okunamazsa_uyari_gunluge_yazilir_calisma_durmaz(self):
         from unittest import mock
 
-        from swarm_vehicle import port_denetimi
+        from swarm_vehicle.ucus import port_denetimi
         loglar = []
         ham = dict(rota.deney_env_oku(), GCS_ADDR="127.0.0.1", UAV1_ADDR="127.0.0.1")
         a = MerkeziAlici(ham, [1], lambda o, **kv: loglar.append((o, kv)), {1: Sahte()}, kalibrasyon_kimligi=KAL)
@@ -360,7 +360,7 @@ class PortAraligi(unittest.TestCase):
     def test_yapilandirmadaki_taban_aralik_disinda_ve_denetim_gecer(self):
         ham = dict(rota.deney_env_oku(), GCS_ADDR="127.0.0.1", UAV1_ADDR="127.0.0.1")
         a = MerkeziAlici(ham, [1], lambda *x, **k: None, {1: Sahte()}, kalibrasyon_kimligi=KAL)
-        from swarm_vehicle import port_denetimi
+        from swarm_vehicle.ucus import port_denetimi
         port_denetimi.denetle(a.durum[1].port, "merkezi mod")
 
 

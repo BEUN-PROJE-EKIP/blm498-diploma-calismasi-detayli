@@ -84,8 +84,8 @@ check_prereqs() {
     check "Deneme sürücüsü: ${DENEME#"$ROOT_DIR"/}" test -f "$DENEME"
     check "Rota üretim aracı: ${ROTA_URET#"$ROOT_DIR"/}" test -f "$ROTA_URET"
     check "Paket: src/swarm_vehicle/package.xml" test -f "$PKG_DIR/package.xml"
-    check "Modül: src/swarm_vehicle/swarm_vehicle/px4_adapter.py" test -f "$PKG_DIR/swarm_vehicle/px4_adapter.py"
-    check "Modül: src/swarm_vehicle/swarm_vehicle/rota.py" test -f "$PKG_DIR/swarm_vehicle/rota.py"
+    check "Modül: src/swarm_vehicle/swarm_vehicle/ucus/px4_adapter.py" test -f "$PKG_DIR/swarm_vehicle/ucus/px4_adapter.py"
+    check "Modül: src/swarm_vehicle/swarm_vehicle/ucus/rota.py" test -f "$PKG_DIR/swarm_vehicle/ucus/rota.py"
     check "ROS 2 setup.bash" test -f "$ROS_SETUP"
     check "gz.transport13 + gz.msgs10 (venv)" "$VENV_PY" -c 'from gz.transport13 import Node; from gz.msgs10.pose_v_pb2 import Pose_V'
     check "kosu.sh --dry-run baslat çıkış 0" "$KOSU" --dry-run baslat
@@ -213,22 +213,22 @@ test_statik() {
     out="$("$VENV_PY" -I "$PKG_DIR/test/test_rota_yon.py" 2>&1)" || rc=$?
     if [[ "$rc" -eq 0 ]]; then log_ok "statik: ilk doğru yönü ve yaw birim testleri geçti ($(grep -E '^Ran ' <<< "$out"))"; else log_fail "statik: ilk doğru yönü birim testleri BAŞARISIZ"; tail -n 12 <<< "$out"; fi
     rc=0
-    "$VENV_PY" -m py_compile "$PKG_DIR/swarm_vehicle/px4_adapter.py" "$PKG_DIR/swarm_vehicle/rota.py" "$ROTA_URET" "$DENEME" > "$TMP_DIR/pyc.log" 2>&1 || rc=$?
+    "$VENV_PY" -m py_compile "$PKG_DIR/swarm_vehicle/ucus/px4_adapter.py" "$PKG_DIR/swarm_vehicle/ucus/rota.py" "$ROTA_URET" "$DENEME" > "$TMP_DIR/pyc.log" 2>&1 || rc=$?
     if [[ "$rc" -eq 0 ]]; then log_ok "statik: py_compile temiz"; else log_fail "statik: py_compile hata"; tail -n 5 "$TMP_DIR/pyc.log"; fi
     # tek komut yolu: MAVSDK yalnız px4_adapter.py; yazma çağrıları yalnız px4_adapter.py
     out="$(cd "$ROOT_DIR" && git grep --untracked -nE '^\s*(from|import) mavsdk' -- src || true)"
-    if [[ -n "$out" && "$(awk -F: '{print $1}' <<< "$out" | sort -u)" == "src/swarm_vehicle/swarm_vehicle/px4_adapter.py" ]]; then
+    if [[ -n "$out" && "$(awk -F: '{print $1}' <<< "$out" | sort -u)" == "src/swarm_vehicle/swarm_vehicle/ucus/px4_adapter.py" ]]; then
         log_ok "statik: src/ altında mavsdk'yı içe aktaran tek dosya px4_adapter.py"
     else
         log_fail "statik: mavsdk içe aktarımı beklenenden farklı: $out"
     fi
     kural='\.action\.|\.mission\b|\.mission_raw|\.param\.set'
-    out="$(cd "$ROOT_DIR" && git grep --untracked -nE "$kural" -- src ':!src/swarm_vehicle/swarm_vehicle/px4_adapter.py' || true)"
+    out="$(cd "$ROOT_DIR" && git grep --untracked -nE "$kural" -- src ':!src/swarm_vehicle/swarm_vehicle/ucus/px4_adapter.py' || true)"
     if [[ -z "$out" ]]; then log_ok "statik: src/ altında px4_adapter.py dışında .action./.mission/.mission_raw/.param.set çağrısı yok"; else log_fail "statik: dış çağrı: $out"; fi
-    out="$(cd "$ROOT_DIR" && git grep --untracked -nE "set_param|set_rate_|\.offboard\.|\.manual_control|send_message" -- src ':!src/swarm_vehicle/swarm_vehicle/px4_adapter.py' || true)"
+    out="$(cd "$ROOT_DIR" && git grep --untracked -nE "set_param|set_rate_|\.offboard\.|\.manual_control|send_message" -- src ':!src/swarm_vehicle/swarm_vehicle/ucus/px4_adapter.py' || true)"
     if [[ -z "$out" ]]; then log_ok "statik: src/ altında px4_adapter.py dışında başka yazma çağrısı (param/hız/offboard/ham mesaj) yok"; else log_fail "statik: dış çağrı: $out"; fi
     # px4_adapter.py içindeki yazma çağrıları: yalnız _yaz üzerinden (_yaz çağrısı dışında islev geçirilmez)
-    out="$(grep -nE "self\._sys\.(action|mission|param|offboard|mission_raw)\.[a-z_]+" "$PKG_DIR/swarm_vehicle/px4_adapter.py" | grep -vE '_yaz\(|get_param|download_mission|mission_progress' || true)"
+    out="$(grep -nE "self\._sys\.(action|mission|param|offboard|mission_raw)\.[a-z_]+" "$PKG_DIR/swarm_vehicle/ucus/px4_adapter.py" | grep -vE '_yaz\(|get_param|download_mission|mission_progress' || true)"
     if [[ -z "$out" ]]; then log_ok "statik: px4_adapter.py içinde PX4'e yazan çağrılar yalnız _yaz(...) argümanı"; else log_fail "statik: _yaz dışı çağrı: $out"; fi
 }
 

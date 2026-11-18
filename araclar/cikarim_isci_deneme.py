@@ -94,9 +94,9 @@ def goruntuler():
 
 
 def bir_arka_uc(arka, klasor, goruntu, tekrar, cpu_sabitle):
-    from swarm_vehicle import cikarim_istemci as ci
-    from swarm_vehicle import cikarim_yardimci as Y
-    from swarm_vehicle import kare_sonuc as ks
+    from swarm_vehicle.cikarim import cikarim_istemci as ci
+    from swarm_vehicle.cikarim import cikarim_yardimci as Y
+    from swarm_vehicle.cikarim import kare_sonuc as ks
     w, h = int(HAM["CAM_WIDTH"]), int(HAM["CAM_HEIGHT"])
     ham = dict(HAM, ISCI_CPU_SABITLE="1" if cpu_sabitle else "0", ISCI_KAYNAK_SN="0.5")
     gunluk = []
@@ -195,7 +195,7 @@ def ana(argv):
         else:
             print(__doc__, file=sys.stderr)
             return 2
-    from swarm_vehicle import rota
+    from swarm_vehicle.ucus import rota
     HAM = rota.deney_env_oku()
     tmp = tempfile.mkdtemp(prefix="cikarim_isci_deneme_")
     try:

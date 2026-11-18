@@ -9,8 +9,8 @@ import unittest
 KOK = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", "..")
 sys.path.insert(0, os.path.join(KOK, "src", "swarm_gcs"))
 sys.path.insert(0, os.path.join(KOK, "araclar"))
-from swarm_gcs import hedef_birlestirme as hb  # noqa: E402
-from swarm_gcs.hedef_birlestirme import BirlestirmeHatasi, Tespit, birlestir  # noqa: E402
+from swarm_gcs.birlestirme import hedef_birlestirme as hb  # noqa: E402
+from swarm_gcs.birlestirme.hedef_birlestirme import BirlestirmeHatasi, Tespit, birlestir  # noqa: E402
 from sozlesme_dogrula import Yapilandirma, dogrula_nihai_rapor, yapilandirma_yukle  # noqa: E402
 
 ARALIK = 2.5

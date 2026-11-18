@@ -17,7 +17,7 @@ import sys
 KOK = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, os.path.join(KOK, "src", "swarm_vehicle"))
 
-from swarm_vehicle import rota  # noqa: E402
+from swarm_vehicle.ucus import rota  # noqa: E402
 
 GEREKLI = ("CAM_WIDTH CAM_HEIGHT CAM_RATE_HZ CAM_HFOV_DEG CAM_HFOV_RAD CAM_CLIP_NEAR_M CAM_CLIP_FAR_M KAL_KAMERA_KONUM_Z_M KAMERA_LINK KAMERA_ALGILAYICI SIM_MODEL").split()
 

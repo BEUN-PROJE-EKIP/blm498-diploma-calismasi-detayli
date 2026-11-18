@@ -8,8 +8,8 @@ import time
 import unittest
 
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), ".."))
-from swarm_vehicle import rota  # noqa: E402
-from swarm_vehicle import sonuc_yayin as sy  # noqa: E402
+from swarm_vehicle.ucus import rota  # noqa: E402
+from swarm_vehicle.uc_mod import sonuc_yayin as sy  # noqa: E402
 
 
 class QosAyari(unittest.TestCase):

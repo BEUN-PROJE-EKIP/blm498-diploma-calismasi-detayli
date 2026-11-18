@@ -4,7 +4,7 @@ import sys
 import unittest
 
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), ".."))
-from swarm_vehicle import durum_makinesi as dm  # noqa: E402
+from swarm_vehicle.ucus import durum_makinesi as dm  # noqa: E402
 
 S = dm.DurumMakinesi
 

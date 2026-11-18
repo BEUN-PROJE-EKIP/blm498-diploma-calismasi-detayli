@@ -5,8 +5,8 @@ import tempfile
 import unittest
 
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), ".."))
-from swarm_vehicle import port_denetimi as pd  # noqa: E402
-from swarm_vehicle import rota  # noqa: E402
+from swarm_vehicle.ucus import port_denetimi as pd  # noqa: E402
+from swarm_vehicle.ucus import rota  # noqa: E402
 
 
 def aralik_dosyasi(metin):
@@ -81,7 +81,7 @@ class AdaptorBaslangic(unittest.TestCase):
         aralik = pd.gecici_aralik()
         if aralik is None:
             self.skipTest("geçici port aralığı okunamıyor")
-        from swarm_vehicle import px4_adapter
+        from swarm_vehicle.ucus import px4_adapter
         ham = dict(rota.deney_env_oku(), MAVSDK_GRPC_PORTS=f"{aralik[0] + 5} {aralik[0] + 6} {aralik[0] + 7}")
         with tempfile.TemporaryDirectory() as gd:
             a = px4_adapter.Px4Adapter(1, deney_env=ham, gunluk_dizini=gd)

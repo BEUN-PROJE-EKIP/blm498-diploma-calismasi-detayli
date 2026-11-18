@@ -13,7 +13,7 @@ def ana():
     from geometry_msgs.msg import Point
     from rclpy.serialization import serialize_message
     from swarm_msgs.msg import Complete, FrameResult, Mission, ScanFinished, ScanStart, VehicleState
-    from swarm_vehicle import gorev, rota
+    from swarm_vehicle.ucus import gorev, rota
     br = gorev.bolge_rota_oku(os.path.join(rota.KOK, "config", "bolge_rota.json"))
     mission = gorev.mesaj_doldur(Mission, Point, gorev.mission_sozlugu(br, 1, "G_20260101_000000"))
     fr = FrameResult()

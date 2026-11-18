@@ -1,7 +1,7 @@
 """Çıkarım işçisi (B9, FR-12/FR-15): araç sürecinin başlattığı AYRI alt süreç. Kamera karesini alır, YOLO ile işler, sonucu döndürür.
 
 Kullanım (araç süreci başlatır; elle de çalıştırılabilir):
-  python -m swarm_vehicle.cikarim_isci --fd <soket-çifti-ucu> --arac-kimligi <id> --arac-sirasi <1..N> [--cpu 0,16] [--arka-uc gpu|cpu|sahte] [--kayit-klasoru <yol>]
+  python -m swarm_vehicle.cikarim.cikarim_isci --fd <soket-çifti-ucu> --arac-kimligi <id> --arac-sirasi <1..N> [--cpu 0,16] [--arka-uc gpu|cpu|sahte] [--kayit-klasoru <yol>]
 Kanal: araç sürecinden devredilen AF_UNIX soket çifti ucu (cikarim_yardimci.py); IP, TCP/UDP ve DDS yoktur; bu süreçte rclpy ve gz içe aktarılmaz.
 Çıkarım ayarları YALNIZ config/deney.env `INF_*` değerlerinden okunur (kilitli): güven INF_CONF, max_det INF_MAX_DET, imgsz INF_IMGSZ, batch INF_BATCH, FP32 (INF_PRECISION), nms=False (INF_NMS).
 Ön işleme: kamera karesi RGB8 (CAM_WIDTH × CAM_HEIGHT × 3) → BGR (Ultralytics'in numpy girdi sözleşmesi) → Ultralytics letterbox (imgsz=640'a oranı koruyarak, 114 dolgu, [0,1] FP32); kutular özgün görüntü
@@ -20,7 +20,7 @@ import threading
 import time
 
 from . import cikarim_yardimci as Y
-from . import rota as _rota
+from ..ucus import rota as _rota
 
 ISCI_KAYNAK = "cikarim_iscisi"
 

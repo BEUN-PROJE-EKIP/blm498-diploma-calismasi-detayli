@@ -12,7 +12,7 @@ sys.path.insert(0, os.path.join(KOK, "araclar"))
 sys.path.insert(0, os.path.join(KOK, "src", "swarm_vehicle"))
 import sentetik_yuk as sy  # noqa: E402
 import tc_izle  # noqa: E402
-from swarm_vehicle import rota  # noqa: E402
+from swarm_vehicle.ucus import rota  # noqa: E402
 
 
 def bos_port():

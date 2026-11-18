@@ -23,14 +23,14 @@ import sys
 import threading
 import time
 
-from swarm_vehicle import gorev as _gorev
-from swarm_vehicle import rota
-from swarm_vehicle.port_denetimi import PortAraligiHatasi
+from swarm_vehicle.ucus import gorev as _gorev
+from swarm_vehicle.ucus import rota
+from swarm_vehicle.ucus.port_denetimi import PortAraligiHatasi
 
-from .gorev_kayit import GorevKaydi
-from . import hedef_birlestirme as hb
-from .gorev_mantik import FAZ_BITTI, FAZ_HATA, FAZ_HAZIR_BEKLE, FAZ_TARAMA, Koordinasyon, arac_cikislari, baslatma_hatasi_olayi
-from .izleme import DurumIzleyici
+from .gorev.gorev_kayit import GorevKaydi
+from .birlestirme import hedef_birlestirme as hb
+from .gorev.gorev_mantik import FAZ_BITTI, FAZ_HATA, FAZ_HAZIR_BEKLE, FAZ_TARAMA, Koordinasyon, arac_cikislari, baslatma_hatasi_olayi
+from .gorev.izleme import DurumIzleyici
 
 CIKIS_PAYI_SN = 1.0   # kanal hatasında, aynı aracın süreç çıkışını (arac_<k>.cikis) beklemek için en çok bu kadar gerçek sn (neden doğru yazılsın)
 
@@ -84,8 +84,8 @@ def ana(argv):
     from rclpy.qos import DurabilityPolicy, HistoryPolicy, QoSProfile, ReliabilityPolicy
     from swarm_msgs.msg import Complete, Mission, ScanFinished, ScanStart, VehicleState
 
-    from .komut_arayuzu import KomutArayuzu
-    from .sonuc_alici import SonucAlici
+    from .gorev.komut_arayuzu import KomutArayuzu
+    from .uc_mod.sonuc_alici import SonucAlici
 
     klasor = rota.aktif_kosu_klasoru()
     yol = (lambda ad: os.path.join(klasor, ad)) if klasor else (lambda ad: None)
@@ -121,12 +121,12 @@ def ana(argv):
     alici = SonucAlici(dugum, ham, kimlikler, yol(os.path.join("kayit", "yer_istasyonu_kare.jsonl")), log, dds_sonuc=not merkezi, mission_id=mission_id)
     kanal, isciler, isci_hazir, yazicilar = None, {}, {}, []
     if merkezi:
-        from swarm_vehicle.cikarim_istemci import IsciIstemcisi
-        from swarm_vehicle.kare_isleyici import KareIsleyici
-        from swarm_vehicle.konum_hesap import KonumHesaplayici
-        from swarm_vehicle.poz_tamponu import SatirYazici
+        from swarm_vehicle.cikarim.cikarim_istemci import IsciIstemcisi
+        from swarm_vehicle.cikarim.kare_isleyici import KareIsleyici
+        from swarm_vehicle.cikarim.konum_hesap import KonumHesaplayici
+        from swarm_vehicle.ucus.poz_tamponu import SatirYazici
 
-        from .merkezi_alici import MerkeziAlici
+        from .merkezi_mod.merkezi_alici import MerkeziAlici
         islemciler = {}
         for sira, k in enumerate(kimlikler, 1):
             ist = IsciIstemcisi(ham, sira, k, klasor, log)
@@ -325,7 +325,7 @@ def ana(argv):
     finally:
         if kanal is not None:
             kanal.kapat()
-            from swarm_vehicle.goruntu_kanali import rss_zirve_mib
+            from swarm_vehicle.merkezi_mod.goruntu_kanali import rss_zirve_mib
             log("merkezi_ozet", rss_zirve_mib=rss_zirve_mib(), **{f"arac{a}": json.dumps(o, ensure_ascii=False).replace(" ", "") for a, o in kanal.ozet().items()})
             for k, isl in islemciler.items():
                 log("konum_ozeti", arac=k, **isl.konum_ozeti())
