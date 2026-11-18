@@ -122,6 +122,7 @@ Mevcut anahtarlar (ağ, kimlik/port, kamera, çıkarım, eğitim) değişmedi; t
 | `KAL_KAMERA_KONUM_Z_M` | 0,10 | varsayım (ölçüm sahnesi düzeni) |
 | `MODEL_SINIFLAR` | `insan enkaz` | belge |
 | `BIRLESTIRME_ARALIK_M` | 2,5 | belge, kilitli (FR-19: aynı sınıf ve adayın sabit ilk konumuna en fazla 2,5 m; hedef birleştirme B15 ve nihai rapor doğrulayıcısı (§11.1) buradan okur) |
+| `DEGERLENDIRME_ESLESME_ESIK_M` | 5 | belge, kilitli (FR-28: doğru sınıf ve en fazla 5 m yatay uzaklık şartıyla bire bir atama; değerlendirme B18, `araclar/degerlendirme.py` buradan okur) |
 | `KOSU_TEST_SAHNE_SAYISI`, `KOSU_MIMARILER`, `KOSU_ESZAMANLI` | 30, `ucta merkezi`, 0 | belge |
 | `KOSU_SIRA_TOHUMU` | 20260101 | varsayım (ana deney öncesi kaydedilir ve kilitlenir) |
 | `KOSU_ARAC_SAYISI` | 1 | varsayım (koşu betiğinin varsayılan araç sayısı) |
@@ -448,6 +449,8 @@ Değerlendirme ve analiz yazılımının (B18, E1a–E5a; M6a) girdileri, onlar�
 | `raporlar[].guven` | sayı, `[INF_CONF, 1]` | zorunlu | [belge] | En yüksek tespit güveni (güven eşiği altı tespit yoktur). |
 | `raporlar[].tespit_sayisi` | tam sayı ≥ 1 | zorunlu | [varsayım] | Adaya eklenen tespit sayısı. |
 | `raporlar[].ilk_tespit`, `raporlar[].en_yuksek_guven_tespiti` | `{arac_kimligi, n, uretim_mono_ns}` | zorunlu | [varsayım] | Üreten araç (`UAV_SYS_IDS`), kare numarası ve karenin üretim anı (monotonik ns, t_üretim [belge]). `ilk_tespit` en yüksek güvenli tespitten sonra olamaz; tek tespitli adayda ikisi aynıdır. |
+
+**Eşleştirme (B18, `araclar/degerlendirme.py`).** [belge, FR-28] Nihai rapor ile gerçek hedef (§5 hedef listesi; aynı `sahne_kimligi` zorunlu), doğru sınıf ve en fazla `DEGERLENDIRME_ESLESME_ESIK_M` (5 m, eşik dahil) yatay uzaklık şartıyla Macar algoritmasıyla bire bir atanır. TP = atanan benzersiz gerçek hedef, FP = atanmayan rapor (fazladan kopyalar ve konumsuz raporlar dahil), FN = atanmayan gerçek hedef; R = 100·TP/N (%), precision = TP/(TP+FP). Tanımsız değer sıfır yazılmaz: TP+FP = 0 ise precision `null`, N = 0 ise R `null`. [varsayım] Atama kuralı: önce TP en büyük, eşit TP'li atamalar arasında toplam yatay uzaklık en küçük; sınıf başına tek `linear_sum_assignment` çağrısıyla (uygun olmayan çiftlere her uygun atamadan büyük maliyet). Raporlar ve hedefler kimliğe göre sıralanarak işlenir (dosya sırası sonucu değiştirmez); gerçek hedef kimliği atama ölçütü değildir. Çıktı (JSON): toplam ve sınıf bazlı `n, tp, fp, fn, r_yuzde, precision`, `konumsuz_rapor`, `eslesmeler[] {rapor_kimligi, hedef_kimligi, sinif, uzaklik_m}`, `eslesmeyen_raporlar[] {rapor_kimligi, sinif, neden: konumsuz|eslesmedi}`, `eslesmeyen_hedefler[] {hedef_kimligi, sinif}`.
 
 ### 11.2 Koşu ölçüm özeti (`tur: "kosu_olcum"`)
 
