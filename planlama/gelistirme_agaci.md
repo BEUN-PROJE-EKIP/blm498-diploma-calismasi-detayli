@@ -133,7 +133,7 @@ Projenin ana hedefleri (GŞÖA v2 3.1 "Amaç" ve "Hedefler", 3.2 "Ürün Değeri
 ## M6a · Değerlendirme ve analiz yazılımı
 
 - [x] **B18** · w2 · M6a · geliştirme · Değerlendirme yazılımı · Değerlendirme yazılımı: sınıf ve ≤ 5 m şartıyla Macar algoritmasıyla bire bir atama; TP, FP, FN, R, precision · FR-28 · Bitti: sentetik örneklerde doğru
-- [ ] **E1a** · w1 · M6a · geliştirme · Eşleştirme analiz betiği · Hedef eşleştirme ve R, precision, FP; iki mod için mutlak ve sınıf bazlı (betik; sentetik veriyle sınanmış) · FR-24, FR-28 · Bitti: betik sentetik örneklerde beklenen çıktıyı üretir, biçim sabit
+- [x] **E1a** · w1 · M6a · geliştirme · Eşleştirme analiz betiği · Hedef eşleştirme ve R, precision, FP; iki mod için mutlak ve sınıf bazlı (betik; sentetik veriyle sınanmış) · FR-24, FR-28 · Bitti: betik sentetik örneklerde beklenen çıktıyı üretir, biçim sabit
 - [ ] **E2a** · w1 · M6a · geliştirme · İyileşme analiz betiği · D, B, T için sahne başına yüzde iyileşme; L için medyan ve 95. yüzdelik farkları (betik; sentetik veriyle sınanmış) · FR-29 · Bitti: betik sentetik örneklerde beklenen çıktıyı üretir, biçim sabit
 - [ ] **E3a** · w1 · M6a · geliştirme · Bootstrap betiği · %95 percentile bootstrap, 10.000 yeniden örnekleme, eşleştirme bozulmadan (betik; sentetik veriyle sınanmış) · FR-29 · Bitti: betik sentetik örneklerde beklenen çıktıyı üretir, biçim sabit
 - [ ] **E4a** · w1 · M6a · geliştirme · Karar kuralı betiği · Ölçüt ölçüt karar kuralı; R için üç sonuçlu kural; tek ortak başarı kararı yok; "fark gösterilemedi" eşdeğerlik değil (betik; sentetik veriyle sınanmış) · FR-30 · Bitti: betik sentetik örneklerde beklenen çıktıyı üretir, biçim sabit

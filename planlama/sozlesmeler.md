@@ -488,3 +488,18 @@ Değerlendirme ve analiz yazılımının (B18, E1a–E5a; M6a) girdileri, onlar�
 | `complete_bayt` | tam sayı ≥ 0 ya da `null` | zorunlu | [belge] | `complete_sonrasi.gonderilen_bayt − t1.gonderilen_bayt`; `complete_sonrasi` `null` ise `null`. |
 
 Doğrulayıcı kuralları: okumalar zamanda geriye gitmez; birikimli sayaçlar (bayt, paket, düşen paket) `t0` → `t1` → `complete_sonrasi` sırasında azalmaz; `d_bayt` ve `complete_bayt` okumalardan türeyen farklara eşittir. Bu kayıt D'nin tek kaynağıdır; "ağın atlanmadığının kanıtı" yerine geçmez (sayaç–kayıt tutarlılığı C4'ün işidir).
+
+### 11.4 Analiz tabloları (M6a çıktıları)
+
+Kural [kararlar 2026-11-14]: her analiz tablosu iki dosyadır, aynı veriden üretilir: `<ad>.csv` (makine okur: nokta ondalık, 6 basamak, tanımsız değer **boş hücre**, mantıksal 1/0, başlık satırı sütun adları) ve `<ad>.md` (rapora girer: `# <ad>` başlığı ve tablo; virgül ondalık, 2 basamak, tanımsız değer `tanımsız`, mantıksal evet/hayır). Sütun adları ve sırası aşağıdaki gibi **sabittir**; değişiklik okuyan betiklere (E3a, E4a; gerçek veriyle M8b) bildirilir. Sınıf önekli sütunlar `MODEL_SINIFLAR` sırasıyla (`insan`, `enkaz`) yinelenir; mod sonekleri `ucta`, `merkezi` (`KOSU_MIMARILER`).
+
+**Eşleştirme analizi (E1a, `araclar/degerlendirme/eslestirme_analiz.py`).** Girdi: nihai raporlar (§11.1), hedef listeleri (§5) ve isteğe bağlı koşu ölçüm özetleri (§11.2). [belge, FR-27] Tamamlanamayan koşunun (`tamamlandi = false`) çifti sahne ve özet tablolarına girmez; sahne iki modda da nihai rapor içermiyorsa da çift kurulamaz.
+
+| Tablo | Satır | Sütunlar (sırayla) |
+|---|---|---|
+| `eslestirme_kosu` | koşu (sahne, mod sırasıyla) | `sahne_kimligi, mod, kosu_kimligi, tamamlandi, ciftte, n, tp, fp, fn, r_yuzde, precision, konumsuz_rapor`, sonra sınıf başına `<sınıf>_n, _tp, _fp, _fn, _r_yuzde, _precision` |
+| `eslestirme_sahne` | tamamlanan sahne çifti | `sahne_kimligi`; `r`, `<sınıf>_r` için `_ucta, _merkezi, _fark` (fark = uç − merkez, puan); `fp_ucta, fp_merkezi, precision_ucta, precision_merkezi` |
+| `eslestirme_ozet` | `eslestirme_sahne`'nin her ölçüt sütunu (aynı sıra) | `olcut, cift_sayisi, tanimli_sayisi, tanimsiz_sayisi, ortalama, medyan, en_kucuk, en_buyuk` |
+| `eslestirme_dislanan` | çift kurulamayan sahne | `sahne_kimligi, neden` (`<mod>: nihai_rapor_yok` \| `<mod>: tamamlanamadi`, `; ` ile birleşik) |
+
+[belge] R iki mod için mutlak ve sınıf bazında, sahne başına R(uç) − R(merkez) farkıyla; precision görev (koşu) düzeyinde; hiç rapor üretilmeyen koşuda R = 0, FP = 0, precision tanımsız. [varsayım] Özet istatistikleri yalnız tanımlı değerlerden hesaplanır; tanımsız değer sayısı `tanimsiz_sayisi` sütunundadır. %95 güven aralığı bu tabloda yoktur (E3a).

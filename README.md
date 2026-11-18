@@ -12,13 +12,13 @@ Bu bir **simülasyon deneyidir**; gerçek uçuş ya da gömülü donanım doğru
 Kendi işlerin için: kilometre taşında adının yazdığı satırlar; sıradaki iş, bitmemiş en üstteki maddedir. Ayrıntı ve bitti ölçütleri: `planlama/gelistirme_agaci.md`.
 
 <!-- ILERLEME:BASLA -->
-**Genel tamamlanma: %30,5** (31 / 80 madde; kod ve makine işi dahil)
+**Genel tamamlanma: %31,2** (32 / 80 madde; kod ve makine işi dahil)
 
-`██████░░░░░░░░░░░░░░` %30,5
+`██████░░░░░░░░░░░░░░` %31,2
 
-**Geliştirme oranı: %47,5** (31 / 55 geliştirme maddesi; yalnız kod ve altyapı işi)
+**Geliştirme oranı: %48,7** (32 / 55 geliştirme maddesi; yalnız kod ve altyapı işi)
 
-`█████████░░░░░░░░░░░` %47,5
+`██████████░░░░░░░░░░` %48,7
 
 **Ana hedefler** (belgeye göre; ana amaç uçta ve merkezi modun beş ölçütle karşılaştırılmasıdır). Bir hedef, paketlerindeki bütün maddeler bitince tamamlanır.
 
@@ -27,7 +27,7 @@ Kendi işlerin için: kilometre taşında adının yazdığı satırlar; sırada
 | ◐ | **1.** Sürü sistemi: üç İHA, dört sürü işlevi, uçta ve merkezi mod | B | `████████████████░░░░` %81,8 |
 | ☐ | **2.** Görüntü işleme: YOLO26 modeli, veri hattı ve eğitim | A | `░░░░░░░░░░░░░░░░░░░░` %0,0 |
 | ◐ | **3.** Deney düzeneği: başkalarının da çalıştırabileceği kilitli, tekrarlanabilir simülasyon ortamı | K, C | `███████░░░░░░░░░░░░░` %33,3 |
-| ☐ | **4.** Deney sonuçları: 30 sahnede 60 koşu ve karar kuralına göre rapor | D, E | `░░░░░░░░░░░░░░░░░░░░` %0,0 |
+| ◐ | **4.** Deney sonuçları: 30 sahnede 60 koşu ve karar kuralına göre rapor | D, E | `█░░░░░░░░░░░░░░░░░░░` %3,1 |
 
 **Tamamlanan ana hedef: 0 / 4**
 
@@ -127,12 +127,12 @@ Bekler: M4
 </details>
 
 <details open>
-<summary>◐ <b>M6a - Değerlendirme ve analiz yazılımı</b> [Miraç BOZACIOĞLU, %22,8]</summary>
+<summary>◐ <b>M6a - Değerlendirme ve analiz yazılımı</b> [Miraç BOZACIOĞLU, %38,2]</summary>
 
 Bekler: yok, başlayabilir
 
 - ✔ B18 - Değerlendirme yazılımı
-- ☐ E1a - Eşleştirme analiz betiği
+- ✔ E1a - Eşleştirme analiz betiği
 - ☐ E2a - İyileşme analiz betiği
 - ☐ E3a - Bootstrap betiği
 - ☐ E4a - Karar kuralı betiği
@@ -367,7 +367,7 @@ Asistan `sudo`, `apt upgrade` ve `git push` çalıştırmaz; kurulumu ve push'u 
 | `config/` | Deney ayarları (adresler, portlar, ağ hızı, kamera, çıkarım, eğitim) ve ROS 2 haberleşme profili |
 | `src/` | ROS 2 paketleri (`swarm_msgs`, `swarm_vehicle`, `swarm_gcs`) ve Gazebo damga bileşeni (`yayim_damga`) |
 | `araclar/` | Yardımcı programlar (koşu betiği `kosu.sh`, ilerleme hesabı, ölçüm araçları) |
-| `araclar/degerlendirme/` | Değerlendirme ve analiz yazılımı (M6a): hedef eşleştirmesi (B18) ve analiz betikleri; testleri `test/` altında |
+| `araclar/degerlendirme/` | Değerlendirme ve analiz yazılımı (M6a): hedef eşleştirmesi (B18), eşleştirme analizi (E1a) ve diğer analiz betikleri; testleri `test/` altında; tablo biçimleri `planlama/sozlesmeler.md` §11.4 |
 | `planlama/` | Hedef ağacı ve kilometre taşları (ilerlemenin kaynağı), yol haritası, mimari, sözleşmeler, kararlar, riskler |
 | `docs/` | Kaynak belgeler (şartname ve proje el kitabı); **değiştirilmez** |
 | `third_party/`, `.venv/`, `.generated/` | Kurulumla oluşur (PX4 kaynağı, Python ortamı, rapor/günlük/model/ölçüm kayıtları); depoya girmez |
