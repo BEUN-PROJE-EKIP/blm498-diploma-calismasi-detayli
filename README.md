@@ -11,13 +11,13 @@ Bu bir **simülasyon deneyidir**; gerçek uçuş ya da gömülü donanım doğru
 Kendi işlerin için: kilometre taşında adının yazdığı satırlar; sıradaki iş, bitmemiş en üstteki maddedir. Ayrıntı ve bitti ölçütleri: `planlama/gelistirme_agaci.md`.
 
 <!-- ILERLEME:BASLA -->
-**Genel tamamlanma: %30,5** (31 / 80 madde; kod ve makine işi dahil)
+**Genel tamamlanma: %31,6** (32 / 80 madde; kod ve makine işi dahil)
 
-`██████░░░░░░░░░░░░░░` %30,5
+`██████░░░░░░░░░░░░░░` %31,6
 
-**Geliştirme oranı: %47,5** (31 / 55 geliştirme maddesi; yalnız kod ve altyapı işi)
+**Geliştirme oranı: %49,2** (32 / 55 geliştirme maddesi; yalnız kod ve altyapı işi)
 
-`█████████░░░░░░░░░░░` %47,5
+`██████████░░░░░░░░░░` %49,2
 
 Kilometre taşları (✔ bitti, ◐ sürüyor, ☐ başlamadı). Maddeler iş sırasıyla dizilidir: sıradaki iş, bitmemiş en üstteki maddedir. Biten kilometre taşları kapalıdır, başlığına tıklayınca açılır.
 
@@ -73,15 +73,13 @@ Kilometre taşları (✔ bitti, ◐ sürüyor, ☐ başlamadı). Maddeler iş s�
 
 </details>
 
-<details open>
-<summary>◐ <b>M3 - Merkezi mod ve izleme</b> [Ömer Faruk GÜNER, %80,0]</summary>
-
-Bekler: yok, başlayabilir
+<details>
+<summary>✔ <b>M3 - Merkezi mod ve izleme</b> [%100,0]</summary>
 
 - ✔ B12 - Merkezi mod
 - ✔ B13 - Disk kuyrukları ve aşama damgaları
 - ✔ B14 - Poz enterpolasyonu ve konum hesabı
-- ☐ B15 - Hedef birleştirme
+- ✔ B15 - Hedef birleştirme
 
 </details>
 
@@ -131,7 +129,7 @@ Bekler: yok, başlayabilir
 <details open>
 <summary>☐ <b>M6b - Bütünleşik koşu ve kabul testleri</b> [Ömer Faruk GÜNER, %0,0]</summary>
 
-Bekler: M3, M5, M6a
+Bekler: M5, M6a
 
 - ☐ B19 - Bütünleşik işlev testi
 - ☐ C1 - Kabul testi 1: ağ adresleri
