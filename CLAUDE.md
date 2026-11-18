@@ -1,6 +1,6 @@
 # CLAUDE.md — Takım kuralları (detaylı dünya deposu)
 
-Bu depo, **"Afet Bölgelerinde Haberleşme Altyapısından Bağımsız Olarak Çalışabilen Uçta Yapay Zekâ Destekli İHA Sürüsü"** projesinin **detaylı dünya deposudur**. Amaç: projenin tamamının detaylı (yıkık şehir) dünyayla yapılıp yapılamayacağını öğrenmek. Ana depo sade dünyayla ayrı devam eder; sonuca göre hangisinin proje olacağına ekip karar verir. Bu bir **simülasyon deneyidir**: gerçek uçuş ya da gömülü donanım doğrulaması yoktur ve operasyonel yeterlilik iddiası kurulmaz. Yanıtlanacak sorular: `README.md`, "Bu deponun amacı". Bu dosya, depoda çalışan herkes (ve herkesin yapay zekâ asistanı) için geçerlidir.
+Bu depo, **"Afet Bölgelerinde Haberleşme Altyapısından Bağımsız Olarak Çalışabilen Uçta Yapay Zekâ Destekli İHA Sürüsü"** projesinin **detaylı dünya deposudur**. Amaç: projenin tamamının detaylı (yıkık şehir) dünyayla yapılıp yapılamayacağını öğrenmek. Ana depo sade dünyayla ayrı devam eder; sonuca göre hangisinin proje olacağına ekip karar verir. Bu bir **simülasyon deneyidir**: gerçek uçuş ya da gömülü donanım doğrulaması yoktur ve operasyonel yeterlilik iddiası kurulmaz. Yanıtlanacak sorular: `planlama/amac_ve_kararlar.md`, "Bu deponun amacı". Bu dosya, depoda çalışan herkes (ve herkesin yapay zekâ asistanı) için geçerlidir.
 
 ## Esneklik kuralı (bu depoya özel)
 
@@ -23,7 +23,7 @@ Bu depo, **"Afet Bölgelerinde Haberleşme Altyapısından Bağımsız Olarak Ç
 ## Göreve başlarken
 
 1. Kullanıcıya adını sor (söylediyse onu kullan).
-2. **Kullanıcı Mikail ise önce kararlar:** `README.md` içindeki **"Karar bekleyen sorular"** bölümünü oku. **Seçilen** satırı boş (`—`) olan her kararı sırayla kısaca göster: durum, seçenekler (birer cümle) ve öneri. Sonra hangisini seçtiğini sor. Mikail seçerse: seçimi `planlama/kararlar.md`'ye yaz (tarih, karar, gerekçe; belgeden sapmaysa hangi gereksinim) ve README'deki **Seçilen** satırını doldur. Mikail kararı sonraya bırakırsa maddelere geç. Bütün kararlar seçilmişse bu adımı atla.
+2. **Kullanıcı Mikail ise önce kararlar:** `planlama/amac_ve_kararlar.md` içindeki **"Karar bekleyen sorular"** bölümünü oku. **Seçilen** satırı boş (`—`) olan her kararı sırayla kısaca göster: durum, seçenekler (birer cümle) ve öneri. Sonra hangisini seçtiğini sor. Mikail seçerse: seçimi `planlama/kararlar.md`'ye yaz (tarih, karar, gerekçe; belgeden sapmaysa hangi gereksinim) ve aynı dosyadaki **Seçilen** satırını doldur. Mikail kararı sonraya bırakırsa maddelere geç. Bütün kararlar seçilmişse bu adımı atla.
 3. `planlama/gelistirme_agaci.md` içindeki **Kilometre taşları** tablosunda o kişinin sorumlu olduğu M'leri bul.
 4. Her M için `Bekler` sütunundaki M'lerin bitip bitmediğine bak.
 5. Başlayabilir M'lerde **bitmemiş en üstteki maddeyi** ve onun **"Bitti:" ölçütünü** kullanıcıya göster; maddeye başlamadan önce ilgili sözleşme bölümünü (`planlama/sozlesmeler.md`) ve kararları (`planlama/kararlar.md`) oku.
