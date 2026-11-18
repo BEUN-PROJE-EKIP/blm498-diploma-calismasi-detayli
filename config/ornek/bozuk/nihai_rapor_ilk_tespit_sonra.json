@@ -20,13 +20,13 @@
       "tespit_sayisi": 3,
       "ilk_tespit": {
         "arac_kimligi": 1,
-        "n": 410,
-        "uretim_mono_ns": 1020000000000
+        "n": 420,
+        "sim_damga_ns": 210000000000
       },
       "en_yuksek_guven_tespiti": {
         "arac_kimligi": 2,
         "n": 413,
-        "uretim_mono_ns": 1013500000000
+        "sim_damga_ns": 206500000000
       }
     },
     {
@@ -45,12 +45,12 @@
       "ilk_tespit": {
         "arac_kimligi": 3,
         "n": 870,
-        "uretim_mono_ns": 1030000000000
+        "sim_damga_ns": 435000000000
       },
       "en_yuksek_guven_tespiti": {
         "arac_kimligi": 3,
         "n": 870,
-        "uretim_mono_ns": 1030000000000
+        "sim_damga_ns": 435000000000
       }
     },
     {
@@ -63,12 +63,12 @@
       "ilk_tespit": {
         "arac_kimligi": 2,
         "n": 55,
-        "uretim_mono_ns": 1002000000000
+        "sim_damga_ns": 27500000000
       },
       "en_yuksek_guven_tespiti": {
         "arac_kimligi": 2,
         "n": 55,
-        "uretim_mono_ns": 1002000000000
+        "sim_damga_ns": 27500000000
       }
     }
   ]

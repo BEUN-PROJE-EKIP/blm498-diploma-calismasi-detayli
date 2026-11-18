@@ -89,6 +89,8 @@ class Arac:
         self.sha_yol = os.path.join(self.klasor, "kayit", f"merkezi_sha_{self.arac_kimligi}.jsonl") if self.klasor and os.environ.get("MERKEZI_SHA") == "1" else None   # YALNIZ test: gönderilen görüntü baytlarının SHA-256'sı
         self.kanal = self.hazirlayici = self.kuyruk = None
         self._yazicilar = []
+        self._gecici_ustler = {}
+        self._kuyruk_kok = os.path.join(self.klasor, "kuyruk") if self.klasor else None      # disk destekli uygulama kuyrukları (B13): <koşu>/kuyruk/<kuyruk adı>/bolut_*.kuy
         self.atanan_gorev = None                      # alınan ve doğrulanan Mission sözlüğü (gorev.py)
         self.mission_olayi = threading.Event()
         self.pub_onay = None
@@ -280,6 +282,8 @@ class Arac:
         while not olay.wait(0.2):
             if self.dur_olayi.is_set():
                 raise InterruptedError(f"{ne} beklenirken durduruldu")
+            if self.kamera is not None and self.kamera.hata:                  # kamera kuyruğu taştı (iki mod): kare atılmadı ama kuyruğa girmedi; koşu tamamlanamaz, açık hata
+                raise RuntimeError(f"{ne} beklenirken {self.kamera.hata}; koşu tamamlanamaz")
             if self.merkezi and self.kanal.durdu_mu():                  # merkezi mod: kanal hatayla (ya da bilerek) durduysa COMPLETE hiç gelmez; açık hata
                 if self._kapat_sonrasi_sn > 0:
                     self.log("test_kanal_kapandi_bekleniyor", sn=self._kapat_sonrasi_sn)
@@ -389,13 +393,24 @@ class Arac:
         pb = sorted(u.poz_bekleme_ms)
         self.log("merkezi_ozet", beklenen=n_son - n_ilk + 1, goruntu=u.goruntu_sayisi, kare_alinamadi=u.kayip_sayisi, uretilen=u.goruntu_sayisi + u.kayip_sayisi, gonderilen=self.kanal.gonderilen,
                  kuyruk_bosaldi=bos, bekleme_s=f"{time.monotonic() - t0:.1f}", zorla_kayip=",".join(map(str, zorla)) or "yok", kamera_kuyruk_maks=self.kamera.kuyruk_maks,
-                 gercek_uretim_hz=f"{self._uretim_hizi():.3f}", kuyruk_maks_ileti=self.kuyruk.maks_ileti, kuyruk_maks_bayt=self.kuyruk.maks_bayt, rss_zirve_mib=rss_zirve_mib())
+                 gercek_uretim_hz=f"{self._uretim_hizi():.3f}", kuyruk_maks_ileti=self.kuyruk.maks_ileti, kuyruk_maks_bayt=self.kuyruk.maks_bayt, disk_maks_bayt=self.kuyruk.maks_disk_bayt, rss_zirve_mib=rss_zirve_mib())
         if pb:
             self.log("poz_ozeti", adet=len(pb), gecersiz=",".join(f"{k}:{v}" for k, v in sorted(u.poz_gecersiz.items())) or "yok", bekleme_medyan_ms=f"{pb[len(pb) // 2]:.2f}",
                      bekleme_p95_ms=f"{pb[min(len(pb) - 1, int(0.95 * len(pb)))]:.2f}", bekleme_en_buyuk_ms=f"{pb[-1]:.2f}", **{f"tampon_{k}": v for k, v in self.adapter.poz.sayaclar().items()})
         self._yazicilari_kapat()
         if not bos:
             raise RuntimeError(f"gönderim kuyruğu boşalmadı: {self.kuyruk.derinlik()} (kanal hatası: {self.kanal.hata})")
+
+    def _kuyruk_ozeti(self):
+        """Merkezi mod: araçta kare sayaç denkliği her çıkış yolunda günlüğe yazılır (sessiz kayıp yok): hazırlayıcıya verilen = kuyruğa giren + taşan + düşen; kuyruğa giren = gönderilen + kuyrukta kalan."""
+        u = self.hazirlayici
+        if u is None or self.kuyruk is None:
+            return
+        kalan, kalan_bayt = self.kuyruk.derinlik()
+        sy = self.kuyruk.sayaclar()
+        self.log("kuyruk_ozeti", verilen=u.goruntu_sayisi + u.kayip_sayisi, kuyruga_giren=sy["giren"], tasan=u.tasan, dusen=u.dusen, gonderilen=self.kanal.gonderilen if self.kanal is not None else 0,
+                 kuyrukta_kalan=kalan, kuyrukta_kalan_bayt=kalan_bayt, disk_maks_bayt=sy["maks_disk_bayt"], kamera_kuyruga_alinamadi=self.kamera.tasan if self.kamera is not None else 0,
+                 kanal_hata=str(self.kanal.hata or "yok").replace(" ", "_") if self.kanal is not None else "yok")
 
     def _yazicilari_kapat(self):
         """Bütün kayıt yazıcılarını (kanal/kuyruk/poz/SHA yazıcıları ve uçta moddaki poz yazıcısı) idempotent kapatır; `satir_yazici_ozet` her yazıcı için yalnız ilk kapanışta yazılır
@@ -411,7 +426,7 @@ class Arac:
         """Kamera alıcısı kapanış karesi gelmediyse sondaki kayıpları şimdi yazdırır ve iç kuyruğun boşalmasını (kısa) bekler. Dönen: (zamanında, zorla kayıp numaraları, None)."""
         zorla = list(self.kamera.kapanis_kapat_zorla() or [])
         sinir = time.monotonic() + float(self.ham["MERKEZI_BOSALT_SN"])
-        while self.kamera.tuketilen_son < n_son and time.monotonic() < sinir:
+        while self.kamera.tuketilen_son < n_son and time.monotonic() < sinir and not self.kamera.hata:
             time.sleep(0.05)
         return self.kamera.tuketilen_son >= n_son, zorla, None
 
@@ -459,16 +474,31 @@ class Arac:
         deger = os.environ.get("MERKEZI_ARAC_ENJEKSIYON", "").partition("=")[2]
         return float(deger.partition(":")[2] or 0)
 
+    def _kuyruk_dizin(self, ad):
+        """Disk kuyruğunun dizini: `<koşu>/kuyruk/<ad>` (koşu klasörü yoksa, yalnız test düzeneklerinde, geçici dizin)."""
+        if self._kuyruk_kok:
+            return os.path.join(self._kuyruk_kok, ad)
+        import tempfile
+        ust = tempfile.mkdtemp(prefix="kuyruk_")                        # yalnız test düzenekleri: kuyruk boş kapanınca dizinle birlikte silinir
+        self._gecici_ustler[ad] = ust
+        return os.path.join(ust, ad)
+
+    def _tasma_yol(self, ad):
+        return os.path.join(self.klasor, "kayit", f"kuyruk_tasmasi_{ad}.jsonl") if self.klasor else None
+
     def _merkezi_kur(self):
         """Merkezi mod bileşenleri: gönderim kuyruğu, göndericisi, ileti hazırlayıcısı ve kamera alıcısı (tüketici = ileti hazırlayıcısı; kare alınamadı da aynı kuyruktan, sırasıyla)."""
-        from .goruntu_kanali import GonderimKuyrugu, Gonderici, IletiHazirlayici
+        from .disk_kuyrugu import kuyruk_olustur
+        from .goruntu_kanali import Gonderici, IletiHazirlayici
         from .poz_tamponu import SatirYazici
         h = self.ham
         kal = _rota.kalibrasyon_kimligi_oku()
         yaz = lambda yol: SatirYazici(yol, self.log) if yol else None  # noqa: E731
         olay_y, kuyruk_y, poz_y, sha_y = yaz(self.kanal_olay_yol), yaz(self.kuyruk_yol), yaz(self.poz_yol), yaz(self.sha_yol)
         self._yazicilar = [y for y in (olay_y, kuyruk_y, poz_y, sha_y) if y is not None]
-        self.kuyruk = GonderimKuyrugu()
+        gad = f"gonderim_{self.arac_kimligi}"
+        self.kuyruk = kuyruk_olustur(gad, self._kuyruk_dizin(gad), h, self.log, tasma_yol=self._tasma_yol(gad), bayt_olc=lambda oge: len(oge[2]),
+                                    gecici_ust=self._gecici_ustler.get(gad))   # sayaç baytı = ileti baytı (tel baytı)
         hz = int(float(h["CAM_RATE_HZ"]))
         self.kanal = Gonderici(self.arac_kimligi, hz, self.adres, (h["GCS_ADDR"], int(h["MERKEZI_TCP_PORT_TABAN"]) + self.arac_no - 1), self.kuyruk, self.log,
                                olay_yaz=olay_y.ver if olay_y else None, kuyruk_yaz=kuyruk_y.ver if kuyruk_y else None, kuyruk_kayit_sn=float(h["MERKEZI_KUYRUK_KAYIT_SN"]),
@@ -476,7 +506,9 @@ class Arac:
         self.hazirlayici = IletiHazirlayici(self.arac_kimligi, hz, self.adapter.poz, kal, self.kuyruk, self.log, olay_yaz=olay_y.ver if olay_y else None,
                                     poz_yaz=poz_y.ver if poz_y else None, sha_yaz=sha_y.ver if sha_y else None,
                                     hata_bildir=self.kanal.hata_ver)
-        self.kamera = KameraAliciGz(h, self.arac_no, self.arac_kimligi, self.kamera_yol, self.log, tuketici=self.hazirlayici.goruntu, kayip_ver=self.hazirlayici.kayip, kayip_sirali=True)
+        kad = f"kamera_{self.arac_kimligi}"
+        self.kamera = KameraAliciGz(h, self.arac_no, self.arac_kimligi, self.kamera_yol, self.log, tuketici=self.hazirlayici.goruntu, kayip_ver=self.hazirlayici.kayip, kayip_sirali=True,
+                                    kuyruk_dizin=self._kuyruk_dizin(kad), tasma_yol=self._tasma_yol(kad), aktarim_uygulanmaz=False)       # aktarim_tamam'ı merkezi modda yer istasyonu yazar
         self.log("merkezi_mod", kalibrasyon_kimligi=kal, hedef=f"{h['GCS_ADDR']}:{int(h['MERKEZI_TCP_PORT_TABAN']) + self.arac_no - 1}", kaynak=self.adres, sha_kaydi=bool(self.sha_yol))
 
     # --- giriş -----------------------------------------------------------------------------------------------------------------------------
@@ -502,6 +534,7 @@ class Arac:
                    ("kamera", lambda: self.kamera.kapat() if self.kamera is not None else None),
                    ("isci", lambda: self.isci.kapat() if self.isci is not None else None),
                    ("kanal", lambda: self.kanal.bosalt_ve_kapat(0.1) if self.kanal is not None else None),     # idempotent: başarılı yolda zaten kapandıysa günlük üretmez
+                   ("kuyruk_ozeti", self._kuyruk_ozeti),                                                       # kanal kapandıktan sonra: kare sayaç denkliği (üretilen = kuyruğa giren + taşan + düşen)
                    ("yazicilar", self._yazicilari_kapat),                                                      # kanal kapandıktan sonra: kuyruktaki satırlar yazılır ve sayılır
                    ("node", lambda: self._node.destroy_node() if self._node is not None else None),
                    ("rclpy", lambda: self._rclpy.shutdown() if self._rclpy is not None and self._rclpy.ok() else None))
@@ -538,7 +571,9 @@ class Arac:
         else:
             self.isleyici = KareIsleyici(self.ham, self.arac_kimligi, self.isci, self.sonuc_yol, self.log, self._kare_sonucu_uret, poz_tamponu=self.adapter.poz, poz_yol=self.poz_yol,
                                          konum_hesaplayici=KonumHesaplayici.yapilandirmadan(self.ham, self.arac_kimligi))
-            self.kamera = KameraAliciGz(self.ham, self.arac_no, self.arac_kimligi, self.kamera_yol, self.log, tuketici=self.isleyici.goruntu, kayip_ver=self.isleyici.kayip)
+            kad = f"kamera_{self.arac_kimligi}"
+            self.kamera = KameraAliciGz(self.ham, self.arac_no, self.arac_kimligi, self.kamera_yol, self.log, tuketici=self.isleyici.goruntu, kayip_ver=self.isleyici.kayip,
+                                        kuyruk_dizin=self._kuyruk_dizin(kad), tasma_yol=self._tasma_yol(kad))
             self.log("isci_enjeksiyon_durumu", durum=self.isci.enj.ozet())
             self.isci.baslat()                                         # alt süreç: model yükleme ve ısınma hazırlık evresiyle paralel sürer
         self.kamera.baslat()

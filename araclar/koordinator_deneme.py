@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """Deneme koordinatörü (YALNIZ test sürücüsü; asıl yer istasyonu görev koordinatörü `swarm_gcs.gorev_koordinatoru`'dur ve olağan akışı o yürütür; bu betik olumsuz senaryolar — erken/yanlış olaylar, gecikme/eksik sonuç —
-ve Gazebo model pozu kaydı gibi test ölçümleri için kullanılır; PX4'e dokunmaz, hedef birleştirme yoktur). Araçların beklediği `Mission` iletilerini de yayımlar (aynı `gorev.py` mantığı; ortak görev kimliği = ScanStart kimliği).
+ve Gazebo model pozu kaydı gibi test ölçümleri için kullanılır; PX4'e dokunmaz; nihai hedef birleştirmeyi asıl koordinatörle AYNI modülle yapar). Araçların beklediği `Mission` iletilerini de yayımlar (aynı `gorev.py` mantığı; ortak görev kimliği = ScanStart kimliği).
 
 Kullanım:  python araclar/koordinator_deneme.py --arac N [--erken-scan-start] [--erken-complete] [--yanlis-complete] [--yanlis-bekle-sn S] [--zaman-asimi-sn S] [--sonuc-zaman-asimi-sn S]
   --arac N               beklenen araç sayısı (UAV_SYS_IDS'in ilk N değeri)
@@ -10,7 +10,7 @@ Kullanım:  python araclar/koordinator_deneme.py --arac N [--erken-scan-start] [
   --yanlis-complete      bütün tarama bitişleri alınınca önce YANLIŞ kimlikli COMPLETE, --yanlis-bekle-sn (öntanımlı 6) sonra doğru COMPLETE yayımlar
 Akış: N aracın BARIYER_BEKLE durumunu görünce VE kare sonucu konusunda N yayımcıyla eşleşince (keşif gecikmesiyle t0 sonrası ilk sonuçlar kaybolmasın) bir tarama başlatma yayımlar (t0: monotonik ns + simülasyon ns);
 N tarama bitişi alınınca VE her aracın [n_ilk, n_son] aralığındaki her numara için tam bir kare sonucu (dört durumdan biri; yer istasyonu alıcı modülü `swarm_gcs.sonuc_alici`) gelince COMPLETE yayımlar (t1);
-N aracın TAMAMLANDI durumunu görünce çıkar. Hedef birleştirme koşulu (FR-5) yoktur: "birleştirme yok (M3)" günlüğe yazılır. Kaydı koşu klasöründe `koordinator_deneme.jsonl` (serbest biçimli, test çıktısı; şema değildir). Gazebo model pozları
+N aracın TAMAMLANDI durumunu görünce çıkar. COMPLETE'ten önce nihai hedef birleştirme (FR-5, `swarm_gcs.hedef_birlestirme`; rapor `nihai_rapor.json`) yapılır, `birlestirme_tamam` günlüğe yazılır; hata olursa COMPLETE yayımlanmaz, çıkış 1. Kaydı koşu klasöründe `koordinator_deneme.jsonl` (serbest biçimli, test çıktısı; şema değildir). Gazebo model pozları
 t0 anında ve her tarama bitişi alındığında kaydedilir (bağımsız doğrulama). Ortam: GZ_PARTITION, GZ_IP, setup/env.sh. Çıkış: 0 tamam, 1 zaman aşımı/hata, 2 kullanım.
 """
 import json
@@ -164,7 +164,6 @@ def ana(argv):
 
     sinir_ns = time.monotonic() + zaman_asimi
     kayit.yaz("basladi", arac_sayisi=n_arac, mission_id=kimlik, erken_scan_start=erken_start, erken_complete=erken_complete, yanlis_complete=yanlis_complete)
-    kayit.yaz("birlestirme_yok", ayrinti="hedef birleştirme (FR-5, B15) M3'tedir; COMPLETE koşulunda yoktur")
     try:
         if erken_start:
             m = ScanStart()
@@ -206,6 +205,21 @@ def ana(argv):
             return 1
         kayit.yaz("sonuclar_tamam", sayilar={str(a): v for a, v in alici.defter.sayilar().items()}, son_sonuc_mono_ns=alici.son_sonuc_mono_ns, tamam_mono_ns=alici.defter.tamam_mono_ns,
                   gecersiz=alici.gecersiz, tekrar=len(alici.defter.tekrarlar), bilinmeyen_arac=len(alici.defter.bilinmeyen_arac))
+        from swarm_gcs import hedef_birlestirme as hb
+        klasor_b = rota.aktif_kosu_klasoru()
+        ust = {}
+        if klasor_b and os.path.isfile(os.path.join(klasor_b, "kosu.json")):
+            with open(os.path.join(klasor_b, "kosu.json"), encoding="utf-8") as f:
+                ust = json.load(f)
+        b0 = time.monotonic_ns()
+        try:
+            raporlar, n_girdi, n_konumsuz = hb.birlestir_ve_yaz(alici.defter.kabul_edilenler(), float(ham["BIRLESTIRME_ARALIK_M"]), os.path.join(klasor_b, "nihai_rapor.json") if klasor_b else None,
+                                                               ust.get("kosu_kimligi") or (os.path.basename(klasor_b) if klasor_b else None), ust.get("sahne_kimligi"), "ucta")
+        except Exception as e:  # noqa: BLE001
+            kayit.yaz("birlestirme_hatasi", hata=f"{type(e).__name__}: {e}")
+            print(f"(-) hedef birleştirme hatası: {e}", file=sys.stderr)
+            return 1
+        kayit.yaz("birlestirme_tamam", rapor_sayisi=len(raporlar), konumsuz_rapor_sayisi=n_konumsuz, girdi_tespit_sayisi=n_girdi, sure_ms=(time.monotonic_ns() - b0) / 1e6)
         c = Complete()
         c.mission_id = kimlik
         t1_sim, t1_mono = sim["ns"], time.monotonic_ns()

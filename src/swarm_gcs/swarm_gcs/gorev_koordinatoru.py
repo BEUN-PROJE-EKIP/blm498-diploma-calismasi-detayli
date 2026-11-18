@@ -1,10 +1,10 @@
-"""Yer istasyonu görev koordinatörü: `/gcs/mission_coordinator` düğümü (FR-2, FR-3, FR-4, FR-5 [hedef birleştirme hariç], FR-7) + izleme + komut arayüzü + kare sonucu alıcısı (tek yer istasyonu süreci).
+"""Yer istasyonu görev koordinatörü: `/gcs/mission_coordinator` düğümü (FR-2, FR-3, FR-4, FR-5, FR-7) + izleme + komut arayüzü + kare sonucu alıcısı (tek yer istasyonu süreci).
 
 Kullanım:  python -m swarm_gcs.gorev_koordinatoru --arac N [--zaman-asimi-sn S]      (setup/env.sh ortamı; araclar/kosu.sh baslat --yer-istasyonu var bunu başlatır)
 Akış [belge: "Haberleşme Mimarisi"; planlama/sozlesmeler.md §9]: `config/bolge_rota.json` okunur; her araca kendi `Mission`'ı (ortak mission_id) ortak konudan yayımlanır → araçlar kendi Mission'larını yerel dosyayla
 karşılaştırıp rotayı yükler, hazır olunca BARIYER_BEKLE bildirir → N araç BARIYER_BEKLE VE kare sonucu konusunda N yayımcıyla eşleşme → `ScanStart` (t0 = yayımlama anı) → N `ScanFinished` VE sonuç defteri tamam
-(her aracın [n_ilk, n_son] aralığındaki her numara için tam bir sonuç; dört durumdan biri) → `Complete` (t1 = yayımlama anı) → N araç TAMAMLANDI → çıkış 0.
-Hedef birleştirme (FR-5, B15) M3'tedir: "birleştirme yok" kaydı yazılır. Yedek yol numaralandırması (M3/B13) açık hata ile reddedilir. Zaman aşımı yalnız üst sınırdır (GCS_UST_SN / --zaman-asimi-sn; H değil):
+(her aracın [n_ilk, n_son] aralığındaki her numara için tam bir sonuç; dört durumdan biri) → nihai hedef birleştirme (`hedef_birlestirme.py`; iki modda aynı fonksiyon; rapor `nihai_rapor.json`, görev olayı `birlestirme_tamam`) → `Complete` (t1 = yayımlama anı;
+birleştirme t1'e dahildir [belge FR-5]) → N araç TAMAMLANDI → çıkış 0. Birleştirme hata verirse (ör. bir tespitin üretim anı Gazebo damga kaydında yok) COMPLETE yayımlanmaz, açık hata, çıkış 1. Yedek yol numaralandırması (M3/B13) açık hata ile reddedilir. Zaman aşımı yalnız üst sınırdır (GCS_UST_SN / --zaman-asimi-sn; H değil):
 aşılırsa COMPLETE yayımlanmaz, açık hata, çıkış 1. Komut gönderilmez (komut arayüzü yalnız test/elle kullanım içindir).
 Kayıtlar (koşu klasörü): `kayit/yer_istasyonu_gorev.jsonl` (`gorev_olay`, §8.9), `kayit/yer_istasyonu_kare.jsonl` (`kullanilabilir`), `kayit/yer_istasyonu_durum.jsonl` (izleme; serbest biçim: durum değişimleri +
 `IZLEME_OZET_SN` özetleri + bayat uyarıları), `kayit/yer_istasyonu_komut.jsonl` (komut/onay; serbest biçim), `kayit/yer_istasyonu_durum_ham.jsonl` (her durum iletisinin alım anı; serbest biçim), `yer_istasyonu.log` (metin günlüğü).
@@ -28,6 +28,7 @@ from swarm_vehicle import rota
 from swarm_vehicle.port_denetimi import PortAraligiHatasi
 
 from .gorev_kayit import GorevKaydi
+from . import hedef_birlestirme as hb
 from .gorev_mantik import FAZ_BITTI, FAZ_HATA, FAZ_HAZIR_BEKLE, FAZ_TARAMA, Koordinasyon, arac_cikislari, baslatma_hatasi_olayi
 from .izleme import DurumIzleyici
 
@@ -93,6 +94,13 @@ def ana(argv):
     durum_yol = yol(os.path.join("kayit", "yer_istasyonu_durum.jsonl"))
     ham_yol = yol(os.path.join("kayit", "yer_istasyonu_durum_ham.jsonl"))     # her VehicleState iletisi: alım anı (mono), yer istasyonu sim saati, iletideki sim damgası (DDS canlılık ölçümü)
 
+    kosu_ust = {}                                   # kosu.json: nihai rapor üst alanları (kosu_kimligi, sahne_kimligi); yoksa/okunamazsa boş (varsayılanlar kullanılır)
+    if klasor:
+        try:
+            with open(os.path.join(klasor, "kosu.json"), encoding="utf-8") as f:
+                kosu_ust = json.load(f)
+        except (OSError, ValueError):
+            kosu_ust = {}
     sim = {"ns": None}
     try:
         from gz.msgs10.clock_pb2 import Clock
@@ -124,7 +132,7 @@ def ana(argv):
             ist = IsciIstemcisi(ham, sira, k, klasor, log)
             isciler[k] = ist
             islemciler[k] = KareIsleyici(ham, k, ist, yol(os.path.join("kayit", f"kare_sonuc_{k}.jsonl")), log,
-                                         lambda kayit, _a=alici: _a.sonuc_ver(kayit["arac_kimligi"], kayit["n"], kayit["durum"], kayit["sim_damga_ns"]),
+                                         lambda kayit, _a=alici: _a.sonuc_ver(kayit["arac_kimligi"], kayit["n"], kayit["durum"], kayit["sim_damga_ns"], kayit["tespitler"]),
                                          konum_hesaplayici=KonumHesaplayici.yapilandirmadan(ham, k))
         sha_yazicilar = {}
         if os.environ.get("MERKEZI_SHA") == "1" and klasor:                   # YALNIZ test: alınan görüntü baytlarının SHA-256'sı
@@ -134,7 +142,7 @@ def ana(argv):
         yazicilar += list(isleme_yazicilar.values())
         kanal = MerkeziAlici(ham, kimlikler, log, islemciler, olay_yaz=alici.olay_ekle, sha_yaz=(lambda a, d: sha_yazicilar[a].ver(d)) if sha_yazicilar else None,
                              enjeksiyon_metni=os.environ.get("MERKEZI_ENJEKSIYON", ""), kalibrasyon_kimligi=rota.kalibrasyon_kimligi_oku(), defter_tamam=alici.defter.arac_tamam,
-                             isleme_yaz=(lambda a, d: isleme_yazicilar[a].ver(d)) if isleme_yazicilar else None)
+                             isleme_yaz=(lambda a, d: isleme_yazicilar[a].ver(d)) if isleme_yazicilar else None, kosu_klasoru=klasor)
         try:
             kanal.baslat()      # önce port denetimi (geçici aralıktaki dinleme portu açık hata), sonra dinleme; GPU çıkarım işçileri bundan SONRA başlar
         except (PortAraligiHatasi, OSError) as e:
@@ -224,7 +232,6 @@ def ana(argv):
             ek["ayrinti"] = "test enjeksiyonu: ilk nokta 1 m kaydırıldı"
         pub_mission.publish(_gorev.mesaj_doldur(Mission, Point, d))
         yaz_olaylar([{"olay": "gorev_atandi", "arac_kimligi": k, "mission_id": mission_id, **ek}])
-    yaz_olaylar([{"olay": "birlestirme_yok", "ayrinti": "hedef birleştirme (FR-5, B15) M3'tedir; COMPLETE koşulunda yoktur"}])
     print(f"KOORDINATOR hazir mission_id={mission_id} arac={n_arac}", flush=True)
 
     # --- ana döngü --------------------------------------------------------------------------------------------------------------------------
@@ -275,8 +282,21 @@ def ana(argv):
                 gorev.yaz("t0", sim_ns=sim["ns"], mono_ns=t0_mono, mission_id=mission_id)
                 log("t0", mission_id=mission_id)
                 print(f"KOORDINATOR t0 mission_id={mission_id} sim_ns={sim['ns']}", flush=True)
-            elif eylem == "complete":
+            elif eylem == "birlestir":
                 yaz_olaylar([{"olay": "son_sonuc"}])
+                b0 = time.monotonic_ns()
+                try:
+                    raporlar, n_girdi, n_konumsuz = hb.birlestir_ve_yaz(alici.defter.kabul_edilenler(), float(ham["BIRLESTIRME_ARALIK_M"]), os.path.join(klasor, "nihai_rapor.json") if klasor else None,
+                                                                       kosu_ust.get("kosu_kimligi") or (os.path.basename(klasor) if klasor else None), kosu_ust.get("sahne_kimligi"), mimari)
+                except Exception as e:  # noqa: BLE001 — her birleştirme hatası açık hatadır (COMPLETE yok); sessiz atlama yok
+                    yaz_olaylar(kor.birlestirme_hatasi(f"{type(e).__name__}: {e}"))
+                    log("birlestirme_hatasi", seviye="(-)", hata=f"{type(e).__name__}:_{e}".replace(" ", "_"))
+                else:
+                    sure_ms = (time.monotonic_ns() - b0) / 1e6
+                    yaz_olaylar([{"olay": "birlestirme_tamam", "rapor_sayisi": len(raporlar), "konumsuz_rapor_sayisi": n_konumsuz, "girdi_tespit_sayisi": n_girdi, "sure_ms": round(sure_ms, 3)}])
+                    kor.birlestirme_bitti()
+                    print(f"KOORDINATOR birlestirme rapor={len(raporlar)} konumsuz={n_konumsuz} girdi={n_girdi} sure_ms={sure_ms:.2f}", flush=True)
+            elif eylem == "complete":
                 t1_mono = time.monotonic_ns()
                 msg = Complete()
                 msg.mission_id = mission_id

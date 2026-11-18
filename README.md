@@ -12,19 +12,19 @@ Bu bir **simülasyon deneyidir**; gerçek uçuş ya da gömülü donanım doğru
 Kendi işlerin için: kilometre taşında adının yazdığı satırlar; sıradaki iş, bitmemiş en üstteki maddedir. Ayrıntı ve bitti ölçütleri: `planlama/gelistirme_agaci.md`.
 
 <!-- ILERLEME:BASLA -->
-**Genel tamamlanma: %32,0** (33 / 80 madde; kod ve makine işi dahil)
+**Genel tamamlanma: %34,3** (35 / 80 madde; kod ve makine işi dahil)
 
-`██████░░░░░░░░░░░░░░` %32,0
+`███████░░░░░░░░░░░░░` %34,3
 
-**Geliştirme oranı: %49,9** (33 / 55 geliştirme maddesi; yalnız kod ve altyapı işi)
+**Geliştirme oranı: %53,4** (35 / 55 geliştirme maddesi; yalnız kod ve altyapı işi)
 
-`██████████░░░░░░░░░░` %49,9
+`███████████░░░░░░░░░` %53,4
 
 **Ana hedefler** (belgeye göre; ana amaç uçta ve merkezi modun beş ölçütle karşılaştırılmasıdır). Bir hedef, paketlerindeki bütün maddeler bitince tamamlanır.
 
 | | Hedef | Paketler | Tamamlanma |
 |---|---|---|---|
-| ◐ | **1.** Sürü sistemi: üç İHA, dört sürü işlevi, uçta ve merkezi mod | B | `████████████████░░░░` %81,8 |
+| ◐ | **1.** Sürü sistemi: üç İHA, dört sürü işlevi, uçta ve merkezi mod | B | `██████████████████░░` %90,9 |
 | ☐ | **2.** Görüntü işleme: YOLO26 modeli, veri hattı ve eğitim | A | `░░░░░░░░░░░░░░░░░░░░` %0,0 |
 | ◐ | **3.** Deney düzeneği: başkalarının da çalıştırabileceği kilitli, tekrarlanabilir simülasyon ortamı | K, C | `███████░░░░░░░░░░░░░` %33,3 |
 | ◐ | **4.** Deney sonuçları: 30 sahnede 60 koşu ve karar kuralına göre rapor | D, E | `█░░░░░░░░░░░░░░░░░░░` %6,2 |
@@ -85,15 +85,13 @@ Kilometre taşları (✔ bitti, ◐ sürüyor, ☐ başlamadı). Maddeler iş s�
 
 </details>
 
-<details open>
-<summary>◐ <b>M3 - Merkezi mod ve izleme</b> [Ömer Faruk GÜNER, %60,0]</summary>
-
-Bekler: yok, başlayabilir
+<details>
+<summary>✔ <b>M3 - Merkezi mod ve izleme</b> [%100,0]</summary>
 
 - ✔ B12 - Merkezi mod
-- ☐ B13 - Disk kuyrukları ve aşama damgaları
+- ✔ B13 - Disk kuyrukları ve aşama damgaları
 - ✔ B14 - Poz enterpolasyonu ve konum hesabı
-- ☐ B15 - Hedef birleştirme
+- ✔ B15 - Hedef birleştirme
 
 </details>
 
@@ -143,7 +141,7 @@ Bekler: yok, başlayabilir
 <details open>
 <summary>☐ <b>M6b - Bütünleşik koşu ve kabul testleri</b> [Mikail DEĞER, %0,0]</summary>
 
-Bekler: M3, M5, M6a
+Bekler: M5, M6a
 
 - ☐ B19 - Bütünleşik işlev testi
 - ☐ C1 - Kabul testi 1: ağ adresleri
@@ -367,7 +365,6 @@ Asistan `sudo`, `apt upgrade` ve `git push` çalıştırmaz; kurulumu ve push'u 
 | `config/` | Deney ayarları (adresler, portlar, ağ hızı, kamera, çıkarım, eğitim) ve ROS 2 haberleşme profili |
 | `src/` | ROS 2 paketleri (`swarm_msgs`, `swarm_vehicle`, `swarm_gcs`) ve Gazebo damga bileşeni (`yayim_damga`) |
 | `araclar/` | Yardımcı programlar (koşu betiği `kosu.sh`, ilerleme hesabı, ölçüm araçları) |
-| `araclar/degerlendirme/` | Değerlendirme ve analiz yazılımı (M6a): hedef eşleştirmesi (B18), eşleştirme analizi (E1a) ve diğer analiz betikleri; testleri `test/` altında; tablo biçimleri `planlama/sozlesmeler.md` §11.4 |
 | `planlama/` | Hedef ağacı ve kilometre taşları (ilerlemenin kaynağı), yol haritası, mimari, sözleşmeler, kararlar, riskler |
 | `docs/` | Kaynak belgeler (şartname ve proje el kitabı); **değiştirilmez** |
 | `third_party/`, `.venv/`, `.generated/` | Kurulumla oluşur (PX4 kaynağı, Python ortamı, rapor/günlük/model/ölçüm kayıtları); depoya girmez |

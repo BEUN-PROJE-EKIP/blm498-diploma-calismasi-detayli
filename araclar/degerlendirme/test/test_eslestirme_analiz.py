@@ -39,7 +39,7 @@ def hedef_listesi(sahne):
 
 def rapor(kimlik, sinif, x=None, y=None):
     konum = None if x is None else {"x_m": x, "y_m": y}
-    tespit = {"arac_kimligi": C.arac_kimlikleri[0], "n": 1, "uretim_mono_ns": 1_000_000_000}
+    tespit = {"arac_kimligi": C.arac_kimlikleri[0], "n": 1, "sim_damga_ns": 1_000_000_000}
     return {"rapor_kimligi": kimlik, "sinif": sinif, "konum": konum, "ilk_konum": copy.deepcopy(konum), "guven": 0.5,
             "tespit_sayisi": 1, "ilk_tespit": tespit, "en_yuksek_guven_tespiti": dict(tespit)}
 

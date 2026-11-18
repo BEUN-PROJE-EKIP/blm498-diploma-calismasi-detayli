@@ -1,7 +1,8 @@
-"""Görev koordinatörünün saf mantığı (rclpy'siz; birim testli): bariyer, t0, tarama bitişleri, kare koşulu, t1 ve bitiş kararı (FR-3, FR-4, FR-5 [birleştirme hariç]).
+"""Görev koordinatörünün saf mantığı (rclpy'siz; birim testli): bariyer, t0, tarama bitişleri, kare koşulu, nihai hedef birleştirme, t1 ve bitiş kararı (FR-3, FR-4, FR-5).
 
 Akış (GŞÖA 7.4, 7.5; el kitabı "Haberleşme Mimarisi"): faz `hazir_bekle` → N aracın BARIYER_BEKLE bildirimi VE kare sonucu konusunda N yayımcıyla eşleşme → `scan_start` eylemi (t0 = yayımlama anı) →
-faz `tarama` → N tarama bitişi VE sonuç defteri tamam (her aracın [n_ilk, n_son] aralığındaki her numara için tam bir sonuç; dört durumdan biri) → `complete` eylemi (t1 = yayımlama anı) → faz `complete_verildi` →
+faz `tarama` → N tarama bitişi VE sonuç defteri tamam (her aracın [n_ilk, n_son] aralığındaki her numara için tam bir sonuç; dört durumdan biri) → `birlestir` eylemi (nihai hedef
+birleştirme; COMPLETE'in üçüncü koşulu, t1'e dahildir) → birleştirme tamamlanınca `complete` eylemi (t1 = yayımlama anı) → faz `complete_verildi` →
 N aracın TAMAMLANDI durumu → `kapat` → faz `bitti`. Zaman aşımı yalnız üst sınırdır (H değil); aşılırsa COMPLETE yayımlanmaz, faz `hata`.
 Erken, yinelenen, yanlış kimlikli ve bilinmeyen araçlı olaylar sayılır ve `yok_sayildi` olayıyla dışarı bildirilir; hiçbiri akışı değiştirmez. Yedek yol (NUMBERING_FALLBACK) açık hatadır (M3/B13).
 Her yöntem, dışarıda kaydedilecek olay sözlüklerinin listesini döndürür (`olay`, `arac_kimligi`, ... anahtarlarıyla).
@@ -46,6 +47,7 @@ class Koordinasyon:
         self.tamamlandi = {}                 # araç → TAMAMLANDI alım anı (yalnız COMPLETE'ten sonra sayılır)
         self.eslesen = 0
         self.sonuclar_tamam = False
+        self.birlestirme_tamam = False       # nihai hedef birleştirme bitti (COMPLETE'in üçüncü koşulu)
         self.hata_nedeni = None
         self.t0 = self.t1 = None             # (mono_ns, sim_ns)
         self.yok_sayilan = []                # (neden, ayrıntı)
@@ -108,6 +110,15 @@ class Koordinasyon:
         self.faz, self.hata_nedeni = FAZ_HATA, f"araç {arac} süreci COMPLETE'ten önce çıktı (çıkış kodu {cikis_kodu}, {evre})"
         return [{"olay": "hata", "neden": "arac_erken_cikti", "arac_kimligi": arac, "ayrinti": f"cikis_kodu={cikis_kodu} evre={evre}"}]
 
+    def birlestirme_bitti(self):
+        """Nihai hedef birleştirme tamamlandı: `complete` eylemi artık yapılabilir."""
+        self.birlestirme_tamam = True
+
+    def birlestirme_hatasi(self, neden):
+        """Birleştirme hata verdi: COMPLETE yayımlanmaz, faz `hata`. Dönen: `hata` olayı listesi."""
+        self.faz, self.hata_nedeni = FAZ_HATA, f"hedef birleştirme hatası: {neden}"
+        return [{"olay": "hata", "neden": "birlestirme_hatasi", "ayrinti": str(neden)}]
+
     def sonuclar_guncelle(self, tamam):
         """Sonuç defteri hepsi_tamam durumu (kare koşulu)."""
         self.sonuclar_tamam = bool(tamam)
@@ -120,11 +131,11 @@ class Koordinasyon:
         return all(a in self.bitis for a in self.arac_kimlikleri)
 
     def sonraki(self):
-        """Yapılması gereken eylem: 'scan_start' | 'complete' | 'kapat' | None."""
+        """Yapılması gereken eylem: 'scan_start' | 'birlestir' | 'complete' | 'kapat' | None."""
         if self.faz == FAZ_HAZIR_BEKLE and self.hepsi_hazir() and self.eslesen >= len(self.arac_kimlikleri):
             return "scan_start"
         if self.faz == FAZ_TARAMA and self.hepsi_bitirdi() and self.sonuclar_tamam:
-            return "complete"
+            return "complete" if self.birlestirme_tamam else "birlestir"
         if self.faz == FAZ_COMPLETE_VERILDI and all(a in self.tamamlandi for a in self.arac_kimlikleri):
             return "kapat"
         return None
@@ -145,7 +156,7 @@ class Koordinasyon:
         if self.faz in (FAZ_BITTI, FAZ_HATA):
             return self.hata_nedeni
         bekleyen = {FAZ_HAZIR_BEKLE: f"hazır bildirimi {sorted(set(self.arac_kimlikleri) - set(self.hazir))}, eşleşen yayımcı {self.eslesen}/{len(self.arac_kimlikleri)}",
-                    FAZ_TARAMA: f"tarama bitişi {sorted(set(self.arac_kimlikleri) - set(self.bitis))}, kare sonuçları tamam={self.sonuclar_tamam}",
+                    FAZ_TARAMA: f"tarama bitişi {sorted(set(self.arac_kimlikleri) - set(self.bitis))}, kare sonuçları tamam={self.sonuclar_tamam}, birleştirme tamam={self.birlestirme_tamam}",
                     FAZ_COMPLETE_VERILDI: f"TAMAMLANDI {sorted(set(self.arac_kimlikleri) - set(self.tamamlandi))}"}[self.faz]
         self.faz, self.hata_nedeni = FAZ_HATA, f"üst süre doldu; bekleyen: {bekleyen}"
         return self.hata_nedeni

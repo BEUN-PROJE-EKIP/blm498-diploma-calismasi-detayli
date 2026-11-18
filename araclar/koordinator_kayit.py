@@ -29,8 +29,8 @@ def koordinator_olaylari(klasor):
             cikti.append({"mono_ns": x["mono_ns"], "olay": "tarama_bitis", "arac": x["arac_kimligi"], "n_first": x["n_ilk"], "n_last": x["n_son"], "sim_ns": x["sim_ns"]})
         elif o == "eslesme":
             cikti.append({"mono_ns": x["mono_ns"], "olay": "eslesme", "yayimci": x["yayimci"], "sim_ns": x["sim_ns"]})
-        elif o == "birlestirme_yok":
-            cikti.append({"mono_ns": x["mono_ns"], "olay": "birlestirme_yok"})
+        elif o == "birlestirme_tamam":
+            cikti.append({"mono_ns": x["mono_ns"], "olay": "birlestirme_tamam", **{k: x[k] for k in ("rapor_sayisi", "konumsuz_rapor_sayisi", "girdi_tespit_sayisi", "sure_ms")}})
         elif o == "zaman_asimi":
             cikti.append({"mono_ns": x["mono_ns"], "olay": "zaman_asimi", "beklenen": x.get("neden")})
     esl = [(c["mono_ns"], c["yayimci"]) for c in cikti if c["olay"] == "eslesme"]
@@ -63,3 +63,20 @@ def koordinator_olaylari(klasor):
     if any(x["olay"] == "tamamlandi" for x in gorev):
         cikti.append({"mono_ns": max(x["mono_ns"] for x in gorev if x["olay"] == "tamamlandi"), "olay": "bitti"})
     return sorted(cikti, key=lambda c: c["mono_ns"])
+
+
+def nihai_rapor_hatalari(klasor):
+    """Koşu klasöründeki `nihai_rapor.json` (§11.1) için doğrulayıcı hataları; dosya yoksa ['dosya yok']. İçe aktarma burada: bu modül `sozlesme_dogrula`'dan bağımsız da içe aktarılır."""
+    yol = os.path.join(klasor, "nihai_rapor.json")
+    if not os.path.isfile(yol):
+        return ["dosya yok"]
+    import sys
+    kok = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    sys.path.insert(0, os.path.join(kok, "araclar"))
+    from sozlesme_dogrula import Yapilandirma, dogrula_nihai_rapor, yapilandirma_yukle
+    c = Yapilandirma(yapilandirma_yukle(os.path.join(kok, "config", "deney.env")))
+    try:
+        with open(yol, encoding="utf-8") as f:
+            return dogrula_nihai_rapor(c, json.load(f))
+    except ValueError as e:
+        return [f"JSON okunamadı: {e}"]

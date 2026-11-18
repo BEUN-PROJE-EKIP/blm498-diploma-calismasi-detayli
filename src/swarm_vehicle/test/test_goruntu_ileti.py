@@ -1,18 +1,33 @@
 """Merkezi mod görüntü iletisi, gönderim kuyruğu ve göndericisi birim testleri (ROS 2, MAVSDK ve gz gerekmez). Çalıştırma: python3 src/swarm_vehicle/test/test_goruntu_ileti.py"""
+import atexit
 import os
+import shutil
 import socket
 import struct
 import sys
+import tempfile
 import threading
 import time
 import unittest
 
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), ".."))
+from swarm_vehicle import disk_kuyrugu as dk  # noqa: E402
 from swarm_vehicle import goruntu_ileti as gi  # noqa: E402
 from swarm_vehicle import goruntu_kanali as gk  # noqa: E402
 from swarm_vehicle import poz_tamponu as pz  # noqa: E402
 
 W, H = 640, 480
+_GECICI = []
+
+
+def kuyruk_yap(ad="gonderim_1", alt_sinir_mb=0, bolut_mb=8, **ek):
+    """Gönderim kuyruğu (disk destekli; sayaç baytı = ileti baytı); geçici dizin süreç sonunda silinir."""
+    kok = tempfile.mkdtemp(prefix="kuyruk_test_")
+    _GECICI.append(kok)
+    return dk.DiskKuyrugu(ad, os.path.join(kok, ad), alt_sinir_mb, bolut_mb, bayt_olc=lambda o: len(o[2]), **ek)
+
+
+atexit.register(lambda: [shutil.rmtree(d, ignore_errors=True) for d in _GECICI])
 KAL = "KAL-65-640x480-v1"
 POZ_GECERLI = gi.Poz(True, None, (1.5, -2.25, -30.0), (0.9, 0.1, 0.2, 0.3), 1_000_000_000, 1_040_000_000)
 POZ_GECERSIZ = gi.Poz(False, "aralik_asildi", None, None, 1_000_000_000, 1_250_000_000)
@@ -107,7 +122,7 @@ class Hatalar(unittest.TestCase):
 
 class Kuyruk(unittest.TestCase):
     def test_fifo_sayaclar_ve_atma_yok(self):
-        k = gk.GonderimKuyrugu()
+        k = kuyruk_yap()
         for n in range(100):
             k.koy((n, 1, b"x" * 10))
         self.assertEqual(k.derinlik(), (100, 1000))
@@ -119,7 +134,7 @@ class Kuyruk(unittest.TestCase):
         self.assertEqual((k.giren, k.cikan, k.maks_ileti, k.maks_bayt), (100, 100, 100, 1000))
 
     def test_bos_bekle(self):
-        k = gk.GonderimKuyrugu()
+        k = kuyruk_yap()
         k.koy((1, 1, b"a"))
         self.assertFalse(k.bos_bekle(0.1))
         threading.Timer(0.1, k.cikar).start()
@@ -136,6 +151,24 @@ class SahteSorgu:
         return pz.PozSonuc(True, None, t_ns - 10_000_000, t_ns + 10_000_000, 20.0, 0.1, (float(n), 0.0, -30.0), (1.0, 0.0, 0.0, 0.0))
 
 
+class HazirlayiciTasma(unittest.TestCase):
+    def test_kuyruk_tasmasi_acik_hata_olur_kare_sessiz_atilmaz(self):
+        """B13: gönderim kuyruğu taşınca (4. yazma yapay ENOSPC) hazırlayıcı kanalı açık hatayla durdurur; taşan kare `tasan`, sonrakiler `dusen` olarak SAYILIR; kuyruğa giren kareler diskte kalır."""
+        kuyruk = kuyruk_yap(test_tasma_n=4)
+        olaylar, hatalar, loglar = [], [], []
+        u = gk.IletiHazirlayici(1, 2, SahteSorgu(), KAL, kuyruk, lambda o, **kv: loglar.append((o, kv)), olay_yaz=olaylar.append, hata_bildir=hatalar.append)
+        for n in range(10):
+            u.goruntu(n, n * 500_000_000, 1, bytes([n]) * (W * H * 3), W, H)
+        self.assertEqual((u.tasan, u.dusen, kuyruk.sayaclar()["giren"]), (1, 6, 3))
+        self.assertEqual(u.goruntu_sayisi, 10, "denklik: verilen 10 = kuyruğa giren 3 + taşan 1 + düşen 6")
+        self.assertEqual(len(hatalar), 1)
+        self.assertIn("kuyruk taştı", hatalar[0])
+        self.assertEqual([o["n"] for o in olaylar if o["olay"] == "gonderim_kuyrugu"], [0, 1, 2], "taşan kare için kuyruğa giriş kaydı yazılmaz")
+        self.assertEqual(kuyruk.derinlik()[0], 3, "kuyruktaki kareler atılmadı")
+        self.assertIsNotNone(kuyruk.tasma)
+        self.assertIn("hata", [o for o, _ in loglar])
+
+
 class Gonderici(unittest.TestCase):
     def _sunucu(self, rcvbuf=4096):
         s = socket.socket()
@@ -147,7 +180,7 @@ class Gonderici(unittest.TestCase):
     def test_okuma_durunca_bloke_kuyruk_buyur_sonra_hepsi_sirayla(self):
         sunucu, port = self._sunucu()
         olaylar, loglar = [], []
-        kuyruk = gk.GonderimKuyrugu()
+        kuyruk = kuyruk_yap()
         g = gk.Gonderici(1, 2, "127.0.0.1", ("127.0.0.1", port), kuyruk, lambda o, **kv: loglar.append((o, kv)), olay_yaz=olaylar.append, kuyruk_kayit_sn=0.1)
         g.baslat(5)
         istemci, _ = sunucu.accept()
@@ -184,7 +217,7 @@ class Gonderici(unittest.TestCase):
 
     def test_poz_gecersizse_ileti_geciksiz_bayrakla_gider(self):
         sunucu, port = self._sunucu(65536)
-        kuyruk = gk.GonderimKuyrugu()
+        kuyruk = kuyruk_yap()
         g = gk.Gonderici(1, 2, "127.0.0.1", ("127.0.0.1", port), kuyruk, lambda *a, **k: None)
         g.baslat(5)
         istemci, _ = sunucu.accept()
@@ -205,7 +238,7 @@ class Gonderici(unittest.TestCase):
 
     def test_kapanis_idempotent_ikinci_cagri_gunluk_ve_kayit_uretmez_kuyruk_kaydi_sirali(self):
         sunucu, port = self._sunucu(65536)
-        kuyruk, loglar, kayitlar = gk.GonderimKuyrugu(), [], []
+        kuyruk, loglar, kayitlar = kuyruk_yap(), [], []
         g = gk.Gonderici(1, 2, "127.0.0.1", ("127.0.0.1", port), kuyruk, lambda o, **kv: loglar.append(o), kuyruk_yaz=kayitlar.append, kuyruk_kayit_sn=0.01)
         g.baslat(5)
         istemci, _ = sunucu.accept()
@@ -231,7 +264,7 @@ class Gonderici(unittest.TestCase):
 
     def test_baglanti_kopunca_acik_hata_ve_kalan_sayilir(self):
         sunucu, port = self._sunucu(65536)
-        kuyruk = gk.GonderimKuyrugu()
+        kuyruk = kuyruk_yap()
         loglar = []
         g = gk.Gonderici(1, 2, "127.0.0.1", ("127.0.0.1", port), kuyruk, lambda o, **kv: loglar.append(o))
         g.baslat(5)
@@ -254,7 +287,7 @@ class Gonderici(unittest.TestCase):
         class Bozuk:
             def sorgula(self, t_ns):
                 raise RuntimeError("poz sorgusu patladı")
-        kuyruk = gk.GonderimKuyrugu()
+        kuyruk = kuyruk_yap()
         loglar, bildirimler = [], []
         u = gk.IletiHazirlayici(1, 2, Bozuk(), KAL, kuyruk, lambda o, **kv: loglar.append(o), hata_bildir=bildirimler.append)
         u.goruntu(1, 500_000_000, 1, b"\3" * (W * H * 3), W, H)
@@ -267,7 +300,7 @@ class Gonderici(unittest.TestCase):
         self.assertEqual(u.dusen, 2)                                           # hata sonrası gelen kareler sayılır, sessiz değil
 
     def test_bos_goruntu_yuku_asla_gonderilmez(self):
-        kuyruk = gk.GonderimKuyrugu()
+        kuyruk = kuyruk_yap()
         bildirimler = []
         u = gk.IletiHazirlayici(1, 2, SahteSorgu(), KAL, kuyruk, lambda *a, **k: None, hata_bildir=bildirimler.append)
         u.goruntu(1, 500_000_000, 1, b"", W, H)                               # önbellekte bulunamayan görüntü: boş yük
@@ -275,7 +308,7 @@ class Gonderici(unittest.TestCase):
         self.assertIn("boş yük", u.hata)
         self.assertEqual(len(bildirimler), 1)
         # kare alınamadı iletisinin yükü zaten boştur: hata değildir
-        kuyruk2 = gk.GonderimKuyrugu()
+        kuyruk2 = kuyruk_yap()
         u2 = gk.IletiHazirlayici(1, 2, SahteSorgu(), KAL, kuyruk2, lambda *a, **k: None)
         u2.kayip(1, 1)
         self.assertEqual(kuyruk2.derinlik()[0], 1)
@@ -283,7 +316,7 @@ class Gonderici(unittest.TestCase):
 
     def test_hata_ver_baglantiyi_kapatir_ve_gonderici_durur(self):
         sunucu, port = self._sunucu(65536)
-        kuyruk = gk.GonderimKuyrugu()
+        kuyruk = kuyruk_yap()
         loglar = []
         g = gk.Gonderici(1, 2, "127.0.0.1", ("127.0.0.1", port), kuyruk, lambda o, **kv: loglar.append(o))
         g.baslat(5)
@@ -304,7 +337,7 @@ class Gonderici(unittest.TestCase):
 
     def test_temiz_kapatma_enjeksiyonu_hata_isaretlemez_ama_kanal_kapanir(self):
         sunucu, port = self._sunucu(65536)
-        kuyruk = gk.GonderimKuyrugu()
+        kuyruk = kuyruk_yap()
         g = gk.Gonderici(1, 2, "127.0.0.1", ("127.0.0.1", port), kuyruk, lambda *a, **k: None, temiz_kapat_n=2)
         g.baslat(5)
         istemci, _ = sunucu.accept()
@@ -322,6 +355,9 @@ class Gonderici(unittest.TestCase):
         self.assertEqual([il.n for il in c.besle(bytes(alinan))], [1, 2])      # n=2'den sonra temiz kapanış, yarım ileti yok
         self.assertEqual(c.bekleyen_bayt(), 0)
         self.assertIsNone(g.hata)
+        sinir = time.monotonic() + 3
+        while not g.durdu_mu() and time.monotonic() < sinir:      # soket kapanışı iş parçacığının `_bitti` işaretinden önce görülebilir (yarış)
+            time.sleep(0.01)
         self.assertTrue(g.durdu_mu())
         istemci.close()
         sunucu.close()
@@ -331,7 +367,7 @@ class Gonderici(unittest.TestCase):
         s.bind(("127.0.0.1", 0))
         port = s.getsockname()[1]
         s.close()                                                              # kimse dinlemiyor
-        g = gk.Gonderici(1, 2, "127.0.0.1", ("127.0.0.1", port), gk.GonderimKuyrugu(), lambda *a, **k: None)
+        g = gk.Gonderici(1, 2, "127.0.0.1", ("127.0.0.1", port), kuyruk_yap(), lambda *a, **k: None)
         g.baslat(1)
         self.assertFalse(g.bagli_bekle(5))
         self.assertIn("bağlanılamadı", g.hata)
