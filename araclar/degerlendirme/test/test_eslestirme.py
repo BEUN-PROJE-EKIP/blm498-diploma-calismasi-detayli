@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """Değerlendirme yazılımı (B18, FR-28) birim testleri: sentetik örnekler. ROS 2 gerekmez; numpy ve scipy (kilitli ortam) gerekir.
-Çalıştırma: python3 -I araclar/test_degerlendirme.py
+Çalıştırma: python3 -I araclar/degerlendirme/test/test_eslestirme.py
 """
 import copy
 import json
@@ -10,9 +10,10 @@ import sys
 import tempfile
 import unittest
 
-BURASI = os.path.dirname(os.path.abspath(__file__))
-sys.path.insert(0, BURASI)
-import degerlendirme as dg  # noqa: E402
+MODUL = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))   # araclar/degerlendirme
+BETIK = os.path.join(MODUL, "eslestirme.py")
+sys.path.insert(0, MODUL)
+import eslestirme as dg  # noqa: E402
 
 C, ESIK = dg.yapilandirma_yukle()
 SAHNE = "S-TEST-0001"
@@ -186,7 +187,7 @@ class KomutSatiri(unittest.TestCase):
                 yollar.append(os.path.join(d, ad))
                 with open(yollar[-1], "w", encoding="utf-8") as f:
                     json.dump(v, f)
-            return subprocess.run([sys.executable, "-I", os.path.join(BURASI, "degerlendirme.py"), *yollar], capture_output=True, text=True)
+            return subprocess.run([sys.executable, "-I", BETIK, *yollar], capture_output=True, text=True)
 
     def test_basarili(self):
         p = self.calistir(nihai([rapor("R1", "insan", 0, 0)]), liste([hedef("H1", "insan", 0, 0)]))
@@ -199,7 +200,7 @@ class KomutSatiri(unittest.TestCase):
         self.assertIn("sahne uyuşmuyor", p.stderr)
 
     def test_kullanim_hatasi_cikis_2(self):
-        p = subprocess.run([sys.executable, "-I", os.path.join(BURASI, "degerlendirme.py")], capture_output=True, text=True)
+        p = subprocess.run([sys.executable, "-I", BETIK], capture_output=True, text=True)
         self.assertEqual(p.returncode, 2)
 
 

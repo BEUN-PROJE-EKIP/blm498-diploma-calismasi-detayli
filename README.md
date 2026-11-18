@@ -367,6 +367,7 @@ Asistan `sudo`, `apt upgrade` ve `git push` çalıştırmaz; kurulumu ve push'u 
 | `config/` | Deney ayarları (adresler, portlar, ağ hızı, kamera, çıkarım, eğitim) ve ROS 2 haberleşme profili |
 | `src/` | ROS 2 paketleri (`swarm_msgs`, `swarm_vehicle`, `swarm_gcs`) ve Gazebo damga bileşeni (`yayim_damga`) |
 | `araclar/` | Yardımcı programlar (koşu betiği `kosu.sh`, ilerleme hesabı, ölçüm araçları) |
+| `araclar/degerlendirme/` | Değerlendirme ve analiz yazılımı (M6a): hedef eşleştirmesi (B18) ve analiz betikleri; testleri `test/` altında |
 | `planlama/` | Hedef ağacı ve kilometre taşları (ilerlemenin kaynağı), yol haritası, mimari, sözleşmeler, kararlar, riskler |
 | `docs/` | Kaynak belgeler (şartname ve proje el kitabı); **değiştirilmez** |
 | `third_party/`, `.venv/`, `.generated/` | Kurulumla oluşur (PX4 kaynağı, Python ortamı, rapor/günlük/model/ölçüm kayıtları); depoya girmez |

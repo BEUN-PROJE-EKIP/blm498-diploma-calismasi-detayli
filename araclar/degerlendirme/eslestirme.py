@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Değerlendirme yazılımı (B18, FR-28): bir koşunun nihai hedef raporunu sahnenin gerçek hedef listesiyle eşleştirir; TP, FP, FN, R, precision.
 
-Kullanım:  python3 -I araclar/degerlendirme.py <nihai_rapor.json> <hedef_listesi.json> [--yapilandirma config/deney.env]
+Kullanım:  python3 -I araclar/degerlendirme/eslestirme.py <nihai_rapor.json> <hedef_listesi.json> [--yapilandirma config/deney.env]
 Girdi:     nihai hedef raporu (sözleşmeler §11.1, `tur: "nihai_rapor"`) ve hedef listesi (§5, `tur: "hedef_listesi"`); ikisi de önce
            sözleşme doğrulayıcısından geçer ve aynı `sahne_kimligi`'ni taşımalıdır.
 Çıktı:     tek JSON nesnesi (stdout): üst bilgiler, toplam ve sınıf bazlı TP/FP/FN/R/precision, eşleşmeler ve eşleşmeyenler.
@@ -26,9 +26,10 @@ import math
 import os
 import sys
 
-BURASI = os.path.dirname(os.path.abspath(__file__))
-KOK = os.path.dirname(BURASI)
-sys.path.insert(0, BURASI)   # -I ile betik klasörü sys.path'e eklenmez
+BURASI = os.path.dirname(os.path.abspath(__file__))   # araclar/degerlendirme
+ARACLAR = os.path.dirname(BURASI)
+KOK = os.path.dirname(ARACLAR)
+sys.path.insert(0, ARACLAR)   # sozlesme_dogrula bir üst klasörde; -I ile betik klasörü de sys.path'e eklenmez
 
 import numpy as np  # noqa: E402
 from scipy.optimize import linear_sum_assignment  # noqa: E402
