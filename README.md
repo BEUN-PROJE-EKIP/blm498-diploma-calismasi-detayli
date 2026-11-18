@@ -12,19 +12,19 @@ Bu bir **simülasyon deneyidir**; gerçek uçuş ya da gömülü donanım doğru
 Kendi işlerin için: kilometre taşında adının yazdığı satırlar; sıradaki iş, bitmemiş en üstteki maddedir. Ayrıntı ve bitti ölçütleri: `planlama/gelistirme_agaci.md`.
 
 <!-- ILERLEME:BASLA -->
-**Genel tamamlanma: %29,3** (30 / 80 madde; kod ve makine işi dahil)
+**Genel tamamlanma: %30,5** (31 / 80 madde; kod ve makine işi dahil)
 
-`██████░░░░░░░░░░░░░░` %29,3
+`██████░░░░░░░░░░░░░░` %30,5
 
-**Geliştirme oranı: %45,7** (30 / 55 geliştirme maddesi; yalnız kod ve altyapı işi)
+**Geliştirme oranı: %47,5** (31 / 55 geliştirme maddesi; yalnız kod ve altyapı işi)
 
-`█████████░░░░░░░░░░░` %45,7
+`█████████░░░░░░░░░░░` %47,5
 
 **Ana hedefler** (belgeye göre; ana amaç uçta ve merkezi modun beş ölçütle karşılaştırılmasıdır). Bir hedef, paketlerindeki bütün maddeler bitince tamamlanır.
 
 | | Hedef | Paketler | Tamamlanma |
 |---|---|---|---|
-| ◐ | **1.** Sürü sistemi: üç İHA, dört sürü işlevi, uçta ve merkezi mod | B | `███████████████░░░░░` %77,3 |
+| ◐ | **1.** Sürü sistemi: üç İHA, dört sürü işlevi, uçta ve merkezi mod | B | `████████████████░░░░` %81,8 |
 | ☐ | **2.** Görüntü işleme: YOLO26 modeli, veri hattı ve eğitim | A | `░░░░░░░░░░░░░░░░░░░░` %0,0 |
 | ◐ | **3.** Deney düzeneği: başkalarının da çalıştırabileceği kilitli, tekrarlanabilir simülasyon ortamı | K, C | `███████░░░░░░░░░░░░░` %33,3 |
 | ☐ | **4.** Deney sonuçları: 30 sahnede 60 koşu ve karar kuralına göre rapor | D, E | `░░░░░░░░░░░░░░░░░░░░` %0,0 |
@@ -127,11 +127,11 @@ Bekler: M4
 </details>
 
 <details open>
-<summary>☐ <b>M6a - Değerlendirme ve analiz yazılımı</b> [Miraç BOZACIOĞLU, %0,0]</summary>
+<summary>◐ <b>M6a - Değerlendirme ve analiz yazılımı</b> [Miraç BOZACIOĞLU, %22,8]</summary>
 
 Bekler: yok, başlayabilir
 
-- ☐ B18 - Değerlendirme yazılımı
+- ✔ B18 - Değerlendirme yazılımı
 - ☐ E1a - Eşleştirme analiz betiği
 - ☐ E2a - İyileşme analiz betiği
 - ☐ E3a - Bootstrap betiği
