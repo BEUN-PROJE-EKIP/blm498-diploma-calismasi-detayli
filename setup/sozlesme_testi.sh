@@ -22,7 +22,7 @@ BEKLENEN="$BOZUK/beklenen.txt"
 LOCK="$SETUP_DIR/locks/sha256sums.txt"
 GECERLI=(sahne_ornek_test.json bolge_rota_ornek.json kamera_kalibrasyon_ornek.json hedef_listesi_ornek.json kosu_ustveri_ornek.json
          kare_olay_gazebo_damga_ornek.jsonl kare_olay_arac_sureci_ornek.jsonl gorev_olay_ornek.jsonl kare_olay_yer_istasyonu_ornek.jsonl arac_durum_kaydi_ornek.jsonl kare_olay_kamera_alici_ornek.jsonl
-         kare_sonuc_ornek.jsonl isci_kaynak_ornek.jsonl telemetri_ornek.jsonl kare_poz_ornek.jsonl nihai_rapor_ornek.json kosu_olcum_ornek.json sayac_kaydi_ornek.json)
+         kare_sonuc_ornek.jsonl isci_kaynak_ornek.jsonl telemetri_ornek.jsonl kare_poz_ornek.jsonl nihai_rapor_ornek.json kosu_olcum_ornek.json sayac_kaydi_ornek.json kuyruk_tasmasi_ornek.jsonl)
 
 dogrula() { python3 -I "$DOGRULA" "$@"; }
 
@@ -132,6 +132,9 @@ if python3 -I -c 'import json, sys; sys.exit(0 if json.loads(sys.argv[1]) == jso
 else
     log_fail "hedef_listesi_ornek.json sahneden türetilen listeyle aynı değil"
 fi
+
+# 3b) kare aşama damgası doğrulayıcısı (sahte koşu klasörleriyle; koşu düzeyi kuralları: mimariye göre aktarim_tamam türü, yinelenen kayıt, sonuçsuz görev karesi)
+if out="$(python3 -I "$ROOT_DIR/src/swarm_vehicle/test/test_kare_asamalari.py" 2>&1)"; then log_ok "Kare aşama damgası doğrulayıcı birim testi geçti ($(grep -E '^Ran ' <<< "$out"))"; else log_fail "Kare aşama damgası doğrulayıcı birim testi BAŞARISIZ: $(tail -n 6 <<< "$out" | tr '\n' ';')"; fi
 
 # 4) örneklerin SHA-256'sı kilit özetinde
 eksik=""

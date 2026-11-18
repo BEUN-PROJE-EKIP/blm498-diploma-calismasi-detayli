@@ -30,8 +30,8 @@ Tek kaynak bu tablodur (`araclar/ilerleme.py` okur). Her kilometre taşının bi
 | M1 | Tek araç iskeleti | Ömer Faruk GÜNER | 7950X | M0 |
 | M2 | Üç araç | Ömer Faruk GÜNER | 7950X | M1 |
 | M3 | Merkezi mod ve izleme | Ömer Faruk GÜNER | 7950X | M2 |
-| M4 | Veri hattı | Mikail DEĞER | 7500F | M1 |
-| M5 | Model | Mikail DEĞER | 7500F | M4 |
+| M4 | Veri hattı | Ömer Faruk GÜNER | 7950X | M1 |
+| M5 | Model | Ömer Faruk GÜNER | 7950X | M4 |
 | M6a | Değerlendirme ve analiz yazılımı | Miraç BOZACIOĞLU | 8945HX | M0 |
 | M6b | Bütünleşik koşu ve kabul testleri | Mikail DEĞER | 7500F | M3, M5, M6a |
 | M7 | Pilotlar ve kilit | Mikail DEĞER | 7500F | M6a, M6b |
@@ -107,9 +107,9 @@ Projenin ana hedefleri (GŞÖA v2 3.1 "Amaç" ve "Hedefler", 3.2 "Ürün Değeri
 ## M3 · Merkezi mod ve izleme
 
 - [x] **B12** · w3 · M3 · geliştirme · Merkezi mod · Merkezi mod: araç başına TCP kanalı, sıkıştırmasız görüntü, geri basınçta kare atılmaz; her iletide araç kimliği, kare numarası, simülasyon zamanı, kamera kalibrasyon kimliği ve kare üretim anına eşlenmiş canlı PX4 konum/yönelim tahmini; yer istasyonunda üç çıkarım işçisi · FR-14 · Bitti: üç araç akışı kayıpsız
-- [ ] **B13** · w2 · M3 · geliştirme · Disk kuyrukları ve aşama damgaları · Disk destekli uygulama kuyrukları; kare başına aşama zaman damgaları (üretim, kuyruğa giriş, aktarım, çıkarım başı/sonu, kullanılabilirlik) · GŞÖA 6.8 · Bitti: kapasite taşması sessiz kare atlamaz
+- [x] **B13** · w2 · M3 · geliştirme · Disk kuyrukları ve aşama damgaları · Disk destekli uygulama kuyrukları; kare başına aşama zaman damgaları (üretim, kuyruğa giriş, aktarım, çıkarım başı/sonu, kullanılabilirlik) · GŞÖA 6.8 · Bitti: kapasite taşması sessiz kare atlamaz
 - [x] **B14** · w3 · M3 · geliştirme · Poz enterpolasyonu ve konum hesabı · Kare–poz enterpolasyonu (konum doğrusal, yönelim küresel) ve konum hesaplayıcı (NED→ENU, kutu merkezinden ışın–zemin kesişimi, aralık sınırı 100 ms); telemetri yüksek hızda alınıp kaynak zamanına göre saklanır, merkezde gecikmiş kare 2 Hz durum mesajıyla konumlandırılmaz · FR-17, FR-18 · Bitti: bilinen pozda konum hatası < 5 m
-- [ ] **B15** · w2 · M3 · geliştirme · Hedef birleştirme · Hedef birleştirme: üretim zamanına göre işleme, aynı sınıf ve ilk konuma ≤ 2,5 m ise aday, en yüksek güvenli tespitin konumu · FR-19 · Bitti: birim testleri
+- [x] **B15** · w2 · M3 · geliştirme · Hedef birleştirme · Hedef birleştirme: üretim zamanına göre işleme, aynı sınıf ve ilk konuma ≤ 2,5 m ise aday, en yüksek güvenli tespitin konumu · FR-19 · Bitti: birim testleri
 
 ## M4 · Veri hattı
 

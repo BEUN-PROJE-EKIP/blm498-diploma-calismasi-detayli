@@ -4,8 +4,8 @@ import json
 import threading
 import time
 
-OLAYLAR = ("gorev_atandi", "hazir", "eslesme", "t0", "tarama_bitisi", "son_sonuc", "t1", "tamamlandi", "zaman_asimi", "birlestirme_yok", "yok_sayildi", "hata")
-IZINLI = ("arac_kimligi", "mission_id", "n_ilk", "n_son", "t_s_ns", "t_b_ns", "yayimci", "t1_eksi_son_bitis_ns", "neden", "ayrinti")
+OLAYLAR = ("gorev_atandi", "hazir", "eslesme", "t0", "tarama_bitisi", "son_sonuc", "t1", "tamamlandi", "zaman_asimi", "birlestirme_tamam", "yok_sayildi", "hata")
+IZINLI = ("arac_kimligi", "mission_id", "n_ilk", "n_son", "t_s_ns", "t_b_ns", "yayimci", "t1_eksi_son_bitis_ns", "rapor_sayisi", "konumsuz_rapor_sayisi", "girdi_tespit_sayisi", "sure_ms", "neden", "ayrinti")
 
 
 class GorevKaydi:

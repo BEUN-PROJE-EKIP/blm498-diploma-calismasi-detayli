@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # merkezi_mod_testi.sh — merkezi mod (araç başına TCP görüntü kanalı + yer istasyonunda çıkarım, B12 1/2) kabul testleri (başsız Gazebo + PX4 SITL + araç süreci + yer istasyonu).
-# Kullanım: ./merkezi_mod_testi.sh [--dry-run | --verify | -h] [birim] [tek] [hata] [basinc] [kapat] [sigterm] [uc] [erken]
+# Kullanım: ./merkezi_mod_testi.sh [--dry-run | --verify | -h] [birim] [tek] [hata] [basinc] [kapat] [sigterm] [uc] [erken] [tasma]
 #   (argümansız)  hepsini çalıştırır; adlar verilirse yalnız onlar.
 #   --dry-run     hiçbir süreç başlatmaz, hiçbir şey derlemez; ne çalıştıracağını yazar
 #   --verify      hafif önkoşul denetimi (araçlar, betikler, kurulu paketler); süreç başlatmaz
@@ -14,6 +14,8 @@
 #   sigterm  merkezi mod, araç süreci tarama ortasında SIGTERM alır: kayıt yazıcıları boşalır, çıkış kodu 143
 #   uc       üç araç, doygun hat (25 Mbit/s): önce aynı makinede tek araç merkezi başvuru koşusu (L farkı için), sonra üç araçlı koşu UC_TEKRAR kez; ölçütler HER ARAÇ İÇİN ayrı (sayılar, SHA-256, poz, kalibrasyon,
 #            üç işçi sonucu, COMPLETE, tc sayacı); L, kuyruk derinlikleri, kontrol iletisi gecikmesi ve koşular arası değişkenlik ham sayılarla raporlanır (yorumsuz)
+#   tasma    merkezi mod, araç gönderim kuyruğunun TASMA_N'inci yazması yapay ENOSPC alır (KUYRUK_TEST_TASMA=gonderim_<araç>:<n>): hiçbir kare sessiz atılmaz; `kuyruk_tasmasi` kaydı + `(-)` günlük, koşu `yarida_kaldi`,
+#            COMPLETE yok, sayaç denkliği (üretilen = kuyruğa giren + taşan + düşen; kuyruğa giren = gönderilen + kuyrukta kalan; alınan = gönderilen, her alınan kare için sonuç) [bitti ölçütü: kapasite taşması sessiz kare atlamaz]
 #   erken    gerçek `kosu.sh` yönetimli üç araçlı koşu, `GCS_UST_SN` geçersiz kılınmadan (1800 sn): (a) bir araç t0'dan önce çıkar (ARAC_TEST_CIKIS=<araç>:bariyer), (b) bir araç t0'dan sonra tarama ortasında
 #            çıkar (ARAC_TEST_CIKIS=<araç>:tarama:<sn>); yer istasyonu ilk araç çıkışından sonra ERKEN_SINIR_SN içinde açık hatayla biter (gerçek süre ölçülür), COMPLETE yok, `yarida_kaldi`, artık süreç/port yok
 # Araç süreci ve yer istasyonunu `kosu.sh` başlatır. Bu betik install_all.sh/verify_all.sh sırasına GİRMEZ. sudo gerekmez.
@@ -27,12 +29,12 @@ TESTS=()
 ARGS=()
 for a in "$@"; do
     case "$a" in
-        birim|tek|hata|basinc|kapat|sigterm|uc|erken) TESTS+=("$a") ;;
+        birim|tek|hata|basinc|kapat|sigterm|uc|erken|tasma) TESTS+=("$a") ;;
         *) ARGS+=("$a") ;;
     esac
 done
 parse_common_args "${ARGS[@]+"${ARGS[@]}"}"
-[[ "${#TESTS[@]}" -gt 0 ]] || TESTS=(birim tek hata basinc kapat sigterm uc erken)
+[[ "${#TESTS[@]}" -gt 0 ]] || TESTS=(birim tek hata basinc kapat sigterm uc erken tasma)
 COMPONENT_NAME="Merkezi mod (TCP görüntü kanalı)"
 require_not_root
 load_versions
@@ -46,7 +48,7 @@ HELPER="$ROOT_DIR/araclar/kosu_ustveri.py"
 DOGRULA="$ROOT_DIR/araclar/sozlesme_dogrula.py"
 ANALIZ="$ROOT_DIR/araclar/merkezi_analiz.py"
 UC_ANALIZ="$ROOT_DIR/araclar/uc_mod_analiz.py"
-BIRIM_TESTLER=("$ROOT_DIR/src/swarm_vehicle/test/test_goruntu_ileti.py" "$ROOT_DIR/src/swarm_gcs/test/test_merkezi_alici.py" "$ROOT_DIR/src/swarm_gcs/test/test_gorev_mantik.py" "$ROOT_DIR/src/swarm_vehicle/test/test_port_denetimi.py" "$ROOT_DIR/src/swarm_vehicle/test/test_arac_kapanis.py" "$ROOT_DIR/src/swarm_gcs/test/test_sonuc_defteri.py" "$ROOT_DIR/src/swarm_vehicle/test/test_poz_tamponu.py")
+BIRIM_TESTLER=("$ROOT_DIR/src/swarm_vehicle/test/test_goruntu_ileti.py" "$ROOT_DIR/src/swarm_gcs/test/test_merkezi_alici.py" "$ROOT_DIR/src/swarm_gcs/test/test_gorev_mantik.py" "$ROOT_DIR/src/swarm_vehicle/test/test_port_denetimi.py" "$ROOT_DIR/src/swarm_vehicle/test/test_arac_kapanis.py" "$ROOT_DIR/src/swarm_gcs/test/test_sonuc_defteri.py" "$ROOT_DIR/src/swarm_vehicle/test/test_poz_tamponu.py" "$ROOT_DIR/src/swarm_vehicle/test/test_disk_kuyrugu.py" "$ROOT_DIR/src/swarm_vehicle/test/test_kamera_alici.py" "$ROOT_DIR/src/swarm_vehicle/test/test_kare_asamalari.py")
 PKG_DIR="$ROOT_DIR/src/swarm_vehicle"
 GCS_DIR="$ROOT_DIR/src/swarm_gcs"
 VENV_PY="$ROOT_DIR/.venv/bin/python"
@@ -82,6 +84,7 @@ KAPAT_SINIR_SN=60     # kapat: kanal kapanışından yer istasyonunun hatayla bi
 UC_TEKRAR=3           # uc: üç araçlı koşunun tekrar sayısı (güvenli ama yavaş: her koşu ayrı satır)
 ERKEN_SINIR_SN=10     # erken: ilk araç çıkışından yer istasyonunun açık hatayla bitişine en çok bu kadar gerçek sn
 ERKEN_TARAMA_SN=60    # erken (b): araç, tarama başladıktan bu kadar gerçek sn sonra çıkar (tarama ortasında; tek araç taraması ≈190 sn)
+TASMA_N=100           # tasma: gönderim kuyruğunun bu numaralı yazması yapay ENOSPC alır (tarama başından ≈50 sn sonra; öncesinde kuyruğa giren kareler olur)
 ERKEN_BEKLE_SN=900    # erken: kosu.sh bekle üst sınırı; kural işlemezse test 1800 sn'yi beklemez, başarısız olur
 N_ARAC=1              # merkezi_kosu: araç sayısı (uc testinde 3)
 
@@ -105,6 +108,7 @@ print_plan() {
     log_info "[dry-run] sigterm: merkezi koşu, tarama ortasında (kare_poz >= $SIGTERM_KARE satır) araç süreci PID ile SIGTERM alır → kare_poz ve gonderim_kuyrugu son satırları yazılmış, satir_yazici_ozet var (yazilan = dosya satırı, dusen 0), çıkış kodu 143 (134 değil)"
     log_info "[dry-run] uc: tek araç merkezi başvuru koşusu (L farkı için) → $UC_TEKRAR kez kosu.sh baslat --arac 3 --yer-istasyonu var --mimari merkezi (MERKEZI_SHA=1, tc sürü ağı açık): her araç için sayılar/SHA-256/poz/kalibrasyon/işçi sonucu/COMPLETE/tc → analiz --arac 3 --sha --tek-klasoru → durdur; her koşu ayrı satır"
     log_info "[dry-run] erken: (a) ARAC_TEST_CIKIS=<araç 2>:bariyer, (b) ARAC_TEST_CIKIS=<araç 3>:tarama:$ERKEN_TARAMA_SN (GCS_UST_SN geçersiz kılınmaz) → yer istasyonu ilk araç çıkışından sonra en çok $ERKEN_SINIR_SN sn içinde açık hatayla biter (gerçek süre ölçülür), COMPLETE yok, kosu.json yarida_kaldi, artık süreç/port yok"
+    log_info "[dry-run] tasma: merkezi koşu + KUYRUK_TEST_TASMA=gonderim_<araç>:$TASMA_N → araç kuyruk_tasmasi kaydı + (-) günlük + hata çıkışı, yer istasyonu en çok $KAPAT_SINIR_SN sn içinde açık hatayla biter, COMPLETE yok, koşu yarida_kaldi, sayaç denkliği (analiz --tasma): kare sessiz atılmaz"
     log_info "[dry-run] Her testten sonra araç süreci/yer istasyonu/px4/gz/mavsdk_server artığı, yeni dinleyen port, /dev/shm; sonda ros2 daemon, tc/ip denetimi. Hiçbir süreç başlatılmadı"
 }
 
@@ -199,7 +203,7 @@ analiz() { # analiz <ad> <analiz argümanları...> : SONUC satırlarını (+)/(-
 
 kayit_gecerli() { # kayit_gecerli <ad> : yeni kayıt dosyaları doğrulayıcıdan geçmeli (her araç için)
     local ad="$1" f out k dosyalar=("yer_istasyonu_kare")
-    for k in "${SYS_IDS[@]:0:$N_ARAC}"; do dosyalar+=("arac_sureci_$k" "gonderim_kuyrugu_$k" "isleme_kuyrugu_$k" "kare_sonuc_$k" "kare_poz_$k" "telemetri_$k"); done
+    for k in "${SYS_IDS[@]:0:$N_ARAC}"; do dosyalar+=("arac_sureci_$k" "kamera_alici_$k" "gonderim_kuyrugu_$k" "isleme_kuyrugu_$k" "kare_sonuc_$k" "kare_poz_$k" "telemetri_$k"); done
     for f in "${dosyalar[@]}"; do
         if [[ ! -f "$KOSU_DIR/kayit/$f.jsonl" ]]; then log_fail "$ad: kayıt yok: $f.jsonl"; continue; fi
         if out="$(python3 -I "$DOGRULA" "$KOSU_DIR/kayit/$f.jsonl" 2>&1)"; then
@@ -209,6 +213,20 @@ kayit_gecerli() { # kayit_gecerli <ad> : yeni kayıt dosyaları doğrulayıcıda
         fi
     done
     if out="$(python3 -I "$DOGRULA" "$KOSU_DIR/kayit/yer_istasyonu_gorev.jsonl" 2>&1)"; then log_ok "$ad: görev olay kaydı doğrulayıcıdan geçti"; else log_fail "$ad: görev olay kaydı GEÇERSİZ: $(head -n 3 <<< "$out" | tr '\n' ';')"; fi
+}
+
+# kuyruk_dizinleri_temiz <ad> : tamamlanan koşuda disk kuyruğu bölütleri kalmamalı (boş kuyruk kapanışta dizinini siler); kalan en büyük disk kullanımı koşu klasöründe değildir
+kuyruk_dizinleri_temiz() {
+    local ad="$1" kalan
+    if [[ ! -d "$KOSU_DIR/kuyruk" ]]; then log_ok "$ad: koşu klasöründe kuyruk/ dizini yok (bölüt kalmadı)"; return 0; fi
+    kalan="$(find "$KOSU_DIR/kuyruk" -name 'bolut_*' 2>/dev/null | wc -l | tr -d ' ')" || kalan="?"
+    if [[ "$kalan" == "0" ]]; then log_ok "$ad: disk kuyruğu bölütü kalmadı (boş kuyruklar kapanışta dizinlerini sildi)"; else log_fail "$ad: koşu klasöründe $kalan disk kuyruğu bölütü kaldı"; fi
+}
+
+# asama_dogrula <ad> : her kare için aşama damgaları tam ve sıralı (sozlesme_dogrula.py --kare-asamalari)
+asama_dogrula() {
+    local ad="$1" out
+    if out="$(python3 -I "$DOGRULA" --kare-asamalari "$KOSU_DIR" 2>&1)"; then log_ok "$ad: kare aşama damgaları tam ve sıralı ($(tail -n 1 <<< "$out" | cut -c1-200))"; else log_fail "$ad: kare aşama damgaları GEÇERSİZ: $(head -n 4 <<< "$out" | tr '\n' ';')"; fi
 }
 
 # merkezi_kosu <ad> <analiz argümanları...> : (EK_ENV ile) merkezi koşu → bekle → doğrulama → analiz → durdur; tc sayaçları bekle çevresinde alınır
@@ -230,6 +248,8 @@ merkezi_kosu() {
         analiz "$ad" "$@" --tc-once "$tc0" --tc-sonra "$tc1" "${ek[@]+"${ek[@]}"}"
         komut_dene "$TMP_DIR/$ad.durdur.log" "$ad: durdur tamam" "$ad: durdur başarısız" "$KOSU" durdur
         json_gecerli "$ad" tamamlandi merkezi
+        kuyruk_dizinleri_temiz "$ad"
+        asama_dogrula "$ad"
         local sira
         for ((sira = 1; sira <= N_ARAC; sira++)); do
             k="${SYS_IDS[$((sira - 1))]}"
@@ -292,14 +312,14 @@ test_birim() {
     else
         log_warn "birim: geçici port aralığı okunamadı; yer istasyonu aralık reddi atlandı"
     fi
-    for mod in swarm_vehicle.goruntu_ileti swarm_vehicle.goruntu_kanali swarm_gcs.merkezi_alici; do
+    for mod in swarm_vehicle.goruntu_ileti swarm_vehicle.goruntu_kanali swarm_vehicle.disk_kuyrugu swarm_gcs.merkezi_alici; do
         rc=0
         # shellcheck disable=SC2016  # tek tırnak bilerek: Python kodu
         "$VENV_PY" -I -c 'import sys; sys.path[:0] = sys.argv[1:3]; import importlib; importlib.import_module(sys.argv[3]); assert "rclpy" not in sys.modules and "mavsdk" not in sys.modules' "$PKG_DIR" "$GCS_DIR" "$mod" > "$TMP_DIR/ice.log" 2>&1 || rc=$?
         if [[ "$rc" -eq 0 ]]; then log_ok "birim: $mod rclpy ve mavsdk olmadan içe aktarıldı"; else log_fail "birim: $mod içe aktarma hatası"; tail -n 5 "$TMP_DIR/ice.log"; fi
     done
     rc=0
-    "$VENV_PY" -m py_compile "$PKG_DIR"/swarm_vehicle/{goruntu_ileti,goruntu_kanali,arac,kare_isleyici,kare_sonuc,kamera_alici_gz,rota,port_denetimi}.py "$GCS_DIR"/swarm_gcs/{merkezi_alici,sonuc_alici,gorev_koordinatoru,gorev_mantik}.py "$ANALIZ" "$DOGRULA" > "$TMP_DIR/pyc.log" 2>&1 || rc=$?
+    "$VENV_PY" -m py_compile "$PKG_DIR"/swarm_vehicle/{goruntu_ileti,goruntu_kanali,disk_kuyrugu,arac,kare_isleyici,kare_sonuc,kamera_alici,kamera_alici_gz,rota,port_denetimi}.py "$GCS_DIR"/swarm_gcs/{merkezi_alici,sonuc_alici,gorev_koordinatoru,gorev_mantik}.py "$ANALIZ" "$DOGRULA" > "$TMP_DIR/pyc.log" 2>&1 || rc=$?
     if [[ "$rc" -eq 0 ]]; then log_ok "birim: py_compile temiz"; else log_fail "birim: py_compile hata"; tail -n 5 "$TMP_DIR/pyc.log"; fi
     out="$(git -C "$ROOT_DIR" grep --untracked -nE '^\s*(from|import) mavsdk' -- src || true)"
     if [[ -n "$out" && "$(awk -F: '{print $1}' <<< "$out" | sort -u)" == "src/swarm_vehicle/swarm_vehicle/px4_adapter.py" ]]; then log_ok "birim: src/ altında mavsdk'yı içe aktaran tek dosya px4_adapter.py"; else log_fail "birim: mavsdk içe aktarımı beklenenden farklı: $out"; fi
@@ -311,7 +331,7 @@ test_birim() {
     if [[ -z "$out" ]]; then log_ok "birim: kanal kodunda 127.0.0.1 yok (kanal ölçülen sürü ağı adreslerini kullanır)"; else log_fail "birim: kanal kodunda 127.0.0.1: $out"; fi
     out="$(iz_tara)"
     if [[ -z "$out" ]]; then log_ok "birim: çalışma ağacı farkında, yeni dosyalarda ve son commit'te süreç izi yok"; else log_fail "birim: süreç izi: $(head -n 3 <<< "$out" | tr '\n' ';')"; fi
-    for f in kuyruk_durumu_ornek isleme_kuyrugu_ornek kare_sonuc_ornek kare_olay_arac_sureci_ornek kare_olay_yer_istasyonu_ornek; do
+    for f in kuyruk_durumu_ornek isleme_kuyrugu_ornek kuyruk_tasmasi_ornek kare_sonuc_ornek kare_olay_arac_sureci_ornek kare_olay_yer_istasyonu_ornek kare_olay_kamera_alici_ornek; do
         if out="$(python3 -I "$DOGRULA" "$ROOT_DIR/config/ornek/$f.jsonl" 2>&1)"; then log_ok "birim: örnek doğrulayıcıdan geçti: $f.jsonl"; else log_fail "birim: örnek GEÇERSİZ: $f.jsonl: $(head -n 3 <<< "$out" | tr '\n' ';')"; fi
     done
     if out="$("$KOSU" --dry-run baslat --arac 1 --mimari merkezi 2>&1)"; then log_fail "birim: --mimari merkezi, --yer-istasyonu olmadan reddedilmeliydi"; else log_ok "birim: --mimari merkezi yer istasyonu olmadan reddedildi"; fi
@@ -501,6 +521,34 @@ test_erken() {
     erken_senaryo erken_b "${SYS_IDS[2]}:tarama:$ERKEN_TARAMA_SN" "${SYS_IDS[2]}" t0_sonrasi
 }
 
+test_tasma() {
+    log_info "== tasma: merkezi mod, araç gönderim kuyruğunun $TASMA_N'inci yazması yapay ENOSPC alır (KUYRUK_TEST_TASMA=gonderim_${KIMLIK}:$TASMA_N); kare sessiz atılmaz =="
+    EK_ENV=("KUYRUK_TEST_TASMA=gonderim_${KIMLIK}:$TASMA_N")
+    local rc=0 arc t_tasma t_gcs fark i out
+    if kosu_baslat tasma --arac 1 --yer-istasyonu var --mimari merkezi; then
+        "$KOSU" bekle --sure-sn "$BEKLE_SN_TAM" > "$TMP_DIR/tasma.bekle.log" 2>&1 || rc=$?
+        if [[ "$rc" -eq 1 ]]; then log_ok "tasma: yer istasyonu açık hatayla çıktı (çıkış 1; zaman aşımı/öldü değil)"; else log_fail "tasma: kosu.sh bekle çıkış kodu $rc (beklenen 1)"; tail -n 6 "$TMP_DIR/tasma.bekle.log"; fi
+        for ((i = 0; i < 100; i++)); do pgrep -f 'swarm_vehicle[.]arac' >/dev/null || break; sleep 0.3; done
+        arc="$(cat "$KOSU_DIR/arac_${KIMLIK}.cikis" 2>/dev/null || echo yok)"
+        if [[ "$arc" != "0" && "$arc" != "yok" ]]; then log_ok "tasma: araç süreci hata çıkışı yaptı (çıkış '$arc'; kuyruk taşması tamamlanmış sayılmadı)"; else log_fail "tasma: araç süreci çıkış '$arc' (hata çıkışı beklenir)"; fi
+        if grep -q "KUYRUK_TEST_TASMA" "$KOSU_DIR/arac_${KIMLIK}.log" 2>/dev/null && grep -q "seviye=(!)" "$KOSU_DIR/arac_${KIMLIK}.log" 2>/dev/null; then log_ok "tasma: araç günlüğünde test anahtarı açık uyarısı ((!) test_anahtari_acik) var"; else log_fail "tasma: araç günlüğünde test anahtarı açık uyarısı yok"; fi
+        t_tasma="$(gunluk_sn "$KOSU_DIR/arac_${KIMLIK}.log" kuyruk_tasmasi)"; t_gcs="$(mtime_sn "$KOSU_DIR/yer_istasyonu.cikis")"
+        if [[ -n "$t_tasma" && -n "$t_gcs" ]]; then
+            fark="$(awk -v a="$t_tasma" -v b="$t_gcs" 'BEGIN {printf "%.1f", b - a}')"
+            if awk -v f="$fark" -v s="$KAPAT_SINIR_SN" 'BEGIN {exit !(f >= 0 && f <= s)}'; then log_ok "tasma: taşmadan yer istasyonunun açık hatayla bitişine $fark sn (sınır $KAPAT_SINIR_SN sn)"; else log_fail "tasma: taşmadan yer istasyonunun bitişine $fark sn (sınır $KAPAT_SINIR_SN sn)"; fi
+            log_info "tasma: OLCUM taşmadan yer istasyonu çıkışına $fark sn"
+        else
+            log_fail "tasma: kuyruk_tasmasi günlük anı ya da yer istasyonu çıkışı okunamadı"
+        fi
+        if out="$(python3 -I "$DOGRULA" "$KOSU_DIR/kayit/kuyruk_tasmasi_gonderim_${KIMLIK}.jsonl" 2>&1)"; then log_ok "tasma: taşma kaydı doğrulayıcıdan geçti: $(tail -n 1 <<< "$out" | cut -c1-120)"; else log_fail "tasma: taşma kaydı GEÇERSİZ: $(head -n 3 <<< "$out" | tr '\n' ';')"; fi
+        analiz tasma --tasma "gonderim_${KIMLIK}"
+        komut_dene "$TMP_DIR/tasma.durdur.log" "tasma: durdur tamam" "tasma: durdur başarısız" "$KOSU" durdur
+        json_gecerli tasma yarida_kaldi merkezi
+    fi
+    EK_ENV=()
+    kalan_yok tasma
+}
+
 snapshot once
 DAEMON_ONCE=0; if pgrep -f '[r]os2-daemon' >/dev/null; then DAEMON_ONCE=1; fi
 [[ "$DAEMON_ONCE" -eq 0 ]] || log_warn "Başlangıçta ros2 daemon yaşıyor (ölçülen ağa trafik basar); önce durdurun"
@@ -518,6 +566,7 @@ if want kapat; then test_kapat; fi
 if want sigterm; then test_sigterm; fi
 if want uc; then test_uc; fi
 if want erken; then test_erken; fi
+if want tasma; then test_tasma; fi
 
 # --- Son denetim ------------------------------------------------------------------------------
 snapshot sonra

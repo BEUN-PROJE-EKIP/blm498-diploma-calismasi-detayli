@@ -12,8 +12,8 @@
       "ilk_konum": {"x_m": -10.6, "y_m": 98.4},
       "guven": 0.91,
       "tespit_sayisi": 3,
-      "ilk_tespit": {"arac_kimligi": 1, "n": 410, "uretim_mono_ns": 1012000000000},
-      "en_yuksek_guven_tespiti": {"arac_kimligi": 2, "n": 413, "uretim_mono_ns": 1013500000000}
+      "ilk_tespit": {"arac_kimligi": 1, "n": 410, "sim_damga_ns": 205000000000},
+      "en_yuksek_guven_tespiti": {"arac_kimligi": 2, "n": 413, "sim_damga_ns": 206500000000}
     },
     {
       "rapor_kimligi": "R002",
@@ -22,8 +22,8 @@
       "ilk_konum": {"x_m": 42.0, "y_m": -60.5},
       "guven": 0.37,
       "tespit_sayisi": 1,
-      "ilk_tespit": {"arac_kimligi": 3, "n": 870, "uretim_mono_ns": 1030000000000},
-      "en_yuksek_guven_tespiti": {"arac_kimligi": 3, "n": 870, "uretim_mono_ns": 1030000000000}
+      "ilk_tespit": {"arac_kimligi": 3, "n": 870, "sim_damga_ns": 435000000000},
+      "en_yuksek_guven_tespiti": {"arac_kimligi": 3, "n": 870, "sim_damga_ns": 435000000000}
     },
     {
       "rapor_kimligi": "R003",
@@ -32,8 +32,8 @@
       "ilk_konum": null,
       "guven": 0.52,
       "tespit_sayisi": 1,
-      "ilk_tespit": {"arac_kimligi": 2, "n": 55, "uretim_mono_ns": 1002000000000},
-      "en_yuksek_guven_tespiti": {"arac_kimligi": 2, "n": 55, "uretim_mono_ns": 1002000000000}
+      "ilk_tespit": {"arac_kimligi": 2, "n": 55, "sim_damga_ns": 27500000000},
+      "en_yuksek_guven_tespiti": {"arac_kimligi": 2, "n": 55, "sim_damga_ns": 27500000000}
     }
   ]
 }

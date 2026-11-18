@@ -1,91 +1,24 @@
 """Merkezi mod araç tarafı (FR-14, FR-15): araç başına TCP görüntü kanalının gönderim kuyruğu, göndericisi ve ileti hazırlayıcısı. rclpy/MAVSDK/gz içe aktarılmaz (birim testli).
 
-Akış: kamera alıcısının kuyruk tüketicisi → `IletiHazirlayici` (poz sorgusu [bekleme dahil, kuyruğa girişten ÖNCE ve kayda geçer] → ileti kodlama) → `GonderimKuyrugu` (FIFO) → `Gonderici` iş parçacığı → TCP.
+Akış: kamera alıcısının kuyruk tüketicisi → `IletiHazirlayici` (poz sorgusu [bekleme dahil, kuyruğa girişten ÖNCE ve kayda geçer] → ileti kodlama) → gönderim kuyruğu (`DiskKuyrugu`, FIFO) → `Gonderici` iş parçacığı → TCP.
 - Gönderim kuyruğu: araç başına FIFO; HİÇBİR kare atılmaz. Soket dolunca gönderici bekler (geri basınç), kuyruk büyür [belge: TCP geri basıncı nedeniyle üretilmiş kareler atılmaz, kuyrukta korunur].
-  Kuyruk bellek içidir ve sınırsızdır [varsayım: disk destekli kuyruk B13'tedir]; `koy`/`al`/`derinlik`/`kapat` arayüzü, disk sürümüyle değiştirilebilecek biçimde ayrıdır.
+  Kuyruk disk destekli `DiskKuyrugu`dur (disk_kuyrugu.py; `koy`/`bak`/`cikar`/`derinlik`/`kapat`; öğe = (n, tür, ileti baytları), sayaç baytı = ileti baytı): kapasite taşması (yazma hatası ya da boş alan alt sınırın altı)
+  kare atlamaz, açık hata verir: `kuyruk_tasmasi` günlük/kaydı, kanal hatayla durur (koşu `yarida_kaldi`), sonraki kareler kuyruğa alınmaz ve `dusen` olarak SAYILIR (sessiz kayıp yok).
 - "Kare alınamadı" iletileri görüntü iletileriyle AYNI kuyruğa girer ve sırasını korur (kuyruğa giriş sırası numara sırasıdır: kamera alıcısı her iki türü aynı tüketici iş parçacığına sıralı verir).
 - Bağlantı: kaynak adres (`UAVn_ADDR`) bağlanır (bind), hedef `GCS_ADDR:port`; ölçülen sürü ağı (lo üzerindeki htb) üzerinden gider, yerel döngü adresi kullanılmaz. Yeniden bağlanma YOKTUR [varsayım]:
   bağlantı kopar ya da yazma hatası olursa gönderici durur, hata `hata` alanında ve günlükte açıktır, kuyruktaki iletiler sayılır (sessiz kayıp yok); koşu tamamlanamaz.
-- Kayıtlar: her ileti için `kare_olay` `gonderim_kuyrugu` (kuyruğa giriş anı) ve `gonderim` (son bayt sokete yazıldı) [kaynak `arac_sureci`]; kuyruk derinliği periyodik `kuyruk_durumu` kaydı.
+- Kayıtlar: her ileti için `kare_olay` `gonderim_kuyrugu` (kuyruğa giriş anı) ve `gonderim` (son bayt sokete yazıldı) [kaynak `arac_sureci`]; kuyruk derinliği periyodik `kuyruk_durumu` kaydı. `kuyruga_giris` (aşama damgası) araç tarafında kamera alıcısının disk kuyruğuna yazıldığında kamera alıcısı tarafından yazılır; `gonderim_kuyrugu` bu gönderim kuyruğuna girişin tanı kaydıdır.
 """
-import collections
 import hashlib
 import socket
 import threading
 import time
 
 from . import goruntu_ileti as gi
+from .disk_kuyrugu import KuyrukTasmasi
 from . import poz_tamponu as pz
 
 _NS = 10 ** 9
-
-
-class GonderimKuyrugu:
-    """FIFO gönderim kuyruğu (bellek içi, sınırsız, atma yok). Öğe: (n, tur, bayt_dizisi). İş parçacığı güvenlidir.
-    Disk destekli sürüm bu arayüzle (koy / al / derinlik / kapat) değiştirilebilir."""
-
-    def __init__(self):
-        self._k = threading.Condition()
-        self._d = collections.deque()
-        self._bayt = 0
-        self._kapali = False
-        self.giren = self.cikan = 0
-        self.giren_bayt = self.cikan_bayt = 0
-        self.maks_ileti = self.maks_bayt = 0
-
-    def koy(self, oge):
-        with self._k:
-            self._d.append(oge)
-            b = len(oge[2])
-            self._bayt += b
-            self.giren += 1
-            self.giren_bayt += b
-            self.maks_ileti = max(self.maks_ileti, len(self._d))
-            self.maks_bayt = max(self.maks_bayt, self._bayt)
-            self._k.notify_all()
-
-    def bak(self, zaman_asimi):
-        """Kuyruğun başındaki öğeyi ÇIKARMADAN verir (gönderim bitmeden derinlikten düşmesin); yoksa zaman_asimi sn bekler → öğe ya da None."""
-        with self._k:
-            if not self._d and not self._kapali:
-                self._k.wait(zaman_asimi)
-            return self._d[0] if self._d else None
-
-    def cikar(self):
-        """Başındaki öğeyi çıkarır (gönderim tamamlandı)."""
-        with self._k:
-            oge = self._d.popleft()
-            b = len(oge[2])
-            self._bayt -= b
-            self.cikan += 1
-            self.cikan_bayt += b
-            self._k.notify_all()
-            return oge
-
-    def derinlik(self):
-        """(bekleyen ileti sayısı, bekleyen bayt)."""
-        with self._k:
-            return len(self._d), self._bayt
-
-    def bos_bekle(self, sure_sn):
-        sinir = time.monotonic() + sure_sn
-        with self._k:
-            while self._d:
-                kalan = sinir - time.monotonic()
-                if kalan <= 0:
-                    return False
-                self._k.wait(min(kalan, 0.2))
-            return True
-
-    def kapat(self):
-        with self._k:
-            self._kapali = True
-            self._k.notify_all()
-
-    def sayaclar(self):
-        with self._k:
-            return {"giren": self.giren, "cikan": self.cikan, "giren_bayt": self.giren_bayt, "cikan_bayt": self.cikan_bayt, "maks_ileti": self.maks_ileti, "maks_bayt": self.maks_bayt,
-                    "bekleyen": len(self._d), "bekleyen_bayt": self._bayt}
 
 
 def rss_zirve_mib():
@@ -100,9 +33,9 @@ def rss_zirve_mib():
     return None
 
 
-def olay(arac_kimligi, n, damga_ns, ad):
-    """`kare_olay` kaydı (kaynak `arac_sureci`)."""
-    return {"surum": 1, "tur": "kare_olay", "kaynak": "arac_sureci", "arac_kimligi": int(arac_kimligi), "n": int(n), "sim_damga_ns": int(damga_ns), "olay": ad, "mono_ns": time.monotonic_ns()}
+def olay(arac_kimligi, n, damga_ns, ad, mono_ns=None):
+    """`kare_olay` kaydı (kaynak `arac_sureci`); mono_ns verilmezse şimdiki an."""
+    return {"surum": 1, "tur": "kare_olay", "kaynak": "arac_sureci", "arac_kimligi": int(arac_kimligi), "n": int(n), "sim_damga_ns": int(damga_ns), "olay": ad, "mono_ns": time.monotonic_ns() if mono_ns is None else int(mono_ns)}
 
 
 class Gonderici:
@@ -194,7 +127,11 @@ class Gonderici:
             while True:
                 if self.hata is not None:
                     break
-                oge = self.kuyruk.bak(0.2)
+                try:
+                    oge = self.kuyruk.bak(0.2)
+                except Exception as e:  # noqa: BLE001  (disk okuma hatası: açık hata, sessiz durma yok)
+                    self.hata_ver(f"gönderim kuyruğu okunamadı: {e!r}")
+                    return
                 if oge is None:
                     if self._dur.is_set():
                         break
@@ -271,6 +208,7 @@ class IletiHazirlayici:
         self.hata_bildir = hata_bildir                 # hata_bildir(metin): kanalı açık hatayla durdurur (Gonderici.hata_ver)
         self.hata = None                               # ilk hazırlama hatası; doluysa hiçbir ileti kuyruğa girmez
         self.dusen = 0                                 # hata sonrası kuyruğa alınmayan kare sayısı
+        self.tasan = 0                                 # kuyruk taşması nedeniyle kuyruğa alınamayan kare sayısı (atılmadı: açık hata; bkz. kuyruk_tasmasi kaydı)
         self.arac_kimligi, self.hz = int(arac_kimligi), int(hz)
         self.poz_tamponu, self.kalibrasyon_kimligi, self.kuyruk, self.log = poz_tamponu, kalibrasyon_kimligi, kuyruk, log
         self._olay_yaz, self._poz_yaz, self._sha_yaz = olay_yaz, poz_yaz, sha_yaz
@@ -304,6 +242,9 @@ class IletiHazirlayici:
             if tur == gi.TUR_GORUNTU and not veri:
                 raise ValueError("görüntü baytları önbellekte bulunamadı (boş yük)")
             self._gonder_kodla(tur, n, damga_ns, veri)
+        except KuyrukTasmasi as e:
+            self.tasan += 1
+            self._hata(n, f"kuyruk taştı: {e}")
         except Exception as e:  # noqa: BLE001
             self._hata(n, repr(e))
 
@@ -313,9 +254,9 @@ class IletiHazirlayici:
         b = gi.kodla(gi.Ileti(tur, self.arac_kimligi, n, damga_ns, self.kalibrasyon_kimligi, poz, veri_b))
         if self._sha_yaz is not None and tur == gi.TUR_GORUNTU:
             self._sha_yaz({"n": n, "sha256": hashlib.sha256(veri_b).hexdigest(), "bayt": len(veri_b)})
-        if self._olay_yaz is not None:
-            self._olay_yaz(olay(self.arac_kimligi, n, damga_ns, "gonderim_kuyrugu"))
-        self.kuyruk.koy((n, tur, b))
+        yazildi_ns = self.kuyruk.koy((n, tur, b), n=n)
+        if self._olay_yaz is not None:                  # öğe diske yazıldıktan SONRA (taşmada kayıt yazılmaz); zaman = kuyruğun yazma sonrası anı
+            self._olay_yaz(olay(self.arac_kimligi, n, damga_ns, "gonderim_kuyrugu", yazildi_ns))
         self.son_n = n
 
     def goruntu(self, n, damga_ns, mono_ns, veri, w, h):

@@ -54,7 +54,7 @@ def oku(yol):
 
 
 # Test anahtarları (planlama/sozlesmeler.md "Test anahtarları"): koşu başlarken ortamda doluysa adları kosu.json `test_anahtarlari` listesine yazılır
-TEST_ANAHTARLARI = ("KONUM_TEST_SAHTE", "KAMERA_ENJEKSIYON", "MERKEZI_SHA", "MERKEZI_ARAC_ENJEKSIYON", "ISCI_ENJEKSIYON", "MERKEZI_ENJEKSIYON")
+TEST_ANAHTARLARI = ("KONUM_TEST_SAHTE", "KAMERA_ENJEKSIYON", "MERKEZI_SHA", "MERKEZI_ARAC_ENJEKSIYON", "ISCI_ENJEKSIYON", "MERKEZI_ENJEKSIYON", "KUYRUK_TEST_TASMA")
 
 
 def yaz(yol, d):

@@ -1,7 +1,8 @@
 """Yer istasyonu merkezi mod alıcısı (B12; FR-14, FR-15, FR-12): araç başına TCP görüntü kanalını dinler, iletileri doğrular ve araç başına işleme kuyruğuna verir. rclpy kullanılmaz (DDS yok).
 
 Akış (araç başına): dinleme soketi (`GCS_ADDR:MERKEZI_TCP_PORT_TABAN + k − 1`) → bağlantı kabulü (kaynak adres = aracın `UAVn_ADDR`'ı olmalı; başkası reddedilir ve günlüğe yazılır) → okuma iş parçacığı
-(akış çözücü; iletiler parçalı gelebilir) → doğrulama (porta göre beklenen araç kimliği, sihirli değer/sürüm, artan kare numarası) → `alim` kare olayı → araç başına işleme kuyruğu (SINIRSIZ, atma yok) →
+(akış çözücü; iletiler parçalı gelebilir) → doğrulama (porta göre beklenen araç kimliği, sihirli değer/sürüm, artan kare numarası) → `aktarim_tamam` kare olayı (iletinin tam alındığı an) → araç başına işleme kuyruğu (DİSK destekli `DiskKuyrugu`, sınırsız, atma yok;
+taşmada açık hata: `kuyruk_tasmasi` kaydı, kanal hatası, koşu `yarida_kaldi`) →
 işleme iş parçacığı (araca ayrılmış çıkarım işçisi: `KareIsleyici` → kare sonucu) → sonuç defteri.
 Sonuç, uçta moddaki AYNI mantıksal yapıdır: `KareIsleyici` (swarm_vehicle) aynı dört durumu, aynı kayıt şemasını (`kayit/kare_sonuc_<araç>.jsonl`) ve aynı kancayı (→ `SonucAlici.sonuc_ver` → sonuç defteri +
 `kullanilabilir` kaydı) kullanır; "kare alınamadı" iletisi aynı yapıya (`STATUS_FRAME_NOT_RECEIVED`) çevrilir. Alınan poz sonuç kaydında `poz` alanında saklanır ve tespitlerin yatay konumu (konum hesaplayıcı, uçta moddakiyle aynı kod) bu pozla hesaplanır; gecikmiş kare 2 Hz durum mesajıyla konumlandırılmaz.
@@ -15,12 +16,12 @@ MERKEZI_SHA=1 (alınan görüntü baytlarının SHA-256'sı `kayit/merkezi_sha_a
 """
 import hashlib
 import os
-import queue
 import socket
 import threading
 import time
 
 from swarm_vehicle import goruntu_ileti as gi
+from swarm_vehicle.disk_kuyrugu import KuyrukTasmasi, kuyruk_olustur
 from swarm_vehicle import port_denetimi as _port
 
 _NS = 10 ** 9
@@ -54,13 +55,15 @@ class KanalDurumu:
         self.islenen = 0
         self.kuyruga_giren = 0
         self.islem_kuyrugu_maks = 0
+        self.birakilan = 0                           # işleme kuyruğu taştığında aynı okumadan çözülmüş ama kuyruğa alınmamış (bırakılan) ileti sayısı; açık hata ile sayılır
+        self.islem_kuyrugu_tasan = 0                 # işleme kuyruğuna alınamayan (taşan) ileti sayısı; atılmadı, açık hata
         self.temiz_kapandi = False
 
 
 class MerkeziAlici:
-    def __init__(self, ham, arac_kimlikleri, log, islemciler, olay_yaz=None, sha_yaz=None, enjeksiyon_metni=None, kalibrasyon_kimligi=None, defter_tamam=None, isleme_yaz=None, port_denetimi=True):
+    def __init__(self, ham, arac_kimlikleri, log, islemciler, olay_yaz=None, sha_yaz=None, enjeksiyon_metni=None, kalibrasyon_kimligi=None, defter_tamam=None, isleme_yaz=None, port_denetimi=True, kosu_klasoru=None):
         """islemciler: {araç kimliği: işleyici}; işleyici `goruntu(n, damga_ns, mono_ns, veri, w, h, merkez_poz=...)` ve `kayip(n, mono_ns, merkez_poz=...)` sağlar (KareIsleyici).
-        olay_yaz(sözlük): `alim` kare olayları (bloke etmez). sha_yaz(araç, sözlük): yalnız test (MERKEZI_SHA=1).
+        olay_yaz(sözlük): `aktarim_tamam` kare olayları (bloke etmez). kosu_klasoru: işleme kuyruğu dizinleri `<koşu>/kuyruk/isleme_<araç>/`, taşma kayıtları `<koşu>/kayit/kuyruk_tasmasi_isleme_<araç>.jsonl` (None: yalnız birim testleri, geçici dizin). sha_yaz(araç, sözlük): yalnız test (MERKEZI_SHA=1).
         defter_tamam(araç) → bool: aracın sonuç defteri tamam mı (temiz kapanış denetimi; None ise denetim yok). isleme_yaz(araç, sözlük): işleme kuyruğu durum kaydı (bloke etmez; None ise kayıt yok)."""
         self.ham, self.log = ham, log
         self.kimlikler = [int(a) for a in arac_kimlikleri]
@@ -78,11 +81,21 @@ class MerkeziAlici:
         self.okuma_dur = okuma_dur_ayristir(enjeksiyon_metni if enjeksiyon_metni is not None else os.environ.get("MERKEZI_ENJEKSIYON", ""))
         self._dur = threading.Event()
         self.durum, self._dinle, self._kuyruk, self._ipler = {}, {}, {}, []
+        self._isle_ipleri = []
+        self.kapanis_bekle_sn = float(ham["ISCI_KAPANIS_BEKLE_SN"])             # işleme kuyruğunun kapanışta boşalması için üst sınır (gerçek sn); anahtar yoksa açık hata (KeyError)
+        self.kapanis_ilerleme_sn = float(ham["KUYRUK_KAPANIS_ILERLEME_SN"])      # bu kadar sn hiç ilerleme yoksa beklemeden vazgeçilir (gerçek sn)
         taban = int(ham["MERKEZI_TCP_PORT_TABAN"])
         for a in self.kimlikler:
             sira = tum.index(a) + 1
             self.durum[a] = KanalDurumu(a, taban + sira - 1, ham[f"UAV{sira}_ADDR"])
-            self._kuyruk[a] = queue.SimpleQueue()
+            ad = f"isleme_{a}"
+            if kosu_klasoru:
+                dizin, tasma_yol = os.path.join(kosu_klasoru, "kuyruk", ad), os.path.join(kosu_klasoru, "kayit", f"kuyruk_tasmasi_{ad}.jsonl")
+            else:
+                import tempfile
+                gecici_ust = tempfile.mkdtemp(prefix="isleme_kuyrugu_")
+                dizin, tasma_yol = os.path.join(gecici_ust, ad), None
+            self._kuyruk[a] = kuyruk_olustur(ad, dizin, ham, log, tasma_yol=tasma_yol, gecici_ust=None if kosu_klasoru else gecici_ust)       # sayaç baytı = serileştirilmiş öğe (görüntü iletisi + üst bilgi)
         self.gcs_adres = ham["GCS_ADDR"]
         self._ilk_alim_mono = None
 
@@ -108,6 +121,8 @@ class MerkeziAlici:
                 t = threading.Thread(target=hedef, args=(a,), name=f"merkezi_{ad}_{a}", daemon=True)
                 t.start()
                 self._ipler.append(t)
+                if ad == "isle":
+                    self._isle_ipleri.append(t)
         if self._isleme_yaz is not None:
             t = threading.Thread(target=self._kuyruk_kaydi, name="merkezi_kuyruk_kaydi", daemon=True)
             t.start()
@@ -186,8 +201,16 @@ class MerkeziAlici:
                     d.hata = f"bozuk ileti: {e}"
                     break
                 mono = time.monotonic_ns()
-                for il in iletiler:
-                    self._ileti(a, il, mono)
+                tasti = False
+                for sira, il in enumerate(iletiler):
+                    if self._ileti(a, il, mono) is False:
+                        tasti = True                            # işleme kuyruğu taştı: açık hata (d.hata dolu); aynı okumadan çözülmüş kalan iletiler kuyruğa alınmaz ama SAYILIR
+                        d.birakilan = len(iletiler) - sira - 1
+                        break
+                if tasti:
+                    self.log("merkezi_kuyruk_tasti_birakilan", seviye="(-)", arac=a, tasan=d.islem_kuyrugu_tasan, birakilan=d.birakilan,
+                             ayrinti="taşan ileti ve aynı okumadan çözülmüş bırakılan iletiler kuyruğa alınmadı; soketteki okunmamış baytlar sayılmaz")
+                    break
             d.kapanis_mono_ns = time.monotonic_ns()
             d.bagli = False
             if d.hata:
@@ -243,23 +266,38 @@ class MerkeziAlici:
         else:
             d.kare_alinamadi += 1
         if self._olay_yaz is not None:
-            self._olay_yaz({"surum": 1, "tur": "kare_olay", "kaynak": "yer_istasyonu", "arac_kimligi": a, "n": il.n, "sim_damga_ns": il.damga_ns, "olay": "alim", "mono_ns": mono})
+            self._olay_yaz({"surum": 1, "tur": "kare_olay", "kaynak": "yer_istasyonu", "arac_kimligi": a, "n": il.n, "sim_damga_ns": il.damga_ns, "olay": "aktarim_tamam", "mono_ns": mono})
         if self._sha_yaz is not None and il.goruntu_mu:
             self._sha_yaz(a, {"n": il.n, "sha256": hashlib.sha256(il.yuk).hexdigest(), "bayt": len(il.yuk)})
+        try:
+            self._kuyruk[a].koy((il, mono), n=il.n)                  # disk kuyruğuna yazar; taşarsa öğe ATILMAZ ama kuyruğa da girmez: açık kanal hatası
+        except KuyrukTasmasi as e:
+            d.islem_kuyrugu_tasan += 1
+            d.hata = f"işleme kuyruğu taştı: {e}"
+            return False
+        except Exception as e:  # noqa: BLE001  (beklenmeyen disk/serileştirme hatası da açık hata)
+            d.islem_kuyrugu_tasan += 1
+            d.hata = f"işleme kuyruğuna yazılamadı: {e!r}"
+            return False
         with self._say_kilit:
             d.kuyruga_giren += 1
-        self._kuyruk[a].put((il, mono))
-        d.islem_kuyrugu_maks = max(d.islem_kuyrugu_maks, self._kuyruk[a].qsize())
+        d.islem_kuyrugu_maks = max(d.islem_kuyrugu_maks, self._kuyruk[a].derinlik()[0])
+        return True
 
     # --- işleme -----------------------------------------------------------------------------------------------------------------------------
     def _isle_dongusu(self, a):
         d, q, isl = self.durum[a], self._kuyruk[a], self.islemciler[a]
         istemci = getattr(isl, "istemci", None)
-        while not (self._dur.is_set() and q.empty()):
+        while not (self._dur.is_set() and q.bos_mu()):
             try:
-                il, mono = q.get(timeout=0.2)
-            except queue.Empty:
+                oge = q.al(0.2)
+            except Exception as e:  # noqa: BLE001  (disk okuma hatası: açık kanal hatası, işleme durur)
+                d.hata = d.hata or f"işleme kuyruğu okunamadı: {e!r}"
+                self.log("merkezi_kanal_hatasi", arac=a, neden=d.hata.replace(" ", "_"))
+                return
+            if oge is None:
                 continue
+            il, mono = oge
             if istemci is not None and getattr(istemci, "n_ilk", 1) is None:
                 istemci.n_ilk = il.n                       # işçi enjeksiyonu belirteçleri (+k): ilk ileti n_ilk'tir (kare alınamadı iletileri de sıradadır)
             poz = il.poz
@@ -292,12 +330,29 @@ class MerkeziAlici:
 
     # --- kapanış ----------------------------------------------------------------------------------------------------------------------------
     def kuyruk_bos_mu(self):
-        return all(q.empty() for q in self._kuyruk.values())
+        return all(q.bos_mu() for q in self._kuyruk.values())
 
     def ozet(self):
         return {a: {"alinan_ileti": d.alinan_ileti, "goruntu": d.goruntu, "kare_alinamadi": d.kare_alinamadi, "alinan_bayt": d.alinan_bayt, "tekrar": d.tekrar, "geriye": d.geriye,
                     "atlanan": d.atlanan, "kalibrasyon_uyumsuz": d.kalibrasyon_uyumsuz, "reddedilen_baglanti": d.reddedilen_baglanti, "islenen": d.islenen,
-                    "islem_kuyrugu_maks": d.islem_kuyrugu_maks, "hata": d.hata} for a, d in self.durum.items()}
+                    "islem_kuyrugu_maks": d.islem_kuyrugu_maks, "islem_kuyrugu_tasan": d.islem_kuyrugu_tasan, "birakilan": d.birakilan, "disk_maks_bayt": self._kuyruk[a].sayaclar()["maks_disk_bayt"], "hata": d.hata} for a, d in self.durum.items()}
+
+    def _isleme_bitir(self):
+        """İşleme iş parçacıklarının kuyruğu boşaltmasını bekler: bekleme KUYRUK BOŞALMASINA bağlıdır (sabit 3 sn değil): `islenen` sayısı `KUYRUK_KAPANIS_ILERLEME_SN` boyunca hiç artmıyorsa ya da toplam süre `ISCI_KAPANIS_BEKLE_SN`'i aşarsa
+        bırakılır ve kalan ileti sayısı günlüğe yazılır (sessiz değil)."""
+        baslangic = son_ilerleme = time.monotonic()
+        son_toplam = -1
+        while any(t.is_alive() for t in self._isle_ipleri):
+            simdi = time.monotonic()
+            toplam = sum(d.islenen for d in self.durum.values())
+            if toplam != son_toplam:
+                son_toplam, son_ilerleme = toplam, simdi
+            if simdi - baslangic > self.kapanis_bekle_sn or simdi - son_ilerleme > self.kapanis_ilerleme_sn:
+                kalan = {a: self._kuyruk[a].derinlik()[0] for a in self.kimlikler}
+                self.log("merkezi_kapanis_zaman_asimi", seviye="(!)", bekleme_s=f"{simdi - baslangic:.1f}", ilerleme_yok_s=f"{simdi - son_ilerleme:.1f}", sinir_s=f"{self.kapanis_bekle_sn:g}",
+                         kalan=",".join(f"{a}:{k}" for a, k in kalan.items()), ayrinti="işleme kuyruğu boşalmadan kapanış; kalan ileti sayısı yazıldı")
+                return
+            time.sleep(0.05)
 
     def kapat(self):
         self._dur.set()
@@ -307,6 +362,10 @@ class MerkeziAlici:
             except OSError:
                 pass
         for t in self._ipler:
-            t.join(3)
+            if t not in self._isle_ipleri:
+                t.join(3)                                # okuma/kayıt iş parçacıkları kısa zaman aşımlarıyla döner
+        self._isleme_bitir()
+        for q in self._kuyruk.values():
+            q.kapat()                                    # boşsa dizin silinir; değilse kalan öğe sayısı günlüğe yazılır, dizin yerinde kalır
         self.kuyruk_durumu_kaydet()                      # kapanışta bir kez daha: periyodik iş parçacığı durduktan sonra (en büyük mono_ns sonuncudur)
 

@@ -13,6 +13,7 @@ import math
 import os
 import sys
 
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 KOK = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 NS = 10 ** 9
 KALDI = 0
@@ -111,13 +112,22 @@ def ana(argv):
     sonuc(t0 is not None and t1 is not None and tamam is not None and bool(ol("bitti")), "koordinator_tamam", "koordinatör t0, sonuclar_tamam, t1 ve bitti kayıtlarını yazdı" if t1 else "t0/t1/sonuclar_tamam/bitti eksik")
     if t0 is None or t1 is None or tamam is None:
         return 1
-    sonuc(bool(ol("birlestirme_yok")), "birlestirme_yok_kaydi", "koordinatör günlüğünde 'birleştirme yok (M3)' kaydı var")
+    b = (ol("birlestirme_tamam") or [None])[0]
+    sonuc(b is not None and b["mono_ns"] < t1["mono_ns"], "birlestirme_t1_oncesi",
+          f"nihai hedef birleştirme t1'den ÖNCE tamamlandı: rapor={b['rapor_sayisi']}, konumsuz={b['konumsuz_rapor_sayisi']}, girdi tespit={b['girdi_tespit_sayisi']}, süre={b['sure_ms']:.2f} ms, t1'den {(t1['mono_ns'] - b['mono_ns']) / 1e6:.1f} ms önce"
+          if b else "'birlestirme_tamam' kaydı yok")
+    from koordinator_kayit import nihai_rapor_hatalari
+    nh = nihai_rapor_hatalari(klasor)
+    sonuc(not nh, "nihai_rapor_gecerli", "nihai_rapor.json yazıldı ve §11.1 doğrulayıcısından geçti" if not nh else f"nihai_rapor.json sorunlu: {nh[:3]}")
     sonuc(eslesme is not None and eslesme["yayimci"] >= n_arac and eslesme["mono_ns"] < t0["mono_ns"], "bariyer_eslesmeden_sonra",
           f"kare sonucu konusunda {eslesme['yayimci'] if eslesme else '-'} yayımcıyla eşleşme t0'dan {(t0['mono_ns'] - eslesme['mono_ns']) / 1e6:.0f} ms önce tamamlandı; eşleşme anları t0'a göre (s): "
           + ", ".join(f"{(m - t0['mono_ns']) / 1e9:+.1f}→{n}" for m, n in eslesme["anlar"]) if eslesme else "eşleşme kaydı yok")
     damga = jsonl(os.path.join(klasor, "kayit", "gazebo_damga.jsonl"))
     yer = jsonl(os.path.join(klasor, "kayit", "yer_istasyonu_kare.jsonl"))
     son_sonuc_mono, tum_L = 0, {}
+    from sozlesme_dogrula import asama_sureleri, dogrula_kare_asamalari   # içe aktarma burada: bu modül başka araçlarca (jsonl, log_oku, yuzdelik için) içe aktarılır
+    asama_hatalari, asama_ozet = dogrula_kare_asamalari(klasor, kimlikler)
+    asama_say = asama_sureleri(klasor, kimlikler)
     for k in kimlikler:
         alog = log_oku(os.path.join(klasor, f"arac_{k}.log"))
         bit = alog["tarama_bitis_yayimlandi"][0]
@@ -143,6 +153,12 @@ def ana(argv):
         sonuc(int(ozet["verilen"]) == len(aralik) and int(ozet["yayimlanan"]) == len(aralik) and int(ozet["hata"]) == 0 and ozet["onaylandi"] == "True" and "sonuc_yayin_uyari" not in alog,
               f"yayim_ozeti_{k}", f"verilen {ozet['verilen']}, yayımlanan {ozet['yayimlanan']}, yayım hatası {ozet['hata']}, tüm iletiler onaylandı={ozet['onaylandi']}, yayım kuyruğu en çok {ozet['kuyruk_maks']}")
         son_sonuc_mono = max(son_sonuc_mono, max(r["mono_ns"] for r in y))
+        asama_hata = [x for x in asama_hatalari if x.startswith(f"araç {k} ")]
+        sonuc(not asama_hata and asama_ozet.get(k, {}) != {}, f"asama_damgalari_{k}", f"her kare için aşama damgaları tam ve sıralı (uçta mod: aktarim_tamam 'uygulanmaz'; sonuç durumuna göre, §8.3): {asama_ozet.get(k)}; hata {asama_hata[:3]}")
+        sure = asama_say.get(k)
+        if sure:
+            print("OLCUM araç %d: aşama süreleri (ms; ortanca / p95 / en çok; sonuc ve tespit_yok kareleri): " % k + "; ".join(
+                f"{ad} {yuzdelik(v, 50):.1f} / {yuzdelik(v, 95):.1f} / {max(v):.1f} (n={len(v)})" for ad, v in sure.items() if v))
         # L: yalnız sonuc / tespit_yok (işlem hatası ve kare alınamadı L'ye girmez)
         uretim = {r["n"]: r["mono_ns"] for r in damga if r["arac_kimligi"] == k and r["olay"] == "uretim" and isinstance(r["n"], int)}
         L = [(r["mono_ns"] - uretim[r["n"]]) / 1e6 for r in y if r["sonuc_durumu"] in ("sonuc", "tespit_yok") and r["n"] in uretim]

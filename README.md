@@ -12,19 +12,19 @@ Bu bir **simülasyon deneyidir**; gerçek uçuş ya da gömülü donanım doğru
 Kendi işlerin için: kilometre taşında adının yazdığı satırlar; sıradaki iş, bitmemiş en üstteki maddedir. Ayrıntı ve bitti ölçütleri: `planlama/gelistirme_agaci.md`.
 
 <!-- ILERLEME:BASLA -->
-**Genel tamamlanma: %30,5** (31 / 80 madde; kod ve makine işi dahil)
+**Genel tamamlanma: %32,7** (33 / 80 madde; kod ve makine işi dahil)
 
-`██████░░░░░░░░░░░░░░` %30,5
+`███████░░░░░░░░░░░░░` %32,7
 
-**Geliştirme oranı: %47,5** (31 / 55 geliştirme maddesi; yalnız kod ve altyapı işi)
+**Geliştirme oranı: %51,0** (33 / 55 geliştirme maddesi; yalnız kod ve altyapı işi)
 
-`█████████░░░░░░░░░░░` %47,5
+`██████████░░░░░░░░░░` %51,0
 
 **Ana hedefler** (belgeye göre; ana amaç uçta ve merkezi modun beş ölçütle karşılaştırılmasıdır). Bir hedef, paketlerindeki bütün maddeler bitince tamamlanır.
 
 | | Hedef | Paketler | Tamamlanma |
 |---|---|---|---|
-| ◐ | **1.** Sürü sistemi: üç İHA, dört sürü işlevi, uçta ve merkezi mod | B | `████████████████░░░░` %81,8 |
+| ◐ | **1.** Sürü sistemi: üç İHA, dört sürü işlevi, uçta ve merkezi mod | B | `██████████████████░░` %90,9 |
 | ☐ | **2.** Görüntü işleme: YOLO26 modeli, veri hattı ve eğitim | A | `░░░░░░░░░░░░░░░░░░░░` %0,0 |
 | ◐ | **3.** Deney düzeneği: başkalarının da çalıştırabileceği kilitli, tekrarlanabilir simülasyon ortamı | K, C | `███████░░░░░░░░░░░░░` %33,3 |
 | ☐ | **4.** Deney sonuçları: 30 sahnede 60 koşu ve karar kuralına göre rapor | D, E | `░░░░░░░░░░░░░░░░░░░░` %0,0 |
@@ -85,20 +85,18 @@ Kilometre taşları (✔ bitti, ◐ sürüyor, ☐ başlamadı). Maddeler iş s�
 
 </details>
 
-<details open>
-<summary>◐ <b>M3 - Merkezi mod ve izleme</b> [Ömer Faruk GÜNER, %60,0]</summary>
-
-Bekler: yok, başlayabilir
+<details>
+<summary>✔ <b>M3 - Merkezi mod ve izleme</b> [%100,0]</summary>
 
 - ✔ B12 - Merkezi mod
-- ☐ B13 - Disk kuyrukları ve aşama damgaları
+- ✔ B13 - Disk kuyrukları ve aşama damgaları
 - ✔ B14 - Poz enterpolasyonu ve konum hesabı
-- ☐ B15 - Hedef birleştirme
+- ✔ B15 - Hedef birleştirme
 
 </details>
 
 <details open>
-<summary>☐ <b>M4 - Veri hattı</b> [Mikail DEĞER, %0,0]</summary>
+<summary>☐ <b>M4 - Veri hattı</b> [Ömer Faruk GÜNER, %0,0]</summary>
 
 Bekler: yok, başlayabilir
 
@@ -112,7 +110,7 @@ Bekler: yok, başlayabilir
 </details>
 
 <details open>
-<summary>☐ <b>M5 - Model</b> [Mikail DEĞER, %0,0]</summary>
+<summary>☐ <b>M5 - Model</b> [Ömer Faruk GÜNER, %0,0]</summary>
 
 Bekler: M4
 
@@ -143,7 +141,7 @@ Bekler: yok, başlayabilir
 <details open>
 <summary>☐ <b>M6b - Bütünleşik koşu ve kabul testleri</b> [Mikail DEĞER, %0,0]</summary>
 
-Bekler: M3, M5, M6a
+Bekler: M5, M6a
 
 - ☐ B19 - Bütünleşik işlev testi
 - ☐ C1 - Kabul testi 1: ağ adresleri

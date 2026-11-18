@@ -78,7 +78,7 @@ flowchart LR
   W -.->|"kare sonucu"| T["Hedef birleştirme"]
 ```
 
-Merkezi modda üç kameranın nominal ham yükü simülasyon gerçek zaman faktörü 1 iken `3 × 640 × 480 × 3 × 2 × 8 = 44,2368 Mbit/s`'dir ve 25 Mbit/s profilin üzerindedir; kuyruk oluşabilir. Bu bir yük hesabıdır, profil sonuçlara bakılarak değiştirilmez.
+Merkezi modda üç kameranın nominal ham yükü simülasyon gerçek zaman faktörü 1 iken `3 × 640 × 480 × 3 × 2 × 8 = 44,2368 Mbit/s`'dir ve 25 Mbit/s profilin üzerindedir; kuyruk oluşabilir; uygulama kuyrukları disk destekli tutulur ve taşma sessiz kare atlamaz (`planlama/sozlesmeler.md` §8.13). Bu bir yük hesabıdır, profil sonuçlara bakılarak değiştirilmez.
 
 ## 3. Araç görev durumları
 

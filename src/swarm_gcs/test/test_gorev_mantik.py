@@ -107,9 +107,25 @@ class Koordinasyon(unittest.TestCase):
         k.sonuclar_guncelle(False)
         self.assertIsNone(k.sonraki())                        # bütün bitişler var ama sonuçlar tamam değil
         k.sonuclar_guncelle(True)
+        self.assertEqual(k.sonraki(), "birlestir")             # üçüncü koşul: nihai hedef birleştirme; COMPLETE ondan sonra
+        self.assertEqual(k.sonraki(), "birlestir")             # birleştirme bitmeden COMPLETE'e geçilmez (koordinatör eylemi bir kez uygular ve hemen bitti/hata bildirir)
+        k.birlestirme_bitti()
+        self.assertEqual(k.sonraki(), "complete")              # birleştirme bitince bir daha 'birlestir' dönmez
         self.assertEqual(k.sonraki(), "complete")
         k.complete_yapildi(3000, 9)
         self.assertEqual(k.faz, gm.FAZ_COMPLETE_VERILDI)
+
+    def test_birlestirme_hatasi_complete_yok(self):
+        k = self._taramaya_gec()
+        for a in A:
+            k.bitis_geldi(a, "G1", True, 10, 400, 2000)
+        k.sonuclar_guncelle(True)
+        self.assertEqual(k.sonraki(), "birlestir")
+        o = k.birlestirme_hatasi("UretimBulunamadi: araç 1 kare 7")
+        self.assertEqual((o[0]["olay"], o[0]["neden"]), ("hata", "birlestirme_hatasi"))
+        self.assertEqual(k.faz, gm.FAZ_HATA)
+        self.assertIsNone(k.sonraki())                        # hata fazında COMPLETE yok
+        self.assertIn("hedef birleştirme hatası", k.hata_nedeni)
 
     def test_erken_yinelenen_yanlis_kimlikli_olaylar_akisi_degistirmez(self):
         k = gm.Koordinasyon(A, "G1")
@@ -200,10 +216,10 @@ class Kayit(unittest.TestCase):
         g = GorevKaydi(yol)
         g.yaz("gorev_atandi", arac_kimligi=1, mission_id="G1")
         g.yaz("hazir", sim_ns=5, arac_kimligi=1)
-        g.yaz("birlestirme_yok", ayrinti="M3")
         g.yaz("t0", sim_ns=6, mission_id="G1")
         g.yaz("tarama_bitisi", arac_kimligi=1, n_ilk=10, n_son=20, t_s_ns=None, t_b_ns=None)
         g.yaz("son_sonuc")
+        g.yaz("birlestirme_tamam", rapor_sayisi=2, konumsuz_rapor_sayisi=1, girdi_tespit_sayisi=5, sure_ms=1.5)
         g.yaz("t1", sim_ns=9, mission_id="G1", t1_eksi_son_bitis_ns=1000)
         monos = [d["mono_ns"] for d in g.satirlar]
         self.assertEqual(monos, sorted(monos))

@@ -1,0 +1,3 @@
+{"surum": 1, "tur": "gorev_olay", "olay": "son_sonuc", "mono_ns": 1000, "sim_ns": null}
+{"surum": 1, "tur": "gorev_olay", "olay": "hata", "mono_ns": 1500, "sim_ns": null, "neden": "birlestirme_hatasi", "ayrinti": "x"}
+{"surum": 1, "tur": "gorev_olay", "olay": "birlestirme_tamam", "mono_ns": 2000, "sim_ns": null, "rapor_sayisi": 1, "konumsuz_rapor_sayisi": 0, "girdi_tespit_sayisi": 2, "sure_ms": 1.0}

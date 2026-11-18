@@ -54,7 +54,7 @@ PROFIL="$ROOT_DIR/config/fastdds_profil.xml"
 KOK="$GENERATED_DIR/kosular"
 TMP_DIR=""
 PGIDS=()
-BIRIM_TESTLER=("$ROOT_DIR/src/swarm_gcs/test/test_sonuc_defteri.py" "$ROOT_DIR/src/swarm_vehicle/test/test_sonuc_yayin.py" "$ROOT_DIR/src/swarm_vehicle/test/test_rota_yon.py")
+BIRIM_TESTLER=("$ROOT_DIR/src/swarm_gcs/test/test_sonuc_defteri.py" "$ROOT_DIR/src/swarm_gcs/test/test_hedef_birlestirme.py" "$ROOT_DIR/src/swarm_gcs/test/test_sonuc_alici.py" "$ROOT_DIR/src/swarm_vehicle/test/test_sonuc_yayin.py" "$ROOT_DIR/src/swarm_vehicle/test/test_rota_yon.py" "$ROOT_DIR/src/swarm_vehicle/test/test_disk_kuyrugu.py" "$ROOT_DIR/src/swarm_vehicle/test/test_kamera_alici.py")
 
 fail_stop() { log_fail "$1"; component_failed "$COMPONENT_NAME"; exit 1; }
 

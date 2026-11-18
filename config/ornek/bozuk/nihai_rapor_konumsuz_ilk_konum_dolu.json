@@ -1,0 +1,30 @@
+{
+  "surum": 1,
+  "tur": "nihai_rapor",
+  "kosu_kimligi": "kosu_20261113_120000",
+  "sahne_kimligi": "sahne_ornek_test",
+  "mod": "ucta",
+  "raporlar": [
+    {
+      "rapor_kimligi": "R003",
+      "sinif": "insan",
+      "konum": null,
+      "ilk_konum": {
+        "x_m": 1.0,
+        "y_m": 2.0
+      },
+      "guven": 0.52,
+      "tespit_sayisi": 1,
+      "ilk_tespit": {
+        "arac_kimligi": 2,
+        "n": 55,
+        "sim_damga_ns": 27500000000
+      },
+      "en_yuksek_guven_tespiti": {
+        "arac_kimligi": 2,
+        "n": 55,
+        "sim_damga_ns": 27500000000
+      }
+    }
+  ]
+}

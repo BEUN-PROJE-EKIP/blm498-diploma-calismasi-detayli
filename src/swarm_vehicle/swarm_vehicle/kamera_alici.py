@@ -11,7 +11,8 @@ ROS 2, MAVSDK ve gz-transport içe aktarılmaz (birim testi için). El kitabı (
   n_ilk'e eşit ya da büyük kare görev karesi olarak kabul edilir (iç kuyruğa verilir, `kuyruga_giris` kaydı ayrıca yazılır); böylece damgası t_s'ye eşit kare kaybolmaz.
 Yedek yol (alıcı numarası k) K9 kararıyla uygulanmaz; seçilirse açık hata verilir.
 Kayıtlar planlama/sozlesmeler.md §8.3 `kare_olay` şemasındadır; kaynak "kamera_alicisi". Zamanlar tam sayı ns (CLOCK_MONOTONIC / simülasyon).
-Alıcının yerel kayıt türleri: olay `kuyruga_giris` (görev karesi iç kuyruğa verildi), olay `kayip_tespit` + sonuc_durumu `kare_alinamadi` (alıcı kaybı tespit etti, kayıp kaydı üretildi; yer istasyonunda "kullanılabilir" olma anı değildir),
+Alıcının yerel kayıt türleri: olay `kuyruga_giris` (görev karesi iç DİSK kuyruğuna YAZILDIKTAN sonraki an: `kuyruga_ver` geri çağrısı yazma sonrası anı döndürür; kuyruğa alınamayan kare için `False` döner ve hiçbir kayıt yazılmaz [B13]),
+olay `aktarim_tamam` (uçta modda `"uygulanmaz"`: görüntü aktarımı yoktur; merkezi modda yer istasyonu yazar, alıcı yazmaz: `aktarim_uygulanmaz=False`), olay `kayip_tespit` + sonuc_durumu `kare_alinamadi` (alıcı kaybı tespit etti, kayıp kaydı üretildi; yer istasyonunda "kullanılabilir" olma anı değildir),
 olay `gec_geldi` (kayıp kaydından sonra gelen kare; yalnız yerel), olay `yok_sayildi` + neden (görev girdisi değil: gorev_oncesi | kapanis_sonrasi | izgara_disi | tekrar).
 """
 
@@ -44,9 +45,10 @@ def n_son_hesapla(t_b_ns, hz):
 
 
 class KameraAlici:
-    def __init__(self, arac_kimligi, hz, olay_yaz=None, kuyruga_ver=None, kip="izgara", kayip_ver=None):
-        """olay_yaz(sözlük): her `kare_olay` kaydı için; kuyruga_ver(n, damga_ns, mono_ns): kabul edilen görev karesi için (kareyi tutmaz);
-        kayip_ver(n, mono_ns): bir numara için "kare alınamadı" kaydı yazıldığında (kare sonucu üretimi için)."""
+    def __init__(self, arac_kimligi, hz, olay_yaz=None, kuyruga_ver=None, kip="izgara", kayip_ver=None, aktarim_uygulanmaz=True):
+        """olay_yaz(sözlük): her `kare_olay` kaydı için; kuyruga_ver(n, damga_ns, mono_ns): kabul edilen görev karesi için (kareyi tutmaz); kareyi diske yazdıktan sonra yazma sonrası mono_ns'yi (tam sayı) döndürebilir;
+        `False` döndürürse kare kuyruğa alınamamıştır (taşma): `kuyruga_giris` ve `aktarim_tamam` yazılmaz, `kuyruga_alinamadi` sayılır (açık hata çağıranda). kayip_ver(n, mono_ns): bir numara için "kare alınamadı" kaydı yazıldığında (kare sonucu üretimi için).
+        aktarim_uygulanmaz: True (uçta mod) → her görev karesi için `aktarim_tamam` = "uygulanmaz" yazılır; False (merkezi mod) → yer istasyonu yazar."""
         kipi_dogrula(kip)
         if hz != int(hz) or hz <= 0:
             raise ValueError("CAM_RATE_HZ pozitif tam sayı olmalı (ızgara kuralı)")
@@ -60,7 +62,8 @@ class KameraAlici:
         self.gorulen = set()                 # görev karesi olarak kabul edilen numaralar
         self.alinamadi = set()               # "kare alınamadı" kaydı yazılmış numaralar
         self.son_gorev_numarasi = -1
-        self.sayac = {"gorev": 0, "kare_alinamadi": 0, "gec_geldi": 0, "gorev_oncesi": 0, "kapanis_sonrasi": 0, "izgara_disi": 0, "tekrar": 0, "gorev_siniri_asildi": 0, "gorev_oncesi_kabul": 0, "kapanis_zorla": 0}
+        self.aktarim_uygulanmaz = bool(aktarim_uygulanmaz)
+        self.sayac = {"kuyruga_alinamadi": 0, "gorev": 0, "kare_alinamadi": 0, "gec_geldi": 0, "gorev_oncesi": 0, "kapanis_sonrasi": 0, "izgara_disi": 0, "tekrar": 0, "gorev_siniri_asildi": 0, "gorev_oncesi_kabul": 0, "kapanis_zorla": 0}
 
     # --- kayıt ---------------------------------------------------------------------------------------------------------------------------
     def _kayit(self, n, damga_ns, olay, mono_ns, **ek):
@@ -142,9 +145,17 @@ class KameraAlici:
         self.gorulen.add(n)
         self.son_gorev_numarasi = n
         self.sayac["gorev"] += 1
-        self._kayit(n, damga_ns, "kuyruga_giris", mono_ns)
+        giris_ns = mono_ns
         if self._kuyruk is not None:
-            self._kuyruk(n, damga_ns, mono_ns)
+            r = self._kuyruk(n, damga_ns, mono_ns)           # disk kuyruğuna yazar; yazıldıktan sonraki anı döndürür
+            if r is False:
+                self.sayac["kuyruga_alinamadi"] += 1         # taşma: kare ATILMADI ama kuyruğa da girmedi; kuyruga_giris yazılmaz (açık hata çağıranda)
+                return n
+            if isinstance(r, int) and not isinstance(r, bool) and r > 0:
+                giris_ns = r
+        self._kayit(n, damga_ns, "kuyruga_giris", giris_ns)
+        if self.aktarim_uygulanmaz:
+            self._kayit(n, damga_ns, "aktarim_tamam", "uygulanmaz")
         return n
 
     def kapat_zorla(self, mono_ns):
