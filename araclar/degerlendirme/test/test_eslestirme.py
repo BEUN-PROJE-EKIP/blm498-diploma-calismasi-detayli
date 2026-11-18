@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """Değerlendirme yazılımı (B18, FR-28) birim testleri: sentetik örnekler. ROS 2 gerekmez; numpy ve scipy (kilitli ortam) gerekir.
-Çalıştırma: python3 -I araclar/test_degerlendirme.py
+Çalıştırma: python3 -I araclar/degerlendirme/test/test_eslestirme.py
 """
 import copy
 import json
@@ -10,9 +10,10 @@ import sys
 import tempfile
 import unittest
 
-BURASI = os.path.dirname(os.path.abspath(__file__))
-sys.path.insert(0, BURASI)
-import degerlendirme as dg  # noqa: E402
+MODUL = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))   # araclar/degerlendirme
+BETIK = os.path.join(MODUL, "eslestirme.py")
+sys.path.insert(0, MODUL)
+import eslestirme as dg  # noqa: E402
 
 C, ESIK = dg.yapilandirma_yukle()
 SAHNE = "S-TEST-0001"
@@ -49,6 +50,21 @@ def ciftler(sonuc):
 class Yapilandirma(unittest.TestCase):
     def test_esik_belgedeki_deger(self):
         self.assertEqual(ESIK, 5.0)   # [belge] FR-28: en fazla 5 m
+
+
+class AtamaMaliyeti(unittest.TestCase):
+    def test_uygun_olmayan_maliyet_belgedeki_sinirdan_buyuk(self):
+        # [belge] uygun olmayan çiftin maliyeti 5 × (N + 1)'den büyük sabit
+        for n in (0, 1, 30):
+            self.assertGreater(dg.uygun_olmayan_maliyet(ESIK, n), 5 * (n + 1))
+
+    def test_sabit_maliyetli_atama_eslesme_sayilmaz(self):
+        # tek rapor, tek hedef, uzaklık eşiğin dışında: algoritma sabit maliyetle atar ama eşleşme dönmez
+        self.assertEqual(dg.sinif_icinde_ata([(10.0, 0.0)], [(0.0, 0.0)], ESIK, 1), [])
+
+    def test_hedef_sayisi_n_yi_asamaz(self):
+        with self.assertRaises(ValueError):
+            dg.sinif_icinde_ata([(0.0, 0.0)], [(0.0, 0.0), (20.0, 0.0)], ESIK, 1)
 
 
 class Eslestirme(unittest.TestCase):
@@ -186,7 +202,7 @@ class KomutSatiri(unittest.TestCase):
                 yollar.append(os.path.join(d, ad))
                 with open(yollar[-1], "w", encoding="utf-8") as f:
                     json.dump(v, f)
-            return subprocess.run([sys.executable, "-I", os.path.join(BURASI, "degerlendirme.py"), *yollar], capture_output=True, text=True)
+            return subprocess.run([sys.executable, "-I", BETIK, *yollar], capture_output=True, text=True)
 
     def test_basarili(self):
         p = self.calistir(nihai([rapor("R1", "insan", 0, 0)]), liste([hedef("H1", "insan", 0, 0)]))
@@ -199,7 +215,7 @@ class KomutSatiri(unittest.TestCase):
         self.assertIn("sahne uyuşmuyor", p.stderr)
 
     def test_kullanim_hatasi_cikis_2(self):
-        p = subprocess.run([sys.executable, "-I", os.path.join(BURASI, "degerlendirme.py")], capture_output=True, text=True)
+        p = subprocess.run([sys.executable, "-I", BETIK], capture_output=True, text=True)
         self.assertEqual(p.returncode, 2)
 
 
