@@ -12,13 +12,13 @@ Bu bir **simülasyon deneyidir**; gerçek uçuş ya da gömülü donanım doğru
 Kendi işlerin için: kilometre taşında adının yazdığı satırlar; sıradaki iş, bitmemiş en üstteki maddedir. Ayrıntı ve bitti ölçütleri: `planlama/gelistirme_agaci.md`.
 
 <!-- ILERLEME:BASLA -->
-**Genel tamamlanma: %31,2** (32 / 80 madde; kod ve makine işi dahil)
+**Genel tamamlanma: %32,0** (33 / 80 madde; kod ve makine işi dahil)
 
-`██████░░░░░░░░░░░░░░` %31,2
+`██████░░░░░░░░░░░░░░` %32,0
 
-**Geliştirme oranı: %48,7** (32 / 55 geliştirme maddesi; yalnız kod ve altyapı işi)
+**Geliştirme oranı: %49,9** (33 / 55 geliştirme maddesi; yalnız kod ve altyapı işi)
 
-`██████████░░░░░░░░░░` %48,7
+`██████████░░░░░░░░░░` %49,9
 
 **Ana hedefler** (belgeye göre; ana amaç uçta ve merkezi modun beş ölçütle karşılaştırılmasıdır). Bir hedef, paketlerindeki bütün maddeler bitince tamamlanır.
 
@@ -27,7 +27,7 @@ Kendi işlerin için: kilometre taşında adının yazdığı satırlar; sırada
 | ◐ | **1.** Sürü sistemi: üç İHA, dört sürü işlevi, uçta ve merkezi mod | B | `████████████████░░░░` %81,8 |
 | ☐ | **2.** Görüntü işleme: YOLO26 modeli, veri hattı ve eğitim | A | `░░░░░░░░░░░░░░░░░░░░` %0,0 |
 | ◐ | **3.** Deney düzeneği: başkalarının da çalıştırabileceği kilitli, tekrarlanabilir simülasyon ortamı | K, C | `███████░░░░░░░░░░░░░` %33,3 |
-| ◐ | **4.** Deney sonuçları: 30 sahnede 60 koşu ve karar kuralına göre rapor | D, E | `█░░░░░░░░░░░░░░░░░░░` %3,1 |
+| ◐ | **4.** Deney sonuçları: 30 sahnede 60 koşu ve karar kuralına göre rapor | D, E | `█░░░░░░░░░░░░░░░░░░░` %6,2 |
 
 **Tamamlanan ana hedef: 0 / 4**
 
@@ -127,13 +127,13 @@ Bekler: M4
 </details>
 
 <details open>
-<summary>◐ <b>M6a - Değerlendirme ve analiz yazılımı</b> [Miraç BOZACIOĞLU, %38,2]</summary>
+<summary>◐ <b>M6a - Değerlendirme ve analiz yazılımı</b> [Miraç BOZACIOĞLU, %53,7]</summary>
 
 Bekler: yok, başlayabilir
 
 - ✔ B18 - Değerlendirme yazılımı
 - ✔ E1a - Eşleştirme analiz betiği
-- ☐ E2a - İyileşme analiz betiği
+- ✔ E2a - İyileşme analiz betiği
 - ☐ E3a - Bootstrap betiği
 - ☐ E4a - Karar kuralı betiği
 - ☐ E5a - Sansürlü koşu betiği

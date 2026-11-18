@@ -503,3 +503,14 @@ Kural [kararlar 2026-11-14]: her analiz tablosu iki dosyadır, aynı veriden ür
 | `eslestirme_dislanan` | çift kurulamayan sahne | `sahne_kimligi, neden` (`<mod>: nihai_rapor_yok` \| `<mod>: tamamlanamadi`, `; ` ile birleşik) |
 
 [belge] R iki mod için mutlak ve sınıf bazında, sahne başına R(uç) − R(merkez) farkıyla; precision görev (koşu) düzeyinde; hiç rapor üretilmeyen koşuda R = 0, FP = 0, precision tanımsız. [varsayım] Özet istatistikleri yalnız tanımlı değerlerden hesaplanır; tanımsız değer sayısı `tanimsiz_sayisi` sütunundadır. %95 güven aralığı bu tabloda yoktur (E3a).
+
+**İyileşme analizi (E2a, `araclar/degerlendirme/iyilesme_analiz.py`).** Girdi: koşu ölçüm özetleri (§11.2), sahne ve mod başına bir dosya. [belge, FR-27] Tamamlanamayan koşunun (`tamamlandi = false`) çifti sahne ve özet tablolarına girmez (sansürlü gösterim E5a); sahnenin bir modunda özet yoksa da çift kurulamaz. Tablo yazımı ortak modüldedir (`araclar/degerlendirme/tablo.py`; E1a ile aynı biçim).
+
+| Tablo | Satır | Sütunlar (sırayla) |
+|---|---|---|
+| `iyilesme_kosu` | koşu (sahne, mod sırasıyla) | `sahne_kimligi, mod, kosu_kimligi, tamamlandi, ciftte, t_s, d_mb, b_mbit_s, l_ornek_sayisi, l_ortanca_s, l_p95_s, beklenen, pozitif, negatif, kare_alinamadi, islem_hatasi, gec_geldi, sonuc_orani, kare_alinamadi_orani` |
+| `iyilesme_sahne` | tamamlanan sahne çifti | `sahne_kimligi`; `d` (MB), `b` (Mbit/s), `t` (s) için `_ucta, _merkezi, _iyilesme_yuzde`; `l_ortanca`, `l_p95` (s) için `_ucta, _merkezi, _fark` |
+| `iyilesme_ozet` | `iyilesme_sahne`'nin her ölçüt sütunu (aynı sıra) | `eslestirme_ozet` ile aynı sütunlar |
+| `iyilesme_dislanan` | çift kurulamayan sahne | `sahne_kimligi, neden` (`<mod>: kosu_olcum_yok` \| `<mod>: tamamlanamadi`, `; ` ile birleşik) |
+
+[belge] D, B ve T için sahne başına `I_X = 100 × (X(merkez) − X(uç)) / X(merkez)`; L için sahne düzeyinde ortanca ve 95. yüzdelik farkları ayrı ayrı (merkez − uç, s), L için yüzde iyileşme hesaplanmaz; pozitif değer uçta mod lehinedir; tahmin sahne başına iyileşmelerin aritmetik ortalamasıdır; modlar arası kare eşleştirmesi yapılmaz. Kare sayıları ve oranları gecikme tablolarıyla birlikte verilir (`iyilesme_kosu`). [varsayım] `X(merkez) = 0` ise `I_X` tanımsızdır (sıfır yazılmaz); bir modda `l.ornek_sayisi = 0` ise o L farkı tanımsızdır; özet istatistikleri yalnız tanımlı değerlerden hesaplanır. %95 güven aralığı bu tabloda yoktur (E3a).

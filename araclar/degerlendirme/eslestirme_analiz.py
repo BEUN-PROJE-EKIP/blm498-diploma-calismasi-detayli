@@ -24,10 +24,8 @@ raporlanır; ayrıca sahne başına R(uç) − R(merkez) farkının ortalaması 
 (%95 güven aralığı E3a). Precision görev (koşu) düzeyindedir; hiç rapor üretilmeyen koşuda R = 0, FP = 0, precision tanımsız.
 [varsayım] Özet tablosunda ortalama, medyan, en küçük ve en büyük yalnız tanımlı değerlerden alınır; tanımsız değer sayısı ayrı sütundadır.
 """
-import csv
 import json
 import os
-import statistics
 import sys
 
 BURASI = os.path.dirname(os.path.abspath(__file__))   # araclar/degerlendirme
@@ -35,6 +33,8 @@ sys.path.insert(0, BURASI)
 sys.path.insert(0, os.path.dirname(BURASI))
 
 import eslestirme as es  # noqa: E402
+import tablo  # noqa: E402
+from tablo import csv_deger, csv_metni, md_deger, md_metni, yaz  # noqa: E402,F401  (E1a testleri bu adları kullanır)
 import sozlesme_dogrula as sd  # noqa: E402
 
 UC, MERKEZ = "ucta", "merkezi"
@@ -59,13 +59,6 @@ def _siniflar(c):
 
 def _fark(a, b):
     return None if a is None or b is None else a - b
-
-
-def _ozet(ad, degerler):
-    tanimli = [float(v) for v in degerler if v is not None]   # sayımlar (FP) de ondalık yazılır: özet sütunlarının biçimi sabit
-    return {"olcut": ad, "cift_sayisi": len(degerler), "tanimli_sayisi": len(tanimli), "tanimsiz_sayisi": len(degerler) - len(tanimli),
-            "ortalama": statistics.fmean(tanimli) if tanimli else None, "medyan": statistics.median(tanimli) if tanimli else None,
-            "en_kucuk": min(tanimli) if tanimli else None, "en_buyuk": max(tanimli) if tanimli else None}
 
 
 def analiz(c, esik_m, nihai_raporlar, hedef_listeleri, kosu_olcumleri=None):
@@ -156,69 +149,10 @@ def analiz(c, esik_m, nihai_raporlar, hedef_listeleri, kosu_olcumleri=None):
 
     # 3) özet tablosu: sahne tablosunun her ölçüt sütunu
     o_sutun = ["olcut", "cift_sayisi", "tanimli_sayisi", "tanimsiz_sayisi", "ortalama", "medyan", "en_kucuk", "en_buyuk"]
-    o_satir = [_ozet(ad, [satir[ad] for satir in s_satir]) for ad in s_sutun[1:]]
+    o_satir = [tablo.ozet(ad, [satir[ad] for satir in s_satir]) for ad in s_sutun[1:]]
 
     return {"eslestirme_kosu": (k_sutun, k_satir), "eslestirme_sahne": (s_sutun, s_satir), "eslestirme_ozet": (o_sutun, o_satir),
             "eslestirme_dislanan": (["sahne_kimligi", "neden"], dislanan)}
-
-
-# ---------------------------------------------------------------------------------------------------------------------------------
-# Yazım
-# ---------------------------------------------------------------------------------------------------------------------------------
-def _isaretsiz_sifir(metin):
-    return metin[1:] if metin.startswith("-") and not metin.strip("-0.,") else metin
-
-
-def csv_deger(v):
-    if v is None:
-        return ""
-    if isinstance(v, bool):
-        return "1" if v else "0"
-    if isinstance(v, int):
-        return str(v)
-    if isinstance(v, float):
-        return _isaretsiz_sifir(f"{v:.6f}")
-    return str(v)
-
-
-def md_deger(v):
-    if v is None:
-        return "tanımsız"
-    if isinstance(v, bool):
-        return "evet" if v else "hayır"
-    if isinstance(v, int):
-        return str(v)
-    if isinstance(v, float):
-        return _isaretsiz_sifir(f"{v:.2f}").replace(".", ",")
-    return str(v).replace("|", "\\|")
-
-
-def csv_metni(sutunlar, satirlar):
-    import io
-    tampon = io.StringIO()
-    w = csv.writer(tampon, lineterminator="\n")
-    w.writerow(sutunlar)
-    for s in satirlar:
-        w.writerow([csv_deger(s[k]) for k in sutunlar])
-    return tampon.getvalue()
-
-
-def md_metni(ad, sutunlar, satirlar):
-    satirlar_md = [f"# {ad}", "", "| " + " | ".join(sutunlar) + " |", "|" + "---|" * len(sutunlar)]
-    satirlar_md += ["| " + " | ".join(md_deger(s[k]) for k in sutunlar) + " |" for s in satirlar]
-    return "\n".join(satirlar_md) + "\n"
-
-
-def yaz(tablolar, klasor):
-    os.makedirs(klasor, exist_ok=True)
-    yazilan = []
-    for ad, (sutunlar, satirlar) in tablolar.items():
-        for uzanti, metin in (("csv", csv_metni(sutunlar, satirlar)), ("md", md_metni(ad, sutunlar, satirlar))):
-            yol = os.path.join(klasor, f"{ad}.{uzanti}")
-            with open(yol, "w", encoding="utf-8", newline="") as f:
-                f.write(metin)
-            yazilan.append(yol)
-    return yazilan
 
 
 # ---------------------------------------------------------------------------------------------------------------------------------
