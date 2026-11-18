@@ -30,8 +30,8 @@ Tek kaynak bu tablodur (`araclar/ilerleme.py` okur). Her kilometre taşının **
 | M1 | Tek araç iskeleti | Ömer Faruk GÜNER | 7950X | M0 |
 | M2 | Üç araç | Ömer Faruk GÜNER | 7950X | M1 |
 | M3 | Merkezi mod ve izleme | Ömer Faruk GÜNER | 7950X | M2 |
-| M4 | Veri hattı | Mikail DEĞER | 7500F | M1 |
-| M5 | Model | Mikail DEĞER | 7500F | M4 |
+| M4 | Veri hattı | Ömer Faruk GÜNER | 7950X | M1 |
+| M5 | Model | Ömer Faruk GÜNER | 7950X | M4 |
 | M6a | Değerlendirme ve analiz yazılımı | Miraç BOZACIOĞLU | 8945HX | M0 |
 | M6b | Bütünleşik koşu ve kabul testleri | Ömer Faruk GÜNER | 7950X | M3, M5, M6a |
 | M7 | Pilotlar ve kilit | Ömer Faruk GÜNER | 7950X | M6a, M6b |

@@ -86,7 +86,7 @@ Bekler: yok, başlayabilir
 </details>
 
 <details open>
-<summary>☐ <b>M4 - Veri hattı</b> [Mikail DEĞER, %0,0]</summary>
+<summary>☐ <b>M4 - Veri hattı</b> [Ömer Faruk GÜNER, %0,0]</summary>
 
 Bekler: yok, başlayabilir
 
@@ -100,7 +100,7 @@ Bekler: yok, başlayabilir
 </details>
 
 <details open>
-<summary>☐ <b>M5 - Model</b> [Mikail DEĞER, %0,0]</summary>
+<summary>☐ <b>M5 - Model</b> [Ömer Faruk GÜNER, %0,0]</summary>
 
 Bekler: M4
 
