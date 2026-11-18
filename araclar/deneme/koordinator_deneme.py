@@ -2,7 +2,7 @@
 """Deneme koordinatörü (YALNIZ test sürücüsü; asıl yer istasyonu görev koordinatörü `swarm_gcs.gorev_koordinatoru`'dur ve olağan akışı o yürütür; bu betik olumsuz senaryolar — erken/yanlış olaylar, gecikme/eksik sonuç —
 ve Gazebo model pozu kaydı gibi test ölçümleri için kullanılır; PX4'e dokunmaz; nihai hedef birleştirmeyi asıl koordinatörle AYNI modülle yapar). Araçların beklediği `Mission` iletilerini de yayımlar (aynı `gorev.py` mantığı; ortak görev kimliği = ScanStart kimliği).
 
-Kullanım:  python araclar/koordinator_deneme.py --arac N [--erken-scan-start] [--erken-complete] [--yanlis-complete] [--yanlis-bekle-sn S] [--zaman-asimi-sn S] [--sonuc-zaman-asimi-sn S]
+Kullanım:  python araclar/deneme/koordinator_deneme.py --arac N [--erken-scan-start] [--erken-complete] [--yanlis-complete] [--yanlis-bekle-sn S] [--zaman-asimi-sn S] [--sonuc-zaman-asimi-sn S]
   --arac N               beklenen araç sayısı (UAV_SYS_IDS'in ilk N değeri)
   --erken-scan-start     araçlar BARIYER_BEKLE'ye geçmeden ("ERKEN" kimlikli) bir tarama başlatma yayımlar: araçlar yok saymalı
   --erken-complete       tarama başlatmadan 5 sn sonra (araçlar TARAMA'dayken) doğru kimlikli bir COMPLETE yayımlar: araçlar yok saymalı
@@ -19,7 +19,7 @@ import sys
 import threading
 import time
 
-KOK = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+KOK = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 sys.path.insert(0, os.path.join(KOK, "src", "swarm_vehicle"))
 sys.path.insert(0, os.path.join(KOK, "src", "swarm_gcs"))
 

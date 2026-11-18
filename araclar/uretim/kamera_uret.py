@@ -14,7 +14,7 @@ import math
 import os
 import sys
 
-KOK = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+KOK = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 sys.path.insert(0, os.path.join(KOK, "src", "swarm_vehicle"))
 
 from swarm_vehicle.ucus import rota  # noqa: E402
@@ -49,7 +49,7 @@ def model_sdf(ham):
     z = float(ham["KAL_KAMERA_KONUM_Z_M"])
     yarim_pi = math.pi / 2
     return f"""<?xml version="1.0" encoding="UTF-8"?>
-<!-- Üretilmiştir (araclar/kamera_uret.py, config/deney.env değerlerinden); elle düzenlemeyin. PX4'ün x500 modeli + gövdeye sabit, aşağı bakan kamera. -->
+<!-- Üretilmiştir (araclar/uretim/kamera_uret.py, config/deney.env değerlerinden); elle düzenlemeyin. PX4'ün x500 modeli + gövdeye sabit, aşağı bakan kamera. -->
 <sdf version='1.9'>
   <model name='{ad}'>
     <self_collide>false</self_collide>
@@ -129,7 +129,7 @@ def ana(argv):
             if mevcut == metin:
                 print(f"(+) {ad} güncel (yapılandırmadan üretilenle bayt bayt aynı)")
                 return 0
-            print(f"(-) {ad} güncel değil (yeniden üretmek için: python3 araclar/kamera_uret.py kalibrasyon)")
+            print(f"(-) {ad} güncel değil (yeniden üretmek için: python3 araclar/uretim/kamera_uret.py kalibrasyon)")
             return 1
         with open(cikti, "w", encoding="utf-8") as f:
             f.write(metin)

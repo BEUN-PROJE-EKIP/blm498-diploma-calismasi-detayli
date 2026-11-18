@@ -111,18 +111,18 @@ weight_fetch() { # weight_fetch <pt_yolu> : yoksa indirir (YOLO_OFFLINE=1: anoni
     if [[ "$DRY_RUN" -eq 0 ]]; then weight_check "$f"; fi
 }
 
-onnx_fetch() { # onnx_fetch : CPU arka ucunun ONNX dosyası yoksa CPU .pt'den NMS'siz aktarır (araclar/yuk_olcum.py onnx-aktar; YOLO_OFFLINE=1)
+onnx_fetch() { # onnx_fetch : CPU arka ucunun ONNX dosyası yoksa CPU .pt'den NMS'siz aktarır (araclar/olcum/yuk_olcum.py onnx-aktar; YOLO_OFFLINE=1)
     local rel
     rel="$(rel_yol "$CPU_ONNX")"
     if [[ -f "$CPU_ONNX" ]]; then
         log_ok "ONNX zaten var: $rel"
     elif [[ "$DRY_RUN" -eq 1 ]]; then
-        log_info "[dry-run] YOLO_OFFLINE=1 $PY araclar/yuk_olcum.py onnx-aktar $(rel_yol "$CPU_PT")  (export(format='onnx', nms=False); çıktı $rel)"
+        log_info "[dry-run] YOLO_OFFLINE=1 $PY araclar/olcum/yuk_olcum.py onnx-aktar $(rel_yol "$CPU_PT")  (export(format='onnx', nms=False); çıktı $rel)"
         return 0
     else
         [[ -f "$CPU_PT" ]] || { log_fail "ONNX aktarımı için kaynak ağırlık yok: $(rel_yol "$CPU_PT")"; return 0; }
         # shellcheck disable=SC2016  # tek tırnak bilerek: $1.. alt kabukta açılır
-        run "ONNX aktarılıyor ($(basename "$CPU_PT") → $(basename "$CPU_ONNX"), nms=False)" bash -c 'set -a; source "$1"; set +a; cd "$2" && YOLO_OFFLINE=1 YOLO_AUTOINSTALL=False "$3" -W ignore araclar/yuk_olcum.py onnx-aktar "$4"' _ "$DENEY_DOSYASI" "$ROOT_DIR" "$PY" "$CPU_PT"
+        run "ONNX aktarılıyor ($(basename "$CPU_PT") → $(basename "$CPU_ONNX"), nms=False)" bash -c 'set -a; source "$1"; set +a; cd "$2" && YOLO_OFFLINE=1 YOLO_AUTOINSTALL=False "$3" -W ignore araclar/olcum/yuk_olcum.py onnx-aktar "$4"' _ "$DENEY_DOSYASI" "$ROOT_DIR" "$PY" "$CPU_PT"
     fi
     if [[ "$DRY_RUN" -eq 0 ]]; then onnx_check "$CPU_ONNX"; fi
 }

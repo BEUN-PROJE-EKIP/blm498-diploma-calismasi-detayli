@@ -40,7 +40,7 @@ DENEY_ENV="${DENEY_ENV:-$ROOT_DIR/config/deney.env}"
 HW_ENV="$ROOT_DIR/.generated/hardware.env"
 ENV_SH="$SETUP_DIR/env.sh"
 VENV_PY="$ROOT_DIR/.venv/bin/python"
-PY_TEST="$ROOT_DIR/araclar/yuk_olcum.py"
+PY_TEST="$ROOT_DIR/araclar/olcum/yuk_olcum.py"
 PX4_BUILD="$ROOT_DIR/third_party/PX4-Autopilot/build/px4_sitl_default"
 PX4_BIN="$PX4_BUILD/bin/px4"
 TMP_DIR=""
@@ -148,7 +148,7 @@ check_prereqs() {
     check_warn "venv: onnx (ONNX dışa aktarımı için)" "$VENV_PY" -c 'import onnx'
     check "CPU eşlemesi .generated/hardware.env'den çıkarıldı (işçi başına kardeş çift, diğerleri ayrı)" cpu_plan
     d="$(mktemp -d)"
-    check "Sahne üretimi (araclar/yuk_olcum.py dunya)" "$VENV_PY" -W ignore "$PY_TEST" dunya "$d/dunya.sdf"
+    check "Sahne üretimi (araclar/olcum/yuk_olcum.py dunya)" "$VENV_PY" -W ignore "$PY_TEST" dunya "$d/dunya.sdf"
     # `gz sdf -k` birleştirmeli (merge) include'ları çözemez (PX4'ün kendi x500_mono_cam_down modeli de bu denetimden geçmez); gerçek doğrulama
     # gz sim'in sahneyi yüklemesidir. Burada yalnız XML iyi biçimli mi bakılır.
     check "Üretilen SDF iyi biçimli XML" python3 -I -c 'import sys, xml.etree.ElementTree as E; E.parse(sys.argv[1])' "$d/dunya.sdf"

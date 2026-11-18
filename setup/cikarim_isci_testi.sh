@@ -6,7 +6,7 @@
 #   --verify      hafif önkoşul denetimi (araçlar, betikler, kurulu paketler); süreç başlatmaz
 # Testler:
 #   birim     birim testleri (durum makinesi, kamera alıcısı, çıkarım/kare sonucu; ROS'suz), colcon build, saf modüllerin ağır kitaplıksız içe aktarımı, rclpy denetimi, py_compile, shellcheck
-#   isci      simülasyonsuz işçi denemesi (araclar/cikarim_isci_deneme.py): GPU ve ONNX Runtime CPU arka uçları, üç sonuç türü, uçtan uca başlık kanıtı, kanal/CPU kanıtı, süreler, GPU belleği
+#   isci      simülasyonsuz işçi denemesi (araclar/deneme/cikarim_isci_deneme.py): GPU ve ONNX Runtime CPU arka uçları, üç sonuç türü, uçtan uca başlık kanıtı, kanal/CPU kanıtı, süreler, GPU belleği
 #   duzeltme  geriye dönük inceleme düzeltmeleri: yayım ölçüm betiği tam koşusu, deney.env anahtarları, runtime_smoke temel gövde (simülasyon yok)
 #   tek       --arac 1, enjeksiyon kapalı: her görev numarası için tam bir kare sonucu, damga birleşmesi, bariyer sırası, işçi CPU sabitlemesi, GZ_IP verilmeden gz soketleri, RTF
 #   hata      --arac 1, enjeksiyon AÇIK: bir kare kayıp, bir karede işçi hatası, bir kez işçi ölümü (yeniden başlatma); hiçbir numara sonuçsuz değil
@@ -40,10 +40,10 @@ trap 'exit 143' TERM
 KOSU="$ROOT_DIR/araclar/kosu.sh"
 HELPER="$ROOT_DIR/araclar/kosu_ustveri.py"
 DOGRULA="$ROOT_DIR/araclar/sozlesme_dogrula.py"
-KOORD="$ROOT_DIR/araclar/koordinator_deneme.py"
-ANALIZ="$ROOT_DIR/araclar/cikarim_analiz.py"
-CANLI="$ROOT_DIR/araclar/cikarim_canli_denetim.py"
-ISCI_DENEME="$ROOT_DIR/araclar/cikarim_isci_deneme.py"
+KOORD="$ROOT_DIR/araclar/deneme/koordinator_deneme.py"
+ANALIZ="$ROOT_DIR/araclar/analiz/cikarim_analiz.py"
+CANLI="$ROOT_DIR/araclar/deneme/cikarim_canli_denetim.py"
+ISCI_DENEME="$ROOT_DIR/araclar/deneme/cikarim_isci_deneme.py"
 BIRIM_TEST="$ROOT_DIR/src/swarm_vehicle/test/test_durum_makinesi.py"
 BIRIM_TEST2="$ROOT_DIR/src/swarm_vehicle/test/test_kamera_alici.py"
 BIRIM_TEST3="$ROOT_DIR/src/swarm_vehicle/test/test_cikarim.py"
@@ -106,7 +106,7 @@ check_prereqs() {
 
 print_plan() {
     log_info "[dry-run] birim: birim testleri (durum makinesi, kamera alıcısı, çıkarım ve kare sonucu), colcon build swarm_msgs swarm_vehicle, saf modüllerin ağır kitaplıksız içe aktarımı, rclpy denetimi, py_compile, shellcheck -x"
-    log_info "[dry-run] isci: araclar/cikarim_isci_deneme.py --cpu-yolu (simülasyonsuz; GPU + ONNX Runtime CPU işçisi, bus/zidane/gri/bozuk görüntü)"
+    log_info "[dry-run] isci: araclar/deneme/cikarim_isci_deneme.py --cpu-yolu (simülasyonsuz; GPU + ONNX Runtime CPU işçisi, bus/zidane/gri/bozuk görüntü)"
     log_info "[dry-run] duzeltme: yayim_olcum_testi.sh tam koşusu açık iletiyle durur, --verify/--dry-run çalışır; deney.env anahtarları; runtime_smoke.sh SIM_MODEL_TEMEL"
     log_info "[dry-run] tek: kosu.sh baslat --arac 1 → koordinatör + araç süreci 1 (GZ_IP verilmeden, enjeksiyon kapalı) + canlı denetim → analiz (tam sonuç kümesi, damga birleşmesi, bariyer sırası, CPU, soketler, RTF) → durdur"
     log_info "[dry-run] hata: araç süreci KAMERA_ENJEKSIYON='dusur=+20' ISCI_ENJEKSIYON='hata=+40;olum=+80' → kare alınamadı / işlem hatası / işçi ölümü + yeniden başlatma; hiçbir numara sonuçsuz değil"

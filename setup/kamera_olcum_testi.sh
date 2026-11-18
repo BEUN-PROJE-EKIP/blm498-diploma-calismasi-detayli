@@ -4,7 +4,7 @@
 #   (argümansız)  k9, yuk ve k10'u çalıştırır; adlar verilirse yalnız onlar (hedef yalnız adı verilirse çalışır).
 #   --dry-run     hiçbir süreç başlatmaz; ne çalıştıracağını yazar
 #   --verify      hafif önkoşul denetimi (ikililer, yapılandırma, sahne üretimi, SDF doğrulaması); süreç başlatmaz
-# Ölçümler (Python tarafı: araclar/kamera_olcum.py; sahne config/deney.env CAM_* değerlerinden üretilir, depoya yeni SDF girmez):
+# Ölçümler (Python tarafı: araclar/olcum/kamera_olcum.py; sahne config/deney.env CAM_* değerlerinden üretilir, depoya yeni SDF girmez):
 #   k9    tek sabit kamera (30 m, aşağı bakan), CAM_K9_SIM_SN sim saniyesi (≥ 600 kare); iki kez, her seferinde farklı GZ_PARTITION
 #   yuk   (1) tek kamera + PX4 SITL (x500) açıkken, (2) üç kamera, CAM_YUK_SIM_SN sim saniyesi (≥ 120 sn); damga katı/sıra bozuluyor mu
 #   k10   yerdeki bilinen boyutlu hedeflerin piksel boyutundan yatay görüş açısı; SDF horizontal_fov ile karşılaştırma
@@ -39,7 +39,7 @@ trap 'exit 143' TERM
 DENEY_ENV="${DENEY_ENV:-$ROOT_DIR/config/deney.env}"
 ENV_SH="$SETUP_DIR/env.sh"
 VENV_PY="$ROOT_DIR/.venv/bin/python"
-PY_TEST="$ROOT_DIR/araclar/kamera_olcum.py"
+PY_TEST="$ROOT_DIR/araclar/olcum/kamera_olcum.py"
 PX4_BUILD="$ROOT_DIR/third_party/PX4-Autopilot/build/px4_sitl_default"
 PX4_BIN="$PX4_BUILD/bin/px4"
 TMP_DIR=""
@@ -116,7 +116,7 @@ check_prereqs() {
     check "Python ölçüm kodu" test -f "$PY_TEST"
     check "gz.transport13, gz.msgs10, numpy, PIL (venv)" "$VENV_PY" -c 'from gz.transport13 import Node; from gz.msgs10.image_pb2 import Image; import numpy, PIL'
     d="$(mktemp -d)"
-    check "Sahne üretimi (araclar/kamera_olcum.py dunya)" "$VENV_PY" -W ignore "$PY_TEST" dunya "$d/dunya.sdf" 3
+    check "Sahne üretimi (araclar/olcum/kamera_olcum.py dunya)" "$VENV_PY" -W ignore "$PY_TEST" dunya "$d/dunya.sdf" 3
     check "Üretilen SDF geçerli (gz sdf -k)" gz sdf -k "$d/dunya.sdf"
     rm -rf "$d"
 }

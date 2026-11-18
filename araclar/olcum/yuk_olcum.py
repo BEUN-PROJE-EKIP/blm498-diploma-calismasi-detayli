@@ -49,7 +49,7 @@ def yuzde(v, p):
 def sdf_uret(cikti):
     c = cfg()
     p = ['<?xml version="1.0" encoding="UTF-8"?>',
-         '<!-- Otomatik üretildi (araclar/yuk_olcum.py dunya); değerler config/deney.env içindeki ayarlardan gelir. -->',
+         '<!-- Otomatik üretildi (araclar/olcum/yuk_olcum.py dunya); değerler config/deney.env içindeki ayarlardan gelir. -->',
          '<sdf version="1.9">', f'  <world name="{c["dunya"]}">']
     p.append('''    <physics type="ode"><max_step_size>0.004</max_step_size><real_time_factor>1.0</real_time_factor><real_time_update_rate>250</real_time_update_rate></physics>
     <gravity>0 0 -9.8</gravity>

@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Ölçülen sürü ağının (lo üzerindeki htb 1:10 + bfifo yaprağı) tc sayaçlarını periyodik OKUR (YALNIZ okuma: `tc -s class show` ve `tc -s -j qdisc show`; sudo gerekmez, hiçbir ayar değişmez).
 
-Kullanım:  python araclar/tc_izle.py --cikti <jsonl> [--aralik-sn 1] [--dev lo]      (SIGTERM/SIGINT ile durur)
+Kullanım:  python araclar/olcum/tc_izle.py --cikti <jsonl> [--aralik-sn 1] [--dev lo]      (SIGTERM/SIGINT ile durur)
 Her örnekte bir JSON satırı: {"mono_ns", "sinif": {bayt, paket, dusen, overlimits, backlog_bayt, backlog_paket}, "yaprak": {aynı alanlar; bfifo yaprağı: gerçek kuyruk}, "kok_overlimits"}.
 Sayaçlar kümülatiftir; analiz farkları alır. Kullanım oranı = Δbayt·8 / Δt (örnekler arası)."""
 import json

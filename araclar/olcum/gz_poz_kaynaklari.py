@@ -3,7 +3,7 @@
 (Pose_V ya da Pose) aynı koşuda dinler; her ileti için ileti başlığı damgasını (simülasyon zamanı), alım anını (CLOCK_MONOTONIC) ve aracın model/gövde pozunu yazar.
 Amaç: gerçek poz kaynağının damgasının ve değerlerinin kaynaklar arasında aynı an için tutarlı olup olmadığını ölçmek (odometri zaman kayması incelemesi).
 
-Kullanım:  python araclar/gz_poz_kaynaklari.py --arac N
+Kullanım:  python araclar/olcum/gz_poz_kaynaklari.py --arac N
 Çıktı (koşu klasörü): `gz_poz_kaynaklari.jsonl` (serbest biçimli test çıktısı, şema değildir):
   {"k":"poz","konu":<konu adı>,"damga_ns","mono_ns","ad":<varlık adı>,"p":[x,y,z],"q":[w,x,y,z]}   yalnız model (`<SIM_MODEL öneksiz>_<örnek>`) ve `base_link` varlıkları
   {"k":"konular","liste":[[konu, ileti türü], ...]}                                                başlangıçta bulunan poz konuları
@@ -16,7 +16,7 @@ import sys
 import threading
 import time
 
-KOK = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+KOK = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 sys.path.insert(0, os.path.join(KOK, "src", "swarm_vehicle"))
 
 from swarm_vehicle.ucus import rota  # noqa: E402

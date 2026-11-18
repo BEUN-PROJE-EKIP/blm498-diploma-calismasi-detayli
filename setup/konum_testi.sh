@@ -6,7 +6,7 @@
 #   --verify      hafif önkoşul denetimi (araçlar, betikler, kurulu paketler); süreç başlatmaz
 # Testler:
 #   birim     konum hesaplayıcı ve bağlama birim testleri (ROS'suz); colcon build; rclpy/mavsdk/gz'siz içe aktarma; tek komut yolu ve süreç izi taraması; sözleşme örnekleri
-#   isaret    tek araç, uçta mod, tam koşu: Gazebo'ya bilinen ENU konumlarına test işaretleri eklenir (araclar/konum_isaret.py), kamera karelerinde renk eşiğiyle bulunur ve hesaplayıcıdan geçirilir:
+#   isaret    tek araç, uçta mod, tam koşu: Gazebo'ya bilinen ENU konumlarına test işaretleri eklenir (araclar/deneme/konum_isaret.py), kamera karelerinde renk eşiğiyle bulunur ve hesaplayıcıdan geçirilir:
 #             her ölçüm < 5 m (PX4 pozu ve Gazebo gerçek pozu ile ayrı)
 #   rota      aynı koşu: her görev karesinde görüntüde sabit piksellerin gerçek pozla izdüşümü ile PX4 pozuyla hesabı (evreye göre), zemin ölçümü
 #   kayma     aynı koşu: odometri zaman kayması incelemesi (Gazebo poz kaynakları, PX4 kaynak kodu satırları, evre bazında çapraz ilişki, hız–kayma ilişkisi, konum hatasına etkisi). Düzeltme YOK.
@@ -42,11 +42,11 @@ trap 'exit 143' TERM
 KOSU="$ROOT_DIR/araclar/kosu.sh"
 HELPER="$ROOT_DIR/araclar/kosu_ustveri.py"
 DOGRULA="$ROOT_DIR/araclar/sozlesme_dogrula.py"
-ANALIZ="$ROOT_DIR/araclar/konum_analiz.py"
-POZ_ANALIZ="$ROOT_DIR/araclar/poz_analiz.py"
-KAYIT="$ROOT_DIR/araclar/poz_gercek_kayit.py"
-KAYNAKLAR="$ROOT_DIR/araclar/gz_poz_kaynaklari.py"
-ISARET="$ROOT_DIR/araclar/konum_isaret.py"
+ANALIZ="$ROOT_DIR/araclar/analiz/konum_analiz.py"
+POZ_ANALIZ="$ROOT_DIR/araclar/analiz/poz_analiz.py"
+KAYIT="$ROOT_DIR/araclar/olcum/poz_gercek_kayit.py"
+KAYNAKLAR="$ROOT_DIR/araclar/olcum/gz_poz_kaynaklari.py"
+ISARET="$ROOT_DIR/araclar/deneme/konum_isaret.py"
 BIRIM_TEST="$ROOT_DIR/src/swarm_vehicle/test/test_konum_hesap.py"
 PKG_DIR="$ROOT_DIR/src/swarm_vehicle"
 VENV_PY="$ROOT_DIR/.venv/bin/python"
@@ -286,7 +286,7 @@ test_birim() {
     if [[ -z "$out" ]]; then log_ok "birim: src/ altında px4_adapter.py dışında PX4'e yazan çağrı yok"; else log_fail "birim: dış çağrı: $out"; fi
     out="$(grep -cE '^[[:space:]]*self\.komut_sayaci \+= 1' "$PKG_DIR/swarm_vehicle/ucus/px4_adapter.py" || true)"
     if [[ "$out" == "1" ]]; then log_ok "birim: komut sayacını artıran tek yer _yaz (px4_adapter.py)"; else log_fail "birim: komut_sayaci artışı $out yerde"; fi
-    out="$(git -C "$ROOT_DIR" grep --untracked -niE 'param\.set|set_param|set_rate_|set_message_interval|EKF2_GPS_DELAY' -- src araclar/konum_isaret.py araclar/gz_poz_kaynaklari.py || true)"
+    out="$(git -C "$ROOT_DIR" grep --untracked -niE 'param\.set|set_param|set_rate_|set_message_interval|EKF2_GPS_DELAY' -- src araclar/deneme/konum_isaret.py araclar/olcum/gz_poz_kaynaklari.py || true)"
     if [[ -z "$out" ]]; then log_ok "birim: src/ ve yeni test araçlarında PX4 parametre/hız yazımı ya da EKF2_GPS_DELAY kullanımı yok (kayma incelemesi salt okunur)"; else log_fail "birim: parametre/hız: $out"; fi
     out="$(iz_tara)"
     if [[ -z "$out" ]]; then log_ok "birim: çalışma ağacı farkında, yeni dosyalarda ve son commit'te süreç izi yok"; else log_fail "birim: süreç izi: $(head -n 3 <<< "$out" | tr '\n' ';')"; fi

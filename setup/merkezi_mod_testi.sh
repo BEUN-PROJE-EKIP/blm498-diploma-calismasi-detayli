@@ -46,8 +46,8 @@ trap 'exit 143' TERM
 KOSU="$ROOT_DIR/araclar/kosu.sh"
 HELPER="$ROOT_DIR/araclar/kosu_ustveri.py"
 DOGRULA="$ROOT_DIR/araclar/sozlesme_dogrula.py"
-ANALIZ="$ROOT_DIR/araclar/merkezi_analiz.py"
-UC_ANALIZ="$ROOT_DIR/araclar/uc_mod_analiz.py"
+ANALIZ="$ROOT_DIR/araclar/analiz/merkezi_analiz.py"
+UC_ANALIZ="$ROOT_DIR/araclar/analiz/uc_mod_analiz.py"
 BIRIM_TESTLER=("$ROOT_DIR/src/swarm_vehicle/test/test_goruntu_ileti.py" "$ROOT_DIR/src/swarm_gcs/test/test_merkezi_alici.py" "$ROOT_DIR/src/swarm_gcs/test/test_gorev_mantik.py" "$ROOT_DIR/src/swarm_vehicle/test/test_port_denetimi.py" "$ROOT_DIR/src/swarm_vehicle/test/test_arac_kapanis.py" "$ROOT_DIR/src/swarm_gcs/test/test_sonuc_defteri.py" "$ROOT_DIR/src/swarm_vehicle/test/test_poz_tamponu.py" "$ROOT_DIR/src/swarm_vehicle/test/test_disk_kuyrugu.py" "$ROOT_DIR/src/swarm_vehicle/test/test_kamera_alici.py" "$ROOT_DIR/src/swarm_vehicle/test/test_kare_asamalari.py")
 PKG_DIR="$ROOT_DIR/src/swarm_vehicle"
 GCS_DIR="$ROOT_DIR/src/swarm_gcs"

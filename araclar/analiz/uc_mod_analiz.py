@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Uçta mod (kare sonuçlarının yer istasyonuna gönderimi, B11) koşusunun çözümlemesi (test yardımcısı).
 
-Kullanım:  python araclar/uc_mod_analiz.py <koşu_klasörü> --arac N [--hata] [--gecikme-sn S] [--hic] [--tc-once BAYT --tc-sonra BAYT]
+Kullanım:  python araclar/analiz/uc_mod_analiz.py <koşu_klasörü> --arac N [--hata] [--gecikme-sn S] [--hic] [--tc-once BAYT --tc-sonra BAYT]
   --hata         hata senaryosu: araç 1'de `KAMERA_ENJEKSIYON=dusur=+20` (kare alınamadı) ve `ISCI_ENJEKSIYON=hata=+40` (işlem hatası) beklenir
   --gecikme-sn S araç 1'in sondan üçüncü görev karesinin (n_ilk+379) sonucu yayımda S sn geciktirildi (`KARE_SONUC_ENJEKSIYON=gecik=+379:S`): t1 − son tarama bitişi ≥ S − 3 beklenir
   --hic          bir sonuç hiç gelmez (çok büyük gecikme): COMPLETE yayımlanmamış (t1 kaydı yok), `sonuclar_eksik` kaydı var, eksik tam bir numara
@@ -14,7 +14,8 @@ import os
 import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-KOK = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))   # araclar kökü (sozlesme_dogrula, koordinator_kayit)
+KOK = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 NS = 10 ** 9
 KALDI = 0
 SONUC_DURUMU = {"tespit": "sonuc", "tespit_yok": "tespit_yok", "islem_hatasi": "islem_hatasi", "kare_alinamadi": "kare_alinamadi"}
@@ -92,6 +93,7 @@ def ana(argv):
     ham = rota.deney_env_oku()
     kimlikler = [int(x) for x in ham["UAV_SYS_IDS"].split()][:n_arac]
     sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+    sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))   # araclar kökü (sozlesme_dogrula, koordinator_kayit)
     from koordinator_kayit import koordinator_olaylari
     koord = koordinator_olaylari(klasor)      # deneme koordinatörünün ya da asıl yer istasyonu koordinatörünün kaydı (aynı olay sözlüğü biçimi)
     ol = lambda ad: [x for x in koord if x["olay"] == ad]  # noqa: E731

@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Konum hesaplayıcı koşu analizi (YALNIZ okuma): işaretle geometri denetimi, tam rota izdüşüm tablosu, iki modda aynı sonuç ve odometri zaman kayması incelemesi.
 
-Kullanım:  python3 -I araclar/konum_analiz.py <mod> <koşu_klasörü> --arac N [--kayma-ms X] [--sahte-bekleniyor]
+Kullanım:  python3 -I araclar/analiz/konum_analiz.py <mod> <koşu_klasörü> --arac N [--kayma-ms X] [--sahte-bekleniyor]
 Modlar:
   isaret   konum_isaret.py'nin eklediği bilinen ENU işaretleri: işaret başına yatay hata (PX4 enterpolasyonlu `kare_poz` ile ve Gazebo gerçek pozuyla); Bitti ölçütü: her ölçüm < 5 m, en az 20 görünüm
   rota     her görev karesi için görüntüde sabit piksellerin (merkez + dört köşeye yakın) Gazebo gerçek pozuyla izdüşümü ile PX4 pozuyla hesabı: evreye göre yatay hata (eşik yok; 5 m aşılırsa `kaldi`);
@@ -18,7 +18,7 @@ import os
 import re
 import sys
 
-KOK = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+KOK = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 sys.path.insert(0, os.path.join(KOK, "src", "swarm_vehicle"))
 sys.path.insert(0, os.path.join(KOK, "src", "swarm_gcs"))
 

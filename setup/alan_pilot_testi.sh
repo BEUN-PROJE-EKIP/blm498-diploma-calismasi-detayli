@@ -3,9 +3,9 @@
 # + ROS 2 araç süreçleri + asıl yer istasyonu koordinatörü, hepsi araclar/kosu.sh ile + salt okuma gözlemci).
 # Kullanım: ./alan_pilot_testi.sh [--dry-run | --verify | -h]
 #   (argümansız)  tek ölçüm koşusu: kosu.sh baslat --arac 3 --yer-istasyonu var → asıl koordinatör + üç araç süreci (çıkarım işçisi açık, enjeksiyon kapalı) + gözlemci
-#                 (araclar/alan_pilot_olcum.py: Gazebo model pozları ve PX4 yönelim/konum/hız telemetrisi, salt okuma) → araclar/alan_pilot_analiz.py
+#                 (araclar/olcum/alan_pilot_olcum.py: Gazebo model pozları ve PX4 yönelim/konum/hız telemetrisi, salt okuma) → araclar/analiz/alan_pilot_analiz.py
 #                 → kosu.sh bekle → kosu.sh durdur. Çözümleme tabloları koşu klasöründe `alan_pilot_ozet.md` dosyasına da yazılır; ayrıca aday alan tablosu
-#                 (araclar/alan_aday_tablo.py, simülasyonsuz) yazdırılır.
+#                 (araclar/analiz/alan_aday_tablo.py, simülasyonsuz) yazdırılır.
 #   --dry-run     hiçbir süreç başlatmaz, hiçbir şey yazmaz; ne çalıştıracağını yazar
 #   --verify      hafif önkoşul denetimi (araçlar, betikler, numpy); süreç başlatmaz
 # Bu bir ölçümdür, sınama değil: yönelim ve kapsama sayıları eşiğe bağlanmaz; geçti/kaldı yalnız kare sonucu bütünlüğü, görev sınırı ve süreç artığı için verilir.
@@ -26,10 +26,10 @@ trap 'exit 143' TERM
 
 KOSU="$ROOT_DIR/araclar/kosu.sh"
 HELPER="$ROOT_DIR/araclar/kosu_ustveri.py"
-KOORD="$ROOT_DIR/araclar/koordinator_deneme.py"
-OLCUM="$ROOT_DIR/araclar/alan_pilot_olcum.py"
-ANALIZ="$ROOT_DIR/araclar/alan_pilot_analiz.py"
-ADAY="$ROOT_DIR/araclar/alan_aday_tablo.py"
+KOORD="$ROOT_DIR/araclar/deneme/koordinator_deneme.py"
+OLCUM="$ROOT_DIR/araclar/olcum/alan_pilot_olcum.py"
+ANALIZ="$ROOT_DIR/araclar/analiz/alan_pilot_analiz.py"
+ADAY="$ROOT_DIR/araclar/analiz/alan_aday_tablo.py"
 VENV_PY="$ROOT_DIR/.venv/bin/python"
 ENV_SH="$SETUP_DIR/env.sh"
 DENEY_ENV="${DENEY_ENV:-$ROOT_DIR/config/deney.env}"
@@ -85,8 +85,8 @@ check_prereqs() {
 
 print_plan() {
     log_info "[dry-run] kosu.sh baslat --arac $N_ARAC --yer-istasyonu var (asıl yer istasyonu koordinatörü + üç araç süreci: SWARM_BIND_ADDR=$UAV1_ADDR $UAV2_ADDR $UAV3_ADDR)"
-    log_info "[dry-run] gRPC portları ($MAVSDK_GRPC_PORTS) dinlemeye geçince gözlemci: python araclar/alan_pilot_olcum.py --arac $N_ARAC (Gazebo model pozları + PX4 telemetri, salt okuma)"
-    log_info "[dry-run] kosu.sh bekle (koordinatör ve araçlar biter); gözlemci SIGTERM ile kapatılır; araclar/alan_pilot_analiz.py <koşu> --arac $N_ARAC; kosu.sh durdur; araclar/alan_aday_tablo.py"
+    log_info "[dry-run] gRPC portları ($MAVSDK_GRPC_PORTS) dinlemeye geçince gözlemci: python araclar/olcum/alan_pilot_olcum.py --arac $N_ARAC (Gazebo model pozları + PX4 telemetri, salt okuma)"
+    log_info "[dry-run] kosu.sh bekle (koordinatör ve araçlar biter); gözlemci SIGTERM ile kapatılır; araclar/analiz/alan_pilot_analiz.py <koşu> --arac $N_ARAC; kosu.sh durdur; araclar/analiz/alan_aday_tablo.py"
     log_info "[dry-run] Her koşu sonunda araç süreci/koordinatör/gözlemci/px4/gz/mavsdk_server artığı, yeni dinleyen port, /dev/shm; sonda ros2 daemon, tc/ip denetimi. Hiçbir süreç başlatılmadı"
 }
 

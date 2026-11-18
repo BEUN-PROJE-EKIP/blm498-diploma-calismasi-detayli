@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Araç süreci koşusunun çözümlemesi (test yardımcısı): koordinatör kaydı, araç günlükleri, bağdaştırıcı günlükleri ve durum kayıt dosyaları.
 
-Kullanım:  python araclar/arac_sureci_analiz.py <koşu_klasörü> --arac N [--erken-scan-start] [--erken-complete] [--yanlis-complete]
+Kullanım:  python araclar/analiz/arac_sureci_analiz.py <koşu_klasörü> --arac N [--erken-scan-start] [--erken-complete] [--yanlis-complete]
 Her sonuç "SONUC <gecti|kaldi> <ad> | <ayrıntı>" satırıdır; kaldı varsa çıkış 1. Yalnız standart kitaplık.
 """
 import json
@@ -9,7 +9,7 @@ import math
 import os
 import sys
 
-KOK = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+KOK = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 KALDI = 0
 NS = 10 ** 9
 DIZI = ["HAZIR", "BARIYER_BEKLE", "TARAMA", "WAIT", "TAMAMLANDI"]

@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """Alan pilotu koşusunun çözümlemesi (ölçüm yardımcısı): süre/uzunluk/RTF, yönelim (yaw, uçuş yönü), kapsama, bölge taşması, kare sonucu bütünlüğü.
 
-Kullanım:  python araclar/alan_pilot_analiz.py <koşu_klasörü> --arac N [--cikti <md_yolu>]
+Kullanım:  python araclar/analiz/alan_pilot_analiz.py <koşu_klasörü> --arac N [--cikti <md_yolu>]
 Girdi: koşu klasöründeki araç günlükleri, kayit/*.jsonl (kare_sonuc, kamera_alici, gazebo_damga), koordinator kaydı (koordinator_deneme.jsonl ya da asıl koordinatörün yer_istasyonu_gorev.jsonl), alan_pilot_olcum.jsonl
-(gözlemci: Gazebo model pozları + PX4 yönelim/konum/hız; araclar/alan_pilot_olcum.py), config/bolge_rota.json, config/kamera_kalibrasyon.json.
+(gözlemci: Gazebo model pozları + PX4 yönelim/konum/hız; araclar/olcum/alan_pilot_olcum.py), config/bolge_rota.json, config/kamera_kalibrasyon.json.
 Çıktı: önce "SONUC <gecti|kaldi> <ad> | <ayrıntı>" satırları (M1 kapısı denetimleri; kaldı varsa çıkış 1), sonra ölçüm tabloları (Markdown). Ayrıca koşu klasörüne
 `analiz/kare_yonelim_<araç>.csv` (her görev karesi için Gazebo/PX4 yönelimi) yazılır. Eşik konmaz: yönelim ve kapsama sayıları RAPORLANIR, geçti/kaldı ölçütü değildir.
 Kurallar: numpy gerekir (venv). Gazebo pozu = gerçek değer (dünya çerçevesi ENU, gövde FLU); PX4 yönelimi FRD→NED kuaterniyonundan ENU/FLU'ya çevrilir.
@@ -18,8 +18,9 @@ import sys
 
 import numpy as np
 
-KOK = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+KOK = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))   # araclar kökü (sozlesme_dogrula, koordinator_kayit)
 sys.path.insert(0, os.path.join(KOK, "src", "swarm_vehicle"))
 
 import arac_sureci_analiz as asa  # noqa: E402

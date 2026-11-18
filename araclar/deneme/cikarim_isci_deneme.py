@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Çıkarım işçisinin tek başına denemesi (simülasyonsuz; YALNIZ test): gerçek bir alt süreç işçisini GPU ve ONNX Runtime CPU arka uçlarıyla sınar.
 
-Kullanım:  python araclar/cikarim_isci_deneme.py [--tekrar 60] [--cpu-yolu]
+Kullanım:  python araclar/deneme/cikarim_isci_deneme.py [--tekrar 60] [--cpu-yolu]
 Görüntüler: `ultralytics` paketinin assets/bus.jpg ve zidane.jpg dosyaları 640×480'e uyarlanmış RGB8; düz gri görüntü; bozuk boyutlu görüntü.
 Denetimler (her biri "SONUC <gecti|kaldi> <ad> | <ayrıntı>"; kaldı varsa çıkış 1):
   - GPU arka ucu: person tespitleri → kare sonucu `tespit` (insan); düz gri → `tespit_yok`; bozuk boyut → `islem_hatasi` ("tespit yok" değil)
@@ -20,7 +20,7 @@ import sys
 import tempfile
 import time
 
-KOK = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+KOK = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 PKG = os.path.join(KOK, "src", "swarm_vehicle")
 sys.path.insert(0, PKG)
 os.environ["PYTHONPATH"] = PKG + os.pathsep + os.environ.get("PYTHONPATH", "")

@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """Doygun hatta DDS canlılığı denemesinin (M2 2.4; risk U21/U14) çözümlemesi (ölçüm yardımcısı).
 
-Kullanım:  python araclar/dds_doygunluk_analiz.py --s0 <koşu> --s1 <koşu> --s2 <koşu> [--boyutlar <json>] [--cikti <md>]
-Her senaryo klasörü: `kosu.json`, `kayit/yer_istasyonu_{gorev,durum,durum_ham,kare}.jsonl`, `arac_<k>.log`, `kayit/kare_sonuc_<k>.jsonl`, `kayit/gazebo_damga.jsonl`, `tc_ornek.jsonl` (araclar/tc_izle.py) ve
-(S1/S2) `sentetik_yuk.jsonl` (araclar/sentetik_yuk.py). Çıktı: önce "SONUC <gecti|kaldi> ..." (YALNIZ deneyin önkoşulları: S1/S2'de hattın gerçekten doygun olması), sonra yan yana Markdown ölçüm tabloları.
+Kullanım:  python araclar/analiz/dds_doygunluk_analiz.py --s0 <koşu> --s1 <koşu> --s2 <koşu> [--boyutlar <json>] [--cikti <md>]
+Her senaryo klasörü: `kosu.json`, `kayit/yer_istasyonu_{gorev,durum,durum_ham,kare}.jsonl`, `arac_<k>.log`, `kayit/kare_sonuc_<k>.jsonl`, `kayit/gazebo_damga.jsonl`, `tc_ornek.jsonl` (araclar/olcum/tc_izle.py) ve
+(S1/S2) `sentetik_yuk.jsonl` (araclar/deneme/sentetik_yuk.py). Çıktı: önce "SONUC <gecti|kaldi> ..." (YALNIZ deneyin önkoşulları: S1/S2'de hattın gerçekten doygun olması), sonra yan yana Markdown ölçüm tabloları.
 Ölçüm "sorun var" gösterirse bu test hatası DEĞİLDİR: sayılar olduğu gibi yazılır, yorum/öneri yok. Yalnız standart kitaplık; çıkış 0 (önkoşullar sağlandı), 1 (kaldı), 2 (kullanım).
 Yöntemler: durum gecikmesi = yer istasyonunun alım anındaki simülasyon saati − iletideki `sim_stamp` (aracın yayımladığı andaki sim saati; RTF≈1 ve aynı makine; çözünürlük gz saat konusunun yayım aralığıdır).
 Kontrol iletisi gecikmeleri aynı makinedeki CLOCK_MONOTONIC günlük anlarıyla: ScanStart (yer istasyonu t0 → aracın `tarama_baslat_alindi`), COMPLETE (t1 → `complete_alindi`), ScanFinished (aracın `tarama_bitis_yayimlandi` →
@@ -13,8 +13,9 @@ import math
 import os
 import sys
 
-KOK = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+KOK = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))   # araclar kökü (sozlesme_dogrula, koordinator_kayit)
 import arac_sureci_analiz as asa  # noqa: E402
 
 NS = 10 ** 9

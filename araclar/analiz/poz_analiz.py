@@ -2,8 +2,8 @@
 """Poz tamponu koşu analizi (YALNIZ okuma): telemetri hızı, kare–poz kayıtlarının tamlığı ve tutarlılığı, enterpolasyonlu PX4 pozunun Gazebo gerçek pozuyla karşılaştırması,
 PX4 zamanı − sim saati farkı, hata enjeksiyonu (isteğe bağlı).
 
-Kullanım:  python3 -I araclar/poz_analiz.py <koşu_klasörü> --arac N [--enjeksiyon]
-Girdi (koşu klasörü): kayit/telemetri_<kimlik>.jsonl, kayit/kare_poz_<kimlik>.jsonl, kayit/kare_sonuc_<kimlik>.jsonl, gz_gercek_poz.jsonl (araclar/poz_gercek_kayit.py), arac_<kimlik>.log.
+Kullanım:  python3 -I araclar/analiz/poz_analiz.py <koşu_klasörü> --arac N [--enjeksiyon]
+Girdi (koşu klasörü): kayit/telemetri_<kimlik>.jsonl, kayit/kare_poz_<kimlik>.jsonl, kayit/kare_sonuc_<kimlik>.jsonl, gz_gercek_poz.jsonl (araclar/olcum/poz_gercek_kayit.py), arac_<kimlik>.log.
 Çıktı: `SONUC gecti|kaldi <ad> | <ayrıntı>` (test betiği bunları (+)/(-) yapar), `TABLO ...` ve `BILGI ...` satırları. Genel olarak eşik koymaz, sayıları raporlar; yalnız şu sınır denetimleri `kaldi` üretir:
 yatay hata ortancası > 2 m, |PX4 − sim zaman farkı| > 10 ms, telemetri hızı (ortanca ≤ 50 ms ve p95 < POZ_ARALIK_SINIR_MS). Yalnız standart kitaplık.
 Çıkış: 0 (SONUC kaldi olsa da analiz tamamlandıysa; karar betiktedir), 2 kullanım/girdi hatası.
@@ -15,7 +15,7 @@ import os
 import re
 import sys
 
-KOK = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+KOK = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 _SATIR = re.compile(r'^([A-Z0-9_]+)=(?:"([^"]*)"|(\S*))\s*(?:#.*)?$')
 NS = 10 ** 9
 

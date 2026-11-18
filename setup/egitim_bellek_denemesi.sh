@@ -29,8 +29,8 @@ trap 'exit 143' TERM
 
 DENEY_ENV="${DENEY_ENV:-$ROOT_DIR/config/deney.env}"
 VENV_PY="$ROOT_DIR/.venv/bin/python"
-PY_VERI="$ROOT_DIR/araclar/egitim_deneme_veri.py"
-PY_TRAIN="$ROOT_DIR/araclar/egitim_bellek_denemesi.py"
+PY_VERI="$ROOT_DIR/araclar/egitim/egitim_deneme_veri.py"
+PY_TRAIN="$ROOT_DIR/araclar/egitim/egitim_bellek_denemesi.py"
 HW_ENV="$ROOT_DIR/.generated/hardware.env"
 WORK_DIR="$ROOT_DIR/.generated/egitim_deneme"
 OUT_DIR=""

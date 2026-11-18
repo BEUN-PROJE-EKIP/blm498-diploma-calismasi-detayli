@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Kamera alıcısı koşusunun çözümlemesi (test yardımcısı): damga kaydı, alıcı kayıtları, araç günlükleri, koordinatör ve görüş denemesi.
 
-Kullanım:  python araclar/kamera_alici_analiz.py <koşu_klasörü> --arac N [--enjeksiyon] [--gorus]
+Kullanım:  python araclar/analiz/kamera_alici_analiz.py <koşu_klasörü> --arac N [--enjeksiyon] [--gorus]
   --enjeksiyon  hata enjeksiyonlu koşu (dusur=+20,+60,+61,son;gecik=+100): beklenen kayıp/geç gelme kümeleri denetlenir; yoksa kayıpsız koşu beklenir
   --gorus       gorus_deneme.jsonl (aşağı bakış ve eksen yönelimi) denetlenir
 Her sonuç "SONUC <gecti|kaldi> <ad> | <ayrıntı>" satırıdır; kaldı varsa çıkış 1. Yalnız standart kitaplık.
@@ -11,7 +11,7 @@ import math
 import os
 import sys
 
-KOK = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+KOK = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 KALDI = 0
 NS = 10 ** 9
 

@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Yer istasyonu görev koordinatörü koşusunun çözümlemesi (test yardımcısı).
 
-Kullanım:  python araclar/yer_istasyonu_analiz.py <koşu_klasörü> --arac N [--komut ARAC --komut-oncesi SAYI] [--mission-hata ARAC] [--bayat ARAC]
+Kullanım:  python araclar/analiz/yer_istasyonu_analiz.py <koşu_klasörü> --arac N [--komut ARAC --komut-oncesi SAYI] [--mission-hata ARAC] [--bayat ARAC]
   (bayraksız)    olağan akış: Mission ulaştı ve yerel dosyayla eşit; t0 → tarama bitişleri → son sonuç → t1 → TAMAMLANDI sırası; ortak başlangıç/bitiş; T (monotonik ve sim) ve RTF; izleme geçişleri; bayat uyarı yok;
                  her araçta tam kare sonucu kümesi, araç ↔ yer istasyonu birebir, L
   --komut ARAC   komut iskeleti: koşu akışına ek olarak ARAC'a iki komut (sıra 1 ve tekrar 1) gönderildi → ACK_REJECTED ×2 (komut türü tanımsız, tekrar sıra), diğer araçlar tepkisiz, PX4 yazma (komut) olayı yeni yok
@@ -14,8 +14,9 @@ import math
 import os
 import sys
 
-KOK = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+KOK = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))   # araclar kökü (sozlesme_dogrula, koordinator_kayit)
 import arac_sureci_analiz as asa  # noqa: E402
 
 NS = 10 ** 9

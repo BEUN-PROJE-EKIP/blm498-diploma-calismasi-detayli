@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
 """ROS 2 ileti türlerinin serileştirilmiş (CDR) boyutlarını yazar (DDS uygulama yükünü TAHMİN etmek için; ölçüm değil): `swarm_msgs` FrameResult (boş tespit listesi), VehicleState, ScanFinished, ScanStart, Complete, Mission (rota
-noktalarıyla). Çıktı: JSON (stdout). Ortam: setup/env.sh (ROS + install). Kullanım: python araclar/ileti_boyutlari.py"""
+noktalarıyla). Çıktı: JSON (stdout). Ortam: setup/env.sh (ROS + install). Kullanım: python araclar/olcum/ileti_boyutlari.py"""
 import json
 import os
 import sys
 
-KOK = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+KOK = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 sys.path.insert(0, os.path.join(KOK, "src", "swarm_vehicle"))
 
 

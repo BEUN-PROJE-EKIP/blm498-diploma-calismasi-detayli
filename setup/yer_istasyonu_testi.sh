@@ -40,7 +40,7 @@ trap 'exit 143' TERM
 KOSU="$ROOT_DIR/araclar/kosu.sh"
 HELPER="$ROOT_DIR/araclar/kosu_ustveri.py"
 DOGRULA="$ROOT_DIR/araclar/sozlesme_dogrula.py"
-ANALIZ="$ROOT_DIR/araclar/yer_istasyonu_analiz.py"
+ANALIZ="$ROOT_DIR/araclar/analiz/yer_istasyonu_analiz.py"
 VENV_PY="$ROOT_DIR/.venv/bin/python"
 ENV_SH="$SETUP_DIR/env.sh"
 DENEY_ENV="${DENEY_ENV:-$ROOT_DIR/config/deney.env}"
@@ -236,7 +236,7 @@ test_birim() {
         if [[ "$rc" -eq 0 ]]; then log_ok "birim: $mod rclpy ve mavsdk olmadan içe aktarıldı"; else log_fail "birim: $mod içe aktarma hatası"; tail -n 5 "$TMP_DIR/ice_$mod.log"; fi
     done
     rc=0
-    "$VENV_PY" -m py_compile "$ROOT_DIR"/src/swarm_gcs/swarm_gcs/*.py "$ROOT_DIR"/src/swarm_gcs/swarm_gcs/*/*.py "$ROOT_DIR"/src/swarm_vehicle/swarm_vehicle/*.py "$ROOT_DIR"/src/swarm_vehicle/swarm_vehicle/*/*.py "$ROOT_DIR/araclar/koordinator_deneme.py" "$ANALIZ" > "$TMP_DIR/pyc.log" 2>&1 || rc=$?
+    "$VENV_PY" -m py_compile "$ROOT_DIR"/src/swarm_gcs/swarm_gcs/*.py "$ROOT_DIR"/src/swarm_gcs/swarm_gcs/*/*.py "$ROOT_DIR"/src/swarm_vehicle/swarm_vehicle/*.py "$ROOT_DIR"/src/swarm_vehicle/swarm_vehicle/*/*.py "$ROOT_DIR/araclar/deneme/koordinator_deneme.py" "$ANALIZ" > "$TMP_DIR/pyc.log" 2>&1 || rc=$?
     if [[ "$rc" -eq 0 ]]; then log_ok "birim: py_compile temiz"; else log_fail "birim: py_compile hata"; tail -n 5 "$TMP_DIR/pyc.log"; fi
     out="$(cd "$ROOT_DIR" && git grep --untracked -nE '^\s*(from|import) mavsdk' -- src || true)"
     if [[ -n "$out" && "$(awk -F: '{print $1}' <<< "$out" | sort -u)" == "src/swarm_vehicle/swarm_vehicle/ucus/px4_adapter.py" ]]; then log_ok "birim: src/ altında mavsdk'yı içe aktaran tek dosya px4_adapter.py (yer istasyonunun PX4'e doğrudan bağlantısı yok)"; else log_fail "birim: mavsdk içe aktarımı beklenenden farklı: $out"; fi

@@ -70,7 +70,7 @@ def sdf_uret(cikti, n_kamera):
     c = cfg()
     p = []
     p.append('<?xml version="1.0" encoding="UTF-8"?>')
-    p.append('<!-- Otomatik üretildi (araclar/kamera_olcum.py dunya); değerler config/deney.env içindeki CAM_* ayarlarından gelir. -->')
+    p.append('<!-- Otomatik üretildi (araclar/olcum/kamera_olcum.py dunya); değerler config/deney.env içindeki CAM_* ayarlarından gelir. -->')
     p.append('<sdf version="1.9">')
     p.append(f'  <world name="{c["dunya"]}">')
     p.append(SAHNE_TEMEL)
@@ -325,7 +325,7 @@ def sdf_uret_insan(cikti):
     yw, yh, gruplar = hedef_konumlari(c)
     p = []
     p.append('<?xml version="1.0" encoding="UTF-8"?>')
-    p.append('<!-- Otomatik üretildi (araclar/kamera_olcum.py dunya-insan); yatan insan ve enkaz yalnız ölçüm temsilidir. -->')
+    p.append('<!-- Otomatik üretildi (araclar/olcum/kamera_olcum.py dunya-insan); yatan insan ve enkaz yalnız ölçüm temsilidir. -->')
     p.append('<sdf version="1.9">')
     p.append(f'  <world name="{c["dunya"]}">')
     p.append(SAHNE_TEMEL)

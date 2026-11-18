@@ -5,7 +5,7 @@ Koşu başladıktan sonra Gazebo'ya (gz `create` hizmeti) bilinen ENU konumları
 ve görüntü kenarlarına yakın düşecek biçimde, rotadan (`rota.uret`) türetilen konumlara konur. Aracın kamera konusuna ikinci bir abone olarak her görev karesinde basit renk eşiğiyle
 işaretleri bulur (çıkarım modeli kullanılmaz) ve işaret merkezlerini piksel olarak kaydeder.
 
-Kullanım:  python araclar/konum_isaret.py --arac N [--ofset-m 16] [--boyut-m 1.2]
+Kullanım:  python araclar/deneme/konum_isaret.py --arac N [--ofset-m 16] [--boyut-m 1.2]
 Çıktı (koşu klasörü): `konum_isaretleri.json` (işaretlerin gerçek ENU konumları; yalnız değerlendirmede kullanılır, hesaplayıcıya verilmez) ve `konum_isaret_kareler.jsonl`
   (her ızgara karesi için {"n", "damga_ns", "bloblar": [{"cx", "cy", "alan_px"}]}; serbest biçimli test çıktısı, şema değildir).
 Sonlanma: SIGTERM/SIGINT ile tamponu boşaltıp çıkar. Ortam: GZ_PARTITION, GZ_IP, setup/env.sh. Çıkış: 0 tamam, 1 hata, 2 kullanım.
@@ -17,7 +17,7 @@ import sys
 import threading
 import time
 
-KOK = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+KOK = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 sys.path.insert(0, os.path.join(KOK, "src", "swarm_vehicle"))
 
 from swarm_vehicle.ucus import rota  # noqa: E402

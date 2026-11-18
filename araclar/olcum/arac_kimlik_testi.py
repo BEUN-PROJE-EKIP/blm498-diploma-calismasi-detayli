@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Araç bağlantı/kimlik testleri ve simülasyon/PX4 zaman ekseni ölçümü.
 
-Kullanım:  python araclar/arac_kimlik_testi.py {tek|uc|zaman}
+Kullanım:  python araclar/olcum/arac_kimlik_testi.py {tek|uc|zaman}
 Kimlik, port ve ad alanı değerleri ortam değişkenlerinden okunur (setup/arac_kimlik_testi.sh, config/deney.env'den verir):
 UAV_SYS_IDS, UAV_NAMESPACES, PX4_MAVLINK_PORTS, MAVSDK_GRPC_PORTS, SIM_WORLD, ZAMAN_SURE_SN.
 Her sonuç satırı "SONUC <gecti|kaldi> <ad> | <ayrıntı>" biçimindedir; kaldı varsa çıkış kodu 1.

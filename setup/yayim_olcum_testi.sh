@@ -4,7 +4,7 @@
 #   (argümansız)  hepsini çalıştırır; adlar verilirse yalnız onlar.
 #   --dry-run     hiçbir süreç başlatmaz, derleme yapmaz; ne çalıştıracağını yazar
 #   --verify      hafif önkoşul denetimi (derleme araçları, geliştirme paketleri, ikililer, sahne üretimi, SDF doğrulaması); derleme ve süreç yok
-# Ölçümler (Python tarafı: araclar/yayim_olcum.py ve araclar/kamera_olcum.py; sahne config/deney.env CAM_* değerlerinden üretilir):
+# Ölçümler (Python tarafı: araclar/olcum/yayim_olcum.py ve araclar/olcum/kamera_olcum.py; sahne config/deney.env CAM_* değerlerinden üretilir):
 #   saat      bileşenin saati (CLOCK_MONOTONIC) ile Python time.monotonic_ns() saatinin eşliği
 #   k1        tek sabit kamera, CAM_K9_SIM_SN sim sn: bileşen açık iki tekrar (farklı GZ_PARTITION), bileşen kapalı bir tekrar
 #   uc        üç kamera, CAM_YUK_SIM_SN sim sn: bileşen açık ve kapalı
@@ -41,8 +41,8 @@ trap 'exit 143' TERM
 DENEY_ENV="${DENEY_ENV:-$ROOT_DIR/config/deney.env}"
 ENV_SH="$SETUP_DIR/env.sh"
 VENV_PY="$ROOT_DIR/.venv/bin/python"
-PY_KAMERA="$ROOT_DIR/araclar/kamera_olcum.py"
-PY_YAYIM="$ROOT_DIR/araclar/yayim_olcum.py"
+PY_KAMERA="$ROOT_DIR/araclar/olcum/kamera_olcum.py"
+PY_YAYIM="$ROOT_DIR/araclar/olcum/yayim_olcum.py"
 SRC_DIR="$ROOT_DIR/src/yayim_damga"
 BUILD_DIR="$GENERATED_DIR/yayim_damga/build"
 PX4_BUILD="$ROOT_DIR/third_party/PX4-Autopilot/build/px4_sitl_default"
@@ -127,7 +127,7 @@ check_prereqs() {
     check "gz.transport13, gz.msgs10 (venv)" "$VENV_PY" -c 'from gz.transport13 import Node; from gz.msgs10.image_pb2 import Image'
     d="$(mktemp -d)"
     # shellcheck disable=SC2016  # tek tırnak bilerek: $1.. alt kabukta açılır
-    check "Sahne üretimi (araclar/yayim_olcum.py dunya)" bash -c '. "$1/rootfs/gz_env.sh"; exec "$2" -W ignore "$3" dunya "$4/dunya.sdf" 3 "$4" abone,bilgi,kare' _ "$PX4_BUILD" "$VENV_PY" "$PY_YAYIM" "$d"
+    check "Sahne üretimi (araclar/olcum/yayim_olcum.py dunya)" bash -c '. "$1/rootfs/gz_env.sh"; exec "$2" -W ignore "$3" dunya "$4/dunya.sdf" 3 "$4" abone,bilgi,kare' _ "$PX4_BUILD" "$VENV_PY" "$PY_YAYIM" "$d"
     check "Üretilen SDF geçerli (gz sdf -k)" gz sdf -k "$d/dunya.sdf"
     rm -rf "$d"
 }

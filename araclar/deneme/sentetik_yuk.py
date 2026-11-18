@@ -3,7 +3,7 @@
 aynı süreçteki alıcı (veriyi okuyup atar). Gönderim, merkezi modun uygulama davranışını taklit eder: araç başına `CAM_RATE_HZ` (2 Hz) hızla `CAM_WIDTH × CAM_HEIGHT × 3` (= 921 600) baytlık "kare" (+ 20 bayt başlık)
 uygulama kuyruğuna girer; kuyruk ATILMADAN, sırayla TCP'ye yazılır (geri basınç: soket dolunca gönderici bekler, uygulama kuyruğu büyür). Bütün trafik 10.10.0.x adresleri arasındadır (ölçülen hattan, lo üzerindeki htb'den geçer).
 
-Kullanım:  python araclar/sentetik_yuk.py --cikti <jsonl> [--arac N] [--bosalt-sn S]
+Kullanım:  python araclar/deneme/sentetik_yuk.py --cikti <jsonl> [--arac N] [--bosalt-sn S]
   SIGTERM/SIGINT: yeni kare üretimi durur, kuyruk (en çok --bosalt-sn, öntanımlı 600 sn) boşalana dek gönderim sürer; sonra çıkar. Çıkış 0.
   stdout: `SENTETIK hazir` (bütün bağlantılar kuruldu), kapanışta `SENTETIK kapandi ...`.
 Kayıt (`--cikti`, JSON Lines, serbest biçim, şema değildir): {"k":"kare","a":araç,"seq","enq_ns","gonderim_bitis_ns","alim_bitis_ns"} (CLOCK_MONOTONIC), {"k":"kuyruk","a","mono_ns","derinlik","gonderilen_bayt"} (0,5 sn'de bir) ve
@@ -18,7 +18,7 @@ import sys
 import threading
 import time
 
-KOK = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+KOK = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 sys.path.insert(0, os.path.join(KOK, "src", "swarm_vehicle"))
 
 BASLIK = struct.Struct("!QIQ")        # seq, yük boyu, kuyruğa giriş anı (mono ns)

@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Çıkarım işçisi ve kare sonucu koşusunun çözümlemesi (test yardımcısı): damga, alıcı, işçi ve kare sonucu kayıtları araç + n üzerinden birleştirilir.
 
-Kullanım:  python araclar/cikarim_analiz.py <koşu_klasörü> --arac N [--enjeksiyon] [--gz-ip-yok]
+Kullanım:  python araclar/analiz/cikarim_analiz.py <koşu_klasörü> --arac N [--enjeksiyon] [--gz-ip-yok]
   --enjeksiyon  hata enjeksiyonlu koşu (KAMERA_ENJEKSIYON='dusur=+20'; ISCI_ENJEKSIYON='hata=+40;olum=+80'): beklenen durum kümeleri denetlenir; yoksa hata/kayıpsız koşu beklenir
   --gz-ip-yok   araç süreçleri GZ_IP verilmeden başlatıldı: soket kanıtı (canli_<araç>.json) denetlenir
 Her sonuç "SONUC <gecti|kaldi> <ad> | <ayrıntı>" satırıdır; kaldı varsa çıkış 1. Yalnız standart kitaplık.
@@ -11,7 +11,7 @@ import math
 import os
 import sys
 
-KOK = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+KOK = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 KALDI = 0
 NS = 10 ** 9
 DURUMLAR = ("tespit", "tespit_yok", "islem_hatasi", "kare_alinamadi")

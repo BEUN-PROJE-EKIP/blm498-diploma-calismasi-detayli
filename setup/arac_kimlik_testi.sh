@@ -4,7 +4,7 @@
 #   (argümansız)  üç testi de çalıştırır; adlar verilirse yalnız onlar. `tek` ve `zaman` aynı tek araçlı oturumu paylaşır.
 #   --dry-run     hiçbir süreç başlatmaz; ne çalıştıracağını yazar
 #   --verify      hafif önkoşul denetimi (ikililer, yapılandırma tutarlılığı); süreç başlatmaz
-# Testler (Python tarafı: araclar/arac_kimlik_testi.py):
+# Testler (Python tarafı: araclar/olcum/arac_kimlik_testi.py):
 #   tek    PX4 örneği 0 (MAV_SYS_ID=1, UDP 14540) + mavsdk_server (gRPC 20051): sistem kimliği doğrulanır; yanlış beklenen kimlikle komut reddedilir
 #   uc     3 PX4 örneği aynı Gazebo dünyasında, 3 mavsdk_server: her araç kendi kimliğiyle eşleşir, çapraz bağlanma reddedilir, aynı anda akış
 #   zaman  tek araç: gz /world/<dünya>/clock (sim saati) ile PX4 IMU zamanı ≥ ZAMAN_SURE_SN boyunca karşılaştırılır (fark, eğim, RTF)
@@ -38,7 +38,7 @@ trap 'exit 143' TERM
 DENEY_ENV="${DENEY_ENV:-$ROOT_DIR/config/deney.env}"
 ENV_SH="$SETUP_DIR/env.sh"
 VENV_PY="$ROOT_DIR/.venv/bin/python"
-PY_TEST="$ROOT_DIR/araclar/arac_kimlik_testi.py"
+PY_TEST="$ROOT_DIR/araclar/olcum/arac_kimlik_testi.py"
 PX4_BUILD="$ROOT_DIR/third_party/PX4-Autopilot/build/px4_sitl_default"
 PX4_BIN="$PX4_BUILD/bin/px4"
 ZAMAN_SURE_SN="${ZAMAN_SURE_SN:-70}"

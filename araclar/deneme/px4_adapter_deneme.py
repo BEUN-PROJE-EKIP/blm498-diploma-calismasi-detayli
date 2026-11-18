@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """px4_adapter deneme sürücüsü (geçici: araç süreci gelene kadar bağdaştırıcıyı uçtan uca çalıştırır).
 
-Kullanım:  python araclar/px4_adapter_deneme.py {donusum|kimlik|tam|uc|yetim}
+Kullanım:  python araclar/deneme/px4_adapter_deneme.py {donusum|kimlik|tam|uc|yetim}
   donusum  SITL gerekmez: ENU↔enlem/boylam gidiş-dönüşü, rota dosyası, rclpy olmadan içe aktarma
   kimlik   yaşayan tek araçlı koşu: yanlış beklenen kimlik reddi (a); görev yüklenmeden başlatma reddi (b)
   tam      yaşayan tek araçlı koşu: araç 1 tam görev (bağlan → kimlik → yükle → indirip karşılaştır → hazırlık (kalkış + ilk nokta) → başlat → son nokta bir kez);
@@ -18,7 +18,7 @@ import sys
 import threading
 import time
 
-KOK = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+KOK = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 sys.path.insert(0, os.path.join(KOK, "src", "swarm_vehicle"))
 
 from swarm_vehicle.ucus import rota  # noqa: E402

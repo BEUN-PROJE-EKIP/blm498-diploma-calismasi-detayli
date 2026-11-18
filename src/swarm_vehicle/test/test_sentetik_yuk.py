@@ -8,7 +8,8 @@ import time
 import unittest
 
 KOK = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
-sys.path.insert(0, os.path.join(KOK, "araclar"))
+sys.path.insert(0, os.path.join(KOK, "araclar", "deneme"))   # sentetik_yuk
+sys.path.insert(0, os.path.join(KOK, "araclar", "olcum"))    # tc_izle
 sys.path.insert(0, os.path.join(KOK, "src", "swarm_vehicle"))
 import sentetik_yuk as sy  # noqa: E402
 import tc_izle  # noqa: E402

@@ -13,7 +13,7 @@ import os
 import subprocess
 import sys
 
-KOK = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+KOK = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 sys.path.insert(0, os.path.join(KOK, "src", "swarm_vehicle"))
 
 from swarm_vehicle.ucus import rota  # noqa: E402
@@ -50,7 +50,7 @@ def ana(argv):
         if mevcut == metin:
             print(f"(+) {ad} güncel (yapılandırmadan üretilenle bayt bayt aynı)")
             return 0
-        print(f"(-) {ad} güncel değil: yapılandırmadan üretilenden farklı (yeniden üretmek için: python3 araclar/rota_uret.py)")
+        print(f"(-) {ad} güncel değil: yapılandırmadan üretilenden farklı (yeniden üretmek için: python3 araclar/uretim/rota_uret.py)")
         return 1
     os.makedirs(os.path.dirname(os.path.abspath(cikti)), exist_ok=True)
     gecici = cikti + ".tmp"

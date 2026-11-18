@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Alan pilotu gözlemcisi (YALNIZ ölçüm; PX4'e hiçbir şey yazmaz): Gazebo model pozlarını ve PX4 yönelim/konum/hız telemetrisini koşu klasörüne kaydeder.
 
-Kullanım:  python araclar/alan_pilot_olcum.py --arac N [--gz-aralik-sn 0.05]
+Kullanım:  python araclar/olcum/alan_pilot_olcum.py --arac N [--gz-aralik-sn 0.05]
 Kaynaklar:
   Gazebo (gerçek değer): /world/<dünya>/pose/info (model pozları; dünya çerçevesi ENU, gövde FLU), /world/<dünya>/clock. Her araç modeli `<SIM_MODEL öneksiz>_<örnek>`.
   PX4 tahmini (salt okuma): aracın bağdaştırıcısının zaten başlattığı mavsdk_server'a (MAVSDK_GRPC_PORTS) ikinci istemci olarak bağlanır
@@ -20,7 +20,7 @@ import sys
 import threading
 import time
 
-KOK = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+KOK = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 sys.path.insert(0, os.path.join(KOK, "src", "swarm_vehicle"))
 
 from swarm_vehicle.ucus import rota  # noqa: E402

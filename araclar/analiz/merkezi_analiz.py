@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Merkezi mod (araç başına TCP görüntü kanalı + yer istasyonu çıkarımı, B12) koşusunun çözümlemesi (YALNIZ okuma; test yardımcısı).
 
-Kullanım:  python3 -I araclar/merkezi_analiz.py <koşu_klasörü> --arac N [--hata] [--basinc <başlangıç_sn>:<süre_sn>] [--sha] [--tc-once BAYT --tc-sonra BAYT] [--uc-klasoru <uçta mod koşu klasörü>] [--tek-klasoru <tek araç merkezi koşu klasörü>]
+Kullanım:  python3 -I araclar/analiz/merkezi_analiz.py <koşu_klasörü> --arac N [--hata] [--basinc <başlangıç_sn>:<süre_sn>] [--sha] [--tc-once BAYT --tc-sonra BAYT] [--uc-klasoru <uçta mod koşu klasörü>] [--tek-klasoru <tek araç merkezi koşu klasörü>]
   --hata      hata senaryosu: araçta `KAMERA_ENJEKSIYON=dusur=+20` (kare alınamadı), yer istasyonunda `ISCI_ENJEKSIYON=hata=+40` (işlem hatası) beklenir
   --basinc    yer istasyonu alıcısı `MERKEZI_ENJEKSIYON=okuma_dur=<başlangıç>:<süre>` ile okumayı durdurdu: kuyruk büyümeli, kare atılmamalı, hepsi gelmeli
   --sha       `MERKEZI_SHA=1` kayıtları (gönderilen / alınan görüntü SHA-256'sı) numara bazında karşılaştırılır
@@ -17,9 +17,10 @@ import math
 import os
 import sys
 
-KOK = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+KOK = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 sys.path.insert(0, os.path.join(KOK, "src", "swarm_vehicle"))
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))   # araclar kökü (sozlesme_dogrula, koordinator_kayit)
 from sozlesme_dogrula import asama_sureleri, dogrula_kare_asamalari, dogrula_kuyruk_tasmasi_dosyasi, Yapilandirma, yapilandirma_yukle  # noqa: E402
 from uc_mod_analiz import jsonl, log_oku, yuzdelik  # noqa: E402
 

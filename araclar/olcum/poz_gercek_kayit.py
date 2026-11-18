@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """Gazebo gerçek poz kaydedicisi (YALNIZ test aracı; PX4'e ve araç sürecine dokunmaz): bir aracın model pozunu ve simülasyon saatini koşu klasörüne yazar.
-Bağımsız doğrulama kaynağıdır: PX4 tahmininin (kare–poz enterpolasyonu) gerçek pozla karşılaştırılması (araclar/poz_analiz.py) ve PX4 zamanı − sim saati farkının yeniden ölçümü içindir.
+Bağımsız doğrulama kaynağıdır: PX4 tahmininin (kare–poz enterpolasyonu) gerçek pozla karşılaştırılması (araclar/analiz/poz_analiz.py) ve PX4 zamanı − sim saati farkının yeniden ölçümü içindir.
 
-Kullanım:  python araclar/poz_gercek_kayit.py --arac N [--aralik-sn 0.01]
+Kullanım:  python araclar/olcum/poz_gercek_kayit.py --arac N [--aralik-sn 0.01]
 Kaynak: /world/<dünya>/pose/info (model pozları; dünya çerçevesi ENU, gövde FLU; ileti başlığındaki damga simülasyon zamanıdır) ve /world/<dünya>/clock.
   Seçim gerekçesi: `pose/info`, diğer ölçüm araçlarının da kullandığı, model pozlarını simülasyon damgalı ileti başlığıyla veren konudur; böylece gerçek poz sim ekseninde, kare damgalarıyla doğrudan karşılaştırılır. Araç modeli `<SIM_MODEL öneksiz>_<örnek>`.
 Çıktı: koşu klasöründe `gz_gercek_poz.jsonl` (serbest biçimli test çıktısı; şema değildir):
@@ -17,7 +17,7 @@ import sys
 import threading
 import time
 
-KOK = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+KOK = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 sys.path.insert(0, os.path.join(KOK, "src", "swarm_vehicle"))
 
 from swarm_vehicle.ucus import rota  # noqa: E402

@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Aday alan boyutları için simülasyonsuz hesap tablosu (config/ dosyalarını DEĞİŞTİRMEZ; bellekte `rota.uret` çağrılır, hiçbir dosya yazılmaz).
 
-Kullanım:  python araclar/alan_aday_tablo.py [--boyutlar 240,270,300,330,360] [--hedef-sayisi 30] [--env <yol>]
+Kullanım:  python araclar/analiz/alan_aday_tablo.py [--boyutlar 240,270,300,330,360] [--hedef-sayisi 30] [--env <yol>]
 Her aday için kare alan (genişlik = yükseklik = S m) `config/deney.env` değerleriyle (3 bölge, 30 m, HFOV 65°, 2 m en az örtüşme, ROTA_HIZ_MS, CAM_RATE_HZ) üretilir.
 Sütunlar: bölge boyutu, şerit sayısı, araç başına rota uzunluğu (yatay çokgen uzunluğu), nominal tarama süresi (uzunluk / hız), araç başına ve toplam görev karesi
 (= 1 + ⌊süre · CAM_RATE_HZ⌋: ilk noktadaki kare dahil; koşuda gerçek sayı ±1), merkezi modda ham görüntü yükü (kare · CAM_WIDTH·CAM_HEIGHT·3 bayt) ve 25 Mbit/s'de
@@ -14,7 +14,7 @@ import math
 import os
 import sys
 
-KOK = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+KOK = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 sys.path.insert(0, os.path.join(KOK, "src", "swarm_vehicle"))
 
 from swarm_vehicle.ucus import rota  # noqa: E402

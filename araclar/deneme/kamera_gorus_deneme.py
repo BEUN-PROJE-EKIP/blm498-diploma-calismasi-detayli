@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Kamera görüş yönü ve eksen denemesi (YALNIZ test): aşağı bakan kameranın görüntüsünde, yere konan bilinen bir işaretin yerini Gazebo pozundan öngörülen yerle karşılaştırır.
 
-Kullanım:  python araclar/kamera_gorus_deneme.py [--arac-sirasi 1] [--dx 8] [--sure-sn S]     (GZ_PARTITION, GZ_IP ortam değişkenleriyle; setup/env.sh)
+Kullanım:  python araclar/deneme/kamera_gorus_deneme.py [--arac-sirasi 1] [--dx 8] [--sure-sn S]     (GZ_PARTITION, GZ_IP ortam değişkenleriyle; setup/env.sh)
 - Koşu klasöründe (yaşayan koşu) kırmızı, 3 × 3 × 0,05 m bir yer işareti modeli üretir ve sunucuya ekler: araç ROTASININ İLK DOĞRUSUNUN (x sabit, y boyunca) --dx m doğusuna, y = 0'a.
 - Aracın kamera konusuna abone olur; her karede kırmızı piksellerin ağırlık merkezini bulur ve Gazebo model pozundan (en yakın simülasyon anındaki poz) öngörülen piksel konumuyla
   karşılaştırır: gövde çerçevesi FLU (x ileri, y sol, z yukarı); kamera gövdeye pitch +90° bağlı (optik eksen = gövde −z); görüntüde yukarı = gövde +x, sağ = gövde −y.
@@ -19,7 +19,7 @@ import threading
 import time
 from collections import deque
 
-KOK = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+KOK = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 sys.path.insert(0, os.path.join(KOK, "src", "swarm_vehicle"))
 
 import numpy as np  # noqa: E402

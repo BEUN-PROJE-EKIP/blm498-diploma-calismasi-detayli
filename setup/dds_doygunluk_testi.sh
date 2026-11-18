@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# dds_doygunluk_testi.sh — doygun hatta DDS canlılığı denemesi (M2 2.4; riskler U21/U14): merkezi modun ağ yükünü taklit eden sentetik TCP yükü (3 × 2 Hz × 921 600 B; araclar/sentetik_yuk.py) ile aynı anda gerçek üç araçlı
+# dds_doygunluk_testi.sh — doygun hatta DDS canlılığı denemesi (M2 2.4; riskler U21/U14): merkezi modun ağ yükünü taklit eden sentetik TCP yükü (3 × 2 Hz × 921 600 B; araclar/deneme/sentetik_yuk.py) ile aynı anda gerçek üç araçlı
 # uçta mod koşusu (araclar/kosu.sh + asıl yer istasyonu koordinatörü). Bu bir ÖLÇÜMDÜR: ölçüm "sorun var" gösterirse test hatası değildir, olduğu gibi raporlanır; öneri/hafifletme uygulanmaz. Ağ profiline DOKUNULMAZ
 # (tc yalnız okunur: `tc -s class/qdisc show dev lo`, sudo gerekmez).
 # Kullanım: ./dds_doygunluk_testi.sh [--dry-run | --verify | -h] [birim] [s0] [s1] [s2] [dryrun]
@@ -39,10 +39,10 @@ trap 'exit 130' INT
 trap 'exit 143' TERM
 
 KOSU="$ROOT_DIR/araclar/kosu.sh"
-YUK="$ROOT_DIR/araclar/sentetik_yuk.py"
-TCIZLE="$ROOT_DIR/araclar/tc_izle.py"
-ANALIZ="$ROOT_DIR/araclar/dds_doygunluk_analiz.py"
-BOYUT="$ROOT_DIR/araclar/ileti_boyutlari.py"
+YUK="$ROOT_DIR/araclar/deneme/sentetik_yuk.py"
+TCIZLE="$ROOT_DIR/araclar/olcum/tc_izle.py"
+ANALIZ="$ROOT_DIR/araclar/analiz/dds_doygunluk_analiz.py"
+BOYUT="$ROOT_DIR/araclar/olcum/ileti_boyutlari.py"
 VENV_PY="$ROOT_DIR/.venv/bin/python"
 ENV_SH="$SETUP_DIR/env.sh"
 ROS_SETUP="/opt/ros/$ROS_DISTRO/setup.bash"
@@ -92,9 +92,9 @@ check_prereqs() {
 }
 
 print_plan() {
-    log_info "[dry-run] birim: ${BIRIM_TESTLER[*]##*/}; py_compile; tek komut yolu; süreç izi; araclar/sentetik_yuk.py başlığı ('B12 değildir') ve adreslerin yapılandırmadan okunması"
-    log_info "[dry-run] s0: araclar/tc_izle.py (1 sn) + kosu.sh baslat --arac 3 --yer-istasyonu var (GCS_UST_SN=900) → bekle → durdur; yük yok"
-    log_info "[dry-run] s1: s0 + sentetik yük (araclar/sentetik_yuk.py: 3 TCP, $UAV1_ADDR $UAV2_ADDR $UAV3_ADDR → $GCS_ADDR, 3 × ${CAM_RATE_HZ} Hz × $((CAM_WIDTH * CAM_HEIGHT * 3)) B) baslat'tan SONRA (hazırlık evresinde) başlar; bekle'den sonra SIGTERM, kuyruk boşalana dek"
+    log_info "[dry-run] birim: ${BIRIM_TESTLER[*]##*/}; py_compile; tek komut yolu; süreç izi; araclar/deneme/sentetik_yuk.py başlığı ('B12 değildir') ve adreslerin yapılandırmadan okunması"
+    log_info "[dry-run] s0: araclar/olcum/tc_izle.py (1 sn) + kosu.sh baslat --arac 3 --yer-istasyonu var (GCS_UST_SN=900) → bekle → durdur; yük yok"
+    log_info "[dry-run] s1: s0 + sentetik yük (araclar/deneme/sentetik_yuk.py: 3 TCP, $UAV1_ADDR $UAV2_ADDR $UAV3_ADDR → $GCS_ADDR, 3 × ${CAM_RATE_HZ} Hz × $((CAM_WIDTH * CAM_HEIGHT * 3)) B) baslat'tan SONRA (hazırlık evresinde) başlar; bekle'den sonra SIGTERM, kuyruk boşalana dek"
     log_info "[dry-run] s2: s0 + sentetik yük baslat'tan ÖNCE başlar"
     log_info "[dry-run] dryrun: kosu.sh baslat --arac 1 (yalnız sim) iken setup/*_testi.sh --dry-run ve --verify; kosu.sh durum (+) olmalı; durdur"
     log_info "[dry-run] Her senaryodan sonra yük/örnekleyici/araç/yer istasyonu/px4/gz/mavsdk_server artığı, yeni dinleyen port, /dev/shm; sonda ros2 daemon, tc/ip denetimi. Hiçbir süreç başlatılmadı"
@@ -276,12 +276,12 @@ test_birim() {
     "$VENV_PY" -m py_compile "$YUK" "$TCIZLE" "$ANALIZ" "$BOYUT" > "$TMP_DIR/pyc.log" 2>&1 || rc=$?
     if [[ "$rc" -eq 0 ]]; then log_ok "birim: py_compile temiz"; else log_fail "birim: py_compile hata"; tail -n 5 "$TMP_DIR/pyc.log"; fi
     out="$(head -n 3 "$YUK")"
-    if [[ "$out" == *'merkezi modun AĞ YÜKÜNÜ taklit eder, B12 değildir'* ]]; then log_ok "birim: araclar/sentetik_yuk.py başlığında 'merkezi modun ağ yükünü taklit eder, B12 değildir' yazıyor"; else log_fail "birim: yük aracı başlığı eksik"; fi
+    if [[ "$out" == *'merkezi modun AĞ YÜKÜNÜ taklit eder, B12 değildir'* ]]; then log_ok "birim: araclar/deneme/sentetik_yuk.py başlığında 'merkezi modun ağ yükünü taklit eder, B12 değildir' yazıyor"; else log_fail "birim: yük aracı başlığı eksik"; fi
     out="$(grep -nE '10\.10\.0\.[0-9]+' "$YUK" || true)"
     if [[ -z "$out" ]]; then log_ok "birim: yük aracı adresleri koda gömmez (UAVn_ADDR/GCS_ADDR yapılandırmadan okunur)"; else log_fail "birim: yük aracında sabit adres: $out"; fi
-    out="$(cd "$ROOT_DIR" && git grep --untracked -nE '^\s*(from|import) mavsdk' -- src araclar/sentetik_yuk.py araclar/tc_izle.py || true)"
+    out="$(cd "$ROOT_DIR" && git grep --untracked -nE '^\s*(from|import) mavsdk' -- src araclar/deneme/sentetik_yuk.py araclar/olcum/tc_izle.py || true)"
     if [[ -n "$out" && "$(awk -F: '{print $1}' <<< "$out" | sort -u)" == "src/swarm_vehicle/swarm_vehicle/ucus/px4_adapter.py" ]]; then log_ok "birim: mavsdk'yı içe aktaran tek dosya px4_adapter.py"; else log_fail "birim: mavsdk içe aktarımı beklenenden farklı: $out"; fi
-    out="$(cd "$ROOT_DIR" && git grep --untracked -nE 'tc (qdisc|class|filter) (add|change|replace|del)|sudo_run|\["sudo"' -- araclar/sentetik_yuk.py araclar/tc_izle.py araclar/dds_doygunluk_analiz.py | grep -vE '^\S+:[0-9]+:\s*#' || true)"
+    out="$(cd "$ROOT_DIR" && git grep --untracked -nE 'tc (qdisc|class|filter) (add|change|replace|del)|sudo_run|\["sudo"' -- araclar/deneme/sentetik_yuk.py araclar/olcum/tc_izle.py araclar/analiz/dds_doygunluk_analiz.py | grep -vE '^\S+:[0-9]+:\s*#' || true)"
     if [[ -z "$out" ]]; then log_ok "birim: yeni araçlar tc'yi DEĞİŞTİRMEZ (yalnız okur) ve sudo çağırmaz"; else log_fail "birim: tc değiştiren ya da sudo çağıran satır: $out"; fi
     out="$(cd "$ROOT_DIR" && git grep --untracked -nIiE '[d]enetleyici|[c]laude|\b[k]art(ta|tır|lar|ın)?\b|\b[T]-0[0-9]{2}b?\b' -- src araclar setup config planlama | grep -viE 'ekran kartı' || true)"
     if [[ -z "$out" ]]; then log_ok "birim: süreç izi taraması temiz"; else log_fail "birim: süreç izi: $(head -n 3 <<< "$out" | tr '\n' ';')"; fi
