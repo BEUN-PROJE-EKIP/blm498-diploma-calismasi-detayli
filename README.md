@@ -12,13 +12,13 @@ Bu bir **simülasyon deneyidir**; gerçek uçuş ya da gömülü donanım doğru
 Kendi işlerin için: kilometre taşında adının yazdığı satırlar; sıradaki iş, bitmemiş en üstteki maddedir. Ayrıntı ve bitti ölçütleri: `planlama/gelistirme_agaci.md`.
 
 <!-- ILERLEME:BASLA -->
-**Genel tamamlanma: %34,3** (35 / 80 madde; kod ve makine işi dahil)
+**Genel tamamlanma: %36,6** (38 / 80 madde; kod ve makine işi dahil)
 
-`███████░░░░░░░░░░░░░` %34,3
+`███████░░░░░░░░░░░░░` %36,6
 
-**Geliştirme oranı: %53,4** (35 / 55 geliştirme maddesi; yalnız kod ve altyapı işi)
+**Geliştirme oranı: %57,0** (38 / 55 geliştirme maddesi; yalnız kod ve altyapı işi)
 
-`███████████░░░░░░░░░` %53,4
+`███████████░░░░░░░░░` %57,0
 
 **Ana hedefler** (belgeye göre; ana amaç uçta ve merkezi modun beş ölçütle karşılaştırılmasıdır). Bir hedef, paketlerindeki bütün maddeler bitince tamamlanır.
 
@@ -27,7 +27,7 @@ Kendi işlerin için: kilometre taşında adının yazdığı satırlar; sırada
 | ◐ | **1.** Sürü sistemi: üç İHA, dört sürü işlevi, uçta ve merkezi mod | B | `██████████████████░░` %90,9 |
 | ☐ | **2.** Görüntü işleme: YOLO26 modeli, veri hattı ve eğitim | A | `░░░░░░░░░░░░░░░░░░░░` %0,0 |
 | ◐ | **3.** Deney düzeneği: başkalarının da çalıştırabileceği kilitli, tekrarlanabilir simülasyon ortamı | K, C | `███████░░░░░░░░░░░░░` %33,3 |
-| ◐ | **4.** Deney sonuçları: 30 sahnede 60 koşu ve karar kuralına göre rapor | D, E | `█░░░░░░░░░░░░░░░░░░░` %6,2 |
+| ◐ | **4.** Deney sonuçları: 30 sahnede 60 koşu ve karar kuralına göre rapor | D, E | `███░░░░░░░░░░░░░░░░░` %15,4 |
 
 **Tamamlanan ana hedef: 0 / 4**
 
@@ -124,24 +124,22 @@ Bekler: M4
 
 </details>
 
-<details open>
-<summary>◐ <b>M6a - Değerlendirme ve analiz yazılımı</b> [Miraç BOZACIOĞLU, %53,7]</summary>
-
-Bekler: yok, başlayabilir
+<details>
+<summary>✔ <b>M6a - Değerlendirme ve analiz yazılımı</b> [%100,0]</summary>
 
 - ✔ B18 - Değerlendirme yazılımı
 - ✔ E1a - Eşleştirme analiz betiği
 - ✔ E2a - İyileşme analiz betiği
-- ☐ E3a - Bootstrap betiği
-- ☐ E4a - Karar kuralı betiği
-- ☐ E5a - Sansürlü koşu betiği
+- ✔ E3a - Bootstrap betiği
+- ✔ E4a - Karar kuralı betiği
+- ✔ E5a - Sansürlü koşu betiği
 
 </details>
 
 <details open>
 <summary>☐ <b>M6b - Bütünleşik koşu ve kabul testleri</b> [Mikail DEĞER, %0,0]</summary>
 
-Bekler: M5, M6a
+Bekler: M5
 
 - ☐ B19 - Bütünleşik işlev testi
 - ☐ C1 - Kabul testi 1: ağ adresleri
@@ -159,7 +157,7 @@ Bekler: M5, M6a
 <details open>
 <summary>☐ <b>M7 - Pilotlar ve kilit</b> [Mikail DEĞER, %0,0]</summary>
 
-Bekler: M6a, M6b
+Bekler: M6b
 
 - ☐ B21 - Yapılandırma genişletmesi
 - ☐ C10 - Kuyruk sınırı pilotu

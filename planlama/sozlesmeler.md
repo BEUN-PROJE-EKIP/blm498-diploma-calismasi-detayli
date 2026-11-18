@@ -123,6 +123,10 @@ Mevcut anahtarlar (ağ, kimlik/port, kamera, çıkarım, eğitim) değişmedi; t
 | `MODEL_SINIFLAR` | `insan enkaz` | belge |
 | `BIRLESTIRME_ARALIK_M` | 2,5 | belge, kilitli (FR-19: aynı sınıf ve adayın sabit ilk konumuna en fazla 2,5 m; hedef birleştirme B15 ve nihai rapor doğrulayıcısı (§11.1) buradan okur) |
 | `DEGERLENDIRME_ESLESME_ESIK_M` | 5 | belge, kilitli (FR-28: doğru sınıf ve en fazla 5 m yatay uzaklık şartıyla bire bir atama; değerlendirme B18, `araclar/degerlendirme/eslestirme.py` buradan okur) |
+| `BOOTSTRAP_YENIDEN_ORNEKLEME` | 10000 | belge, kilitli (FR-29: %95 percentile bootstrap, 10.000 yeniden örnekleme; E3a `araclar/degerlendirme/bootstrap_ga.py` buradan okur) |
+| `BOOTSTRAP_TOHUM` | 20261114 | varsayım (sabit ve kayıtlı; protokol kilidinde (C13) dondurulur, kararlar 2026-11-14) |
+| `KARAR_R_ESIK_HEDEF` | 2 | belge, kilitli (FR-30: R farkı eşiği sahne başına 2 hedef, −100·2/N puan; N = `SAHNE_TEST_INSAN` + `SAHNE_TEST_ENKAZ`; E4a `araclar/degerlendirme/karar_kurali.py` buradan okur) |
+| `ZAMAN_ASIMI_H_SN` | boş (C12'de dolar) | belge, kilitli (FR-27: H = 60·⌈2·max(Tp, Sp + 8Dp/C)/60⌉ s, pilotlardan C12'de hesaplanır ve ana deneylerden önce kilitlenir; E5a `araclar/degerlendirme/sansurlu_kosu.py` sansürlü süre alt sınırı için okur) |
 | `KOSU_TEST_SAHNE_SAYISI`, `KOSU_MIMARILER`, `KOSU_ESZAMANLI` | 30, `ucta merkezi`, 0 | belge |
 | `KOSU_SIRA_TOHUMU` | 20260101 | varsayım (ana deney öncesi kaydedilir ve kilitlenir) |
 | `KOSU_ARAC_SAYISI` | 1 | varsayım (koşu betiğinin varsayılan araç sayısı) |
@@ -554,3 +558,29 @@ Kural [kararlar 2026-11-14]: her analiz tablosu iki dosyadır, aynı veriden ür
 | `iyilesme_dislanan` | çift kurulamayan sahne | `sahne_kimligi, neden` (`<mod>: kosu_olcum_yok` \| `<mod>: tamamlanamadi`, `; ` ile birleşik) |
 
 [belge] D, B ve T için sahne başına `I_X = 100 × (X(merkez) − X(uç)) / X(merkez)`; L için sahne düzeyinde ortanca ve 95. yüzdelik farkları ayrı ayrı (merkez − uç, s), L için yüzde iyileşme hesaplanmaz; pozitif değer uçta mod lehinedir; tahmin sahne başına iyileşmelerin aritmetik ortalamasıdır; modlar arası kare eşleştirmesi yapılmaz. Kare sayıları ve oranları gecikme tablolarıyla birlikte verilir (`iyilesme_kosu`). [varsayım] `X(merkez) = 0` ise `I_X` tanımsızdır (sıfır yazılmaz); bir modda `l.ornek_sayisi = 0` ise o L farkı tanımsızdır; özet istatistikleri yalnız tanımlı değerlerden hesaplanır. %95 güven aralığı bu tabloda yoktur (E3a).
+
+**Bootstrap güven aralığı (E3a, `araclar/degerlendirme/bootstrap_ga.py`).** Girdi: E1a'nın `eslestirme_sahne.csv` ve/veya E2a'nın `iyilesme_sahne.csv` dosyası; başlık satırı yukarıdaki sütunlarla birebir aynı olmalıdır (betik beklenen başlığı E1a ve E2a'nın kodundan alır). Yapılandırma: `BOOTSTRAP_YENIDEN_ORNEKLEME` (10.000), `BOOTSTRAP_TOHUM` (§6).
+
+| Tablo | Satır | Sütunlar (sırayla) |
+|---|---|---|
+| `bootstrap_ga` | girdi tablosunun her ölçüt sütunu (tablo sırası `eslestirme_sahne`, `iyilesme_sahne`; sütun sırası girdidekiyle aynı) | `tablo, olcut, cift_sayisi, tanimli_sayisi, tanimsiz_sayisi, ortalama, ga_alt, ga_ust, yeniden_ornekleme, tohum` |
+
+[belge, FR-29] %95 percentile bootstrap: 10.000 kez sahne/çift düzeyinde yerine koyarak yeniden örnekleme; bir sahne satırı iki modun değerini ve farkını birlikte taşıdığından eşleştirme bozulmaz. Tahmin sahne başına değerlerin aritmetik ortalaması; `ga_alt`, `ga_ust` bootstrap ortalamalarının 2,5. ve 97,5. yüzdelikleri. [varsayım] (1) Tanımsız (boş) hücreli sahne o ölçütten çıkarılır, yeniden örnekleme tanımlı sahneler arasında yapılır; (2) tanımlı sahne sayısı 2'den azsa GA tanımsız; (3) yüzdelik numpy varsayılanı (doğrusal ara değer, Hyndman–Fan tip 7); (4) her ölçüt aynı tohumla başlayan ayrı üreteç kullanır: sonuç sütun sırasından bağımsızdır, tanımlı sahne sayısı aynı olan ölçütler aynı sahne seçimlerini paylaşır. Karar etiketleri bu tabloda yoktur (E4a).
+
+**Karar kuralı (E4a, `araclar/degerlendirme/karar_kurali.py`).** Girdi: E3a'nın `bootstrap_ga.csv` dosyası; `yeniden_ornekleme` ve `tohum` kilitli yapılandırmayla (§6) aynı değilse girdi geçersizdir (karar kilitli değerlerle verilir, FR-30). Yapılandırma: `KARAR_R_ESIK_HEDEF`, `SAHNE_TEST_INSAN` + `SAHNE_TEST_ENKAZ` (N), `KOSU_TEST_SAHNE_SAYISI` (planlanan çift).
+
+| Tablo | Satır | Sütunlar (sırayla) |
+|---|---|---|
+| `karar` | karar ölçütü (sabit sıra: `d_iyilesme_yuzde, b_iyilesme_yuzde, t_iyilesme_yuzde, l_ortanca_fark, l_p95_fark, r_fark`) | `olcut, kaynak_tablo, tur, birim, ortalama, ga_alt, ga_ust, esik, karar, karar_metni, kalan_cift, planlanan_cift, kosullu, not` |
+
+`tur` ∈ `yuzde_iyilesme` (%), `gecikme_farki` (s), `r_farki` (puan). `karar` kodları ve belge cümleleri: `uc_lehine` "uçta mod lehine fark gösterildi", `fark_gosterilemedi` "fark gösterilemedi", `merkezi_lehine` "merkezi mod lehine fark gösterildi"; R için `geride_degil`, `geride`, `geride_olmadigi_gosterilemedi` (el kitabındaki üç cümle); GA tanımsızsa `tanimsiz`. [belge, FR-30] D, B, T, L: GA alt > 0 → uçta lehine, üst < 0 → merkezi lehine, aksi fark gösterilemedi (L'de ortanca ve p95 ayrı ayrı). R: eşik `−100 × KARAR_R_ESIK_HEDEF / N` (N = 30 → −6,67 puan); alt > eşik → geride değil, üst < eşik → geride, aksi gösterilemedi. Ölçütler ayrı değerlendirilir; **tek ortak başarı kararı satırı yoktur**. `not` sütunu: "fark gösterilemedi" ve R "gösterilemedi" için "eşdeğerlik anlamına gelmez"; R "geride değil" için "operasyonel yeterlilik anlamına gelmez; mutlak R ayrıca raporlanır". [belge, FR-27] `kalan_cift` (ölçütün tanımlı çift sayısı) `planlanan_cift`'ten azsa `kosullu = 1` ve not "yalnız tamamlanan n çiftle sınırlı" der. [varsayım] GA sınırı 0'a (R'de eşiğe) tam eşitse aralık o değeri içerir sayılır; girdide olmayan ölçüt `tanimsiz` ve "girdide ölçüt yok" notuyla yine satır alır (biçim sabit).
+
+**Sansürlü koşu analizi (E5a, `araclar/degerlendirme/sansurlu_kosu.py`).** Girdi: tamamlanan ve tamamlanamayan **bütün** koşuların ölçüm özetleri (§11.2). Yapılandırma: `ZAMAN_ASIMI_H_SN` (H; C12'ye kadar boş), `KOSU_TEST_SAHNE_SAYISI` (planlanan çift).
+
+| Tablo | Satır | Sütunlar (sırayla) |
+|---|---|---|
+| `sansurlu_kosu` | tamamlanamayan koşu (sahne, mod sırasıyla) | `sahne_kimligi, mod, kosu_kimligi, neden, gozlenen_sure_s, h_s, t_alt_sinir_s, kismi_trafik_mb` |
+| `sansurlu_cift` | kayıtlı sahne | `sahne_kimligi, ucta, merkezi, ciftte` (durum: `tamamlandi` \| `tamamlanamadi` \| `kosu_olcum_yok`) |
+| `sansurlu_ozet` | `ucta`, `merkezi`, `cift` | `kapsam, planlanan, kayitli, tamamlanan, tamamlanamayan, zaman_asimi, kuyruk_tasmasi, surec_olumu, diger, kayit_yok, kosullu` |
+
+[belge, FR-27] Tamamlanamayan koşunun süresi ortalamaya katılmaz, en az zaman aşımı kadar olarak sağdan sansürlü gösterilir (`T ≥ t_alt_sinir_s`); o ana kadarki baytlar kısmi trafiktir (`kismi_trafik_mb`); mimari kaynaklı zaman aşımı ya da taşma seçilerek dışlanmaz (verilen bütün tamamlanamayan koşular listelenir ve sayılır); tamamlanan çift sayısı planlanandan azsa sonuç koşulludur ve kalan çift sayısı `cift` satırındadır (E4a `kosullu` ile aynı kural). [varsayım] (1) `t_alt_sinir_s = max(gozlenen_sure_s, H)`; H boşken `gozlenen_sure_s` ve `h_s` tanımsız; COMPLETE hiç yayımlanmayacağından H dolmadan biten (süreç ölümü, taşma) koşuda da T ≥ H. (2) Nedeni `zaman_asimi` olan koşunun gözlenen süresi H'den kısa olamaz (1 ms pay; aksi girdi hatası). (3) Teknik geçersizlik nedeniyle yeniden çalıştırılan çiftin eski koşuları girdiye verilmez (sözleşmede ayrı neden kodu yoktur). (4) `kayit_yok = planlanan − kayıtlı`; kayıtlı sahne planlanandan fazlaysa girdi hatası; sahne kimlikleri planlanan listeyle denetlenmez. `cift` satırında `tamamlanamayan` en az bir modu tamamlanamayan sahne sayısı, neden sütunları iki moddaki koşu sayılarıdır.

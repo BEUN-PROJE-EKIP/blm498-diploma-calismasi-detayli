@@ -151,7 +151,10 @@ def ana(argv):
         if a in ("-h", "--help"):
             print(__doc__)
             return 0
-        if a == "--yapilandirma" and i + 1 < len(argv):
+        if a == "--yapilandirma":
+            if i + 1 >= len(argv):
+                print(f"{a} bir değer ister", file=sys.stderr)
+                return 2
             yap_yolu = argv[i + 1]
             i += 2
             continue
