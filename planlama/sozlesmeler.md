@@ -123,6 +123,8 @@ Mevcut anahtarlar (ağ, kimlik/port, kamera, çıkarım, eğitim) değişmedi; t
 | `MODEL_SINIFLAR` | `insan enkaz` | belge |
 | `BIRLESTIRME_ARALIK_M` | 2,5 | belge, kilitli (FR-19: aynı sınıf ve adayın sabit ilk konumuna en fazla 2,5 m; hedef birleştirme B15 ve nihai rapor doğrulayıcısı (§11.1) buradan okur) |
 | `DEGERLENDIRME_ESLESME_ESIK_M` | 5 | belge, kilitli (FR-28: doğru sınıf ve en fazla 5 m yatay uzaklık şartıyla bire bir atama; değerlendirme B18, `araclar/degerlendirme/eslestirme.py` buradan okur) |
+| `BOOTSTRAP_YENIDEN_ORNEKLEME` | 10000 | belge, kilitli (FR-29: %95 percentile bootstrap, 10.000 yeniden örnekleme; E3a `araclar/degerlendirme/bootstrap_ga.py` buradan okur) |
+| `BOOTSTRAP_TOHUM` | 20261114 | varsayım (sabit ve kayıtlı; protokol kilidinde (C13) dondurulur, kararlar 2026-11-14) |
 | `KOSU_TEST_SAHNE_SAYISI`, `KOSU_MIMARILER`, `KOSU_ESZAMANLI` | 30, `ucta merkezi`, 0 | belge |
 | `KOSU_SIRA_TOHUMU` | 20260101 | varsayım (ana deney öncesi kaydedilir ve kilitlenir) |
 | `KOSU_ARAC_SAYISI` | 1 | varsayım (koşu betiğinin varsayılan araç sayısı) |
@@ -554,3 +556,11 @@ Kural [kararlar 2026-11-14]: her analiz tablosu iki dosyadır, aynı veriden ür
 | `iyilesme_dislanan` | çift kurulamayan sahne | `sahne_kimligi, neden` (`<mod>: kosu_olcum_yok` \| `<mod>: tamamlanamadi`, `; ` ile birleşik) |
 
 [belge] D, B ve T için sahne başına `I_X = 100 × (X(merkez) − X(uç)) / X(merkez)`; L için sahne düzeyinde ortanca ve 95. yüzdelik farkları ayrı ayrı (merkez − uç, s), L için yüzde iyileşme hesaplanmaz; pozitif değer uçta mod lehinedir; tahmin sahne başına iyileşmelerin aritmetik ortalamasıdır; modlar arası kare eşleştirmesi yapılmaz. Kare sayıları ve oranları gecikme tablolarıyla birlikte verilir (`iyilesme_kosu`). [varsayım] `X(merkez) = 0` ise `I_X` tanımsızdır (sıfır yazılmaz); bir modda `l.ornek_sayisi = 0` ise o L farkı tanımsızdır; özet istatistikleri yalnız tanımlı değerlerden hesaplanır. %95 güven aralığı bu tabloda yoktur (E3a).
+
+**Bootstrap güven aralığı (E3a, `araclar/degerlendirme/bootstrap_ga.py`).** Girdi: E1a'nın `eslestirme_sahne.csv` ve/veya E2a'nın `iyilesme_sahne.csv` dosyası; başlık satırı yukarıdaki sütunlarla birebir aynı olmalıdır (betik beklenen başlığı E1a ve E2a'nın kodundan alır). Yapılandırma: `BOOTSTRAP_YENIDEN_ORNEKLEME` (10.000), `BOOTSTRAP_TOHUM` (§6).
+
+| Tablo | Satır | Sütunlar (sırayla) |
+|---|---|---|
+| `bootstrap_ga` | girdi tablosunun her ölçüt sütunu (tablo sırası `eslestirme_sahne`, `iyilesme_sahne`; sütun sırası girdidekiyle aynı) | `tablo, olcut, cift_sayisi, tanimli_sayisi, tanimsiz_sayisi, ortalama, ga_alt, ga_ust, yeniden_ornekleme, tohum` |
+
+[belge, FR-29] %95 percentile bootstrap: 10.000 kez sahne/çift düzeyinde yerine koyarak yeniden örnekleme; bir sahne satırı iki modun değerini ve farkını birlikte taşıdığından eşleştirme bozulmaz. Tahmin sahne başına değerlerin aritmetik ortalaması; `ga_alt`, `ga_ust` bootstrap ortalamalarının 2,5. ve 97,5. yüzdelikleri. [varsayım] (1) Tanımsız (boş) hücreli sahne o ölçütten çıkarılır, yeniden örnekleme tanımlı sahneler arasında yapılır; (2) tanımlı sahne sayısı 2'den azsa GA tanımsız; (3) yüzdelik numpy varsayılanı (doğrusal ara değer, Hyndman–Fan tip 7); (4) her ölçüt aynı tohumla başlayan ayrı üreteç kullanır: sonuç sütun sırasından bağımsızdır, tanımlı sahne sayısı aynı olan ölçütler aynı sahne seçimlerini paylaşır. Karar etiketleri bu tabloda yoktur (E4a).
