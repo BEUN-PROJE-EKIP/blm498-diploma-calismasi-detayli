@@ -98,7 +98,7 @@ Madde, kimliğinin harfiyle (K, A, B, C, D, E) bir iş paketine aittir; paket a�
 - [x] **B12** · w3 · M3 · geliştirme · Merkezi mod · Merkezi mod: araç başına TCP kanalı, sıkıştırmasız görüntü, geri basınçta kare atılmaz; her iletide araç kimliği, kare numarası, simülasyon zamanı, kamera kalibrasyon kimliği ve kare üretim anına eşlenmiş canlı PX4 konum/yönelim tahmini; yer istasyonunda üç çıkarım işçisi · FR-14 · Bitti: üç araç akışı kayıpsız
 - [x] **B13** · w2 · M3 · geliştirme · Disk kuyrukları ve aşama damgaları · Disk destekli uygulama kuyrukları; kare başına aşama zaman damgaları (üretim, kuyruğa giriş, aktarım, çıkarım başı/sonu, kullanılabilirlik) · GŞÖA 6.8 · Bitti: kapasite taşması sessiz kare atlamaz
 - [x] **B14** · w3 · M3 · geliştirme · Poz enterpolasyonu ve konum hesabı · Kare–poz enterpolasyonu (konum doğrusal, yönelim küresel) ve konum hesaplayıcı (NED→ENU, kutu merkezinden ışın–zemin kesişimi, aralık sınırı 100 ms); telemetri yüksek hızda alınıp kaynak zamanına göre saklanır, merkezde gecikmiş kare 2 Hz durum mesajıyla konumlandırılmaz · FR-17, FR-18 · Bitti: bilinen pozda konum hatası < 5 m
-- [ ] **B15** · w2 · M3 · geliştirme · Hedef birleştirme · Hedef birleştirme: üretim zamanına göre işleme, aynı sınıf ve ilk konuma ≤ 2,5 m ise aday, en yüksek güvenli tespitin konumu · FR-19 · Bitti: birim testleri
+- [x] **B15** · w2 · M3 · geliştirme · Hedef birleştirme · Hedef birleştirme: üretim zamanına göre işleme, aynı sınıf ve ilk konuma ≤ 2,5 m ise aday, en yüksek güvenli tespitin konumu · FR-19 · Bitti: birim testleri
 
 ## M4 · Veri hattı
 

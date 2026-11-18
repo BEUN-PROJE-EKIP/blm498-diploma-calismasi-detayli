@@ -6,6 +6,8 @@ gorev_olay_t1_t0_oncesi.jsonl | 't0' olayından önce olamaz
 gorev_olay_bilinmeyen_olay.jsonl | değerlerinden biri olmalı
 gorev_olay_mono_geriye.jsonl | geriye gidiyor
 gorev_olay_aralik_ters.jsonl | 0 <= n_ilk <= n_son
+gorev_olay_t1_birlestirmeden_once.jsonl | önce 'birlestirme_tamam' olayı yazılmış olmalı
+gorev_olay_birlestirme_alan_eksik.jsonl | 'birlestirme_tamam' olayında zorunlu
 sahne_test_14_insan.json | test bölümünde 15 insan olmalı
 sahne_yakin_hedefler.json | merkezleri arası
 sahne_alan_disi.json | alan dışında
@@ -84,6 +86,7 @@ nihai_rapor_guven_esik_alti.json | aralığında sayı olmalı
 nihai_rapor_yinelenen_kimlik.json | yinelenen rapor kimliği
 nihai_rapor_ilk_tespit_sonra.json | en yüksek güvenli tespitten sonra olamaz
 nihai_rapor_mod_gecersiz.json | KOSU_MIMARILER değerlerinden biri olmalı
+nihai_rapor_konumsuz_ilk_konum_dolu.json | konum ile birlikte dolu ya da birlikte null olmalı
 kosu_olcum_b_tutarsiz.json | B = 8·D/T olmalı
 kosu_olcum_tamam_t_yok.json | tamamlanan koşuda dolu olmalı
 kosu_olcum_oran_tutarsiz.json | kare sayılarından türeyen değerle
@@ -119,3 +122,7 @@ kuyruk_tasmasi_kuyruk_adi_gecersiz.jsonl | 'kamera_<araç>', 'gonderim_<araç>' 
 kuyruk_tasmasi_alan_eksik.jsonl | bos_alan_bayt
 olay_gonderim_kuyrugu_yanlis_kaynak.jsonl | 'gonderim_kuyrugu' kaydını yalnız araç süreci yazar
 kare_sonuc_poz_gecersiz_konumlu.jsonl | poz.konum_ned_m: geçerli poz yokken null olmalı
+nihai_rapor_konumsuz_cok_tespit.json | konumsuz raporda 1 olmalı
+gorev_olay_birlestirme_iki_kez.jsonl | ikinci kez yazılamaz
+gorev_olay_birlestirme_sonuctan_once.jsonl | önce 'son_sonuc' olayı yazılmış olmalı (birleştirme bütün sonuçlardan sonra)
+gorev_olay_birlestirme_hata_ve_tamam.jsonl | aynı dosyada bulunamaz

@@ -39,6 +39,7 @@ class SonucAlici:
         self.son_sonuc_mono_ns = None                    # kabul edilen son sonucun alım anı
         self.kabul_sayisi = 0
         self._sayac_kilit = threading.Lock()
+        self._siniflar = ham["MODEL_SINIFLAR"].split()    # Detection.class_id → sınıf adı (CLASS_HUMAN=0 insan, CLASS_DEBRIS=1 enkaz; sıra MODEL_SINIFLAR ile aynı)
         qa = _rota.kare_sonuc_qos_ayar(ham)
         qos = QoSProfile(history=HistoryPolicy.KEEP_LAST if qa["gecmis"] == "keep_last" else HistoryPolicy.KEEP_ALL, depth=qa["derinlik"], reliability=ReliabilityPolicy.RELIABLE,
                          durability=DurabilityPolicy.TRANSIENT_LOCAL if qa["dayaniklilik"] == "transient_local" else DurabilityPolicy.VOLATILE)
@@ -59,23 +60,29 @@ class SonucAlici:
             self.gecersiz += 1
             self.log("sonuc_gecersiz", arac=int(m.vehicle_id), n=int(m.frame_number), durum=int(m.status), numaralandirma=int(m.numbering_mode))
             return
+        if any(not 0 <= d.class_id < len(self._siniflar) for d in m.detections):      # bilinmeyen sınıf numarası: geri çağrı çökmesin; geçersiz iletiyle aynı yol
+            self.gecersiz += 1
+            self.log("sonuc_gecersiz", arac=int(m.vehicle_id), n=int(m.frame_number), durum=int(m.status), neden="sinif_no_aralik_disi")
+            return
         durum, sonuc_durumu = self._durum_ad[m.status]
-        self._kabul(int(m.vehicle_id), int(m.frame_number), durum, sonuc_durumu, m.sim_stamp.sec * _NS + m.sim_stamp.nanosec, mono)
+        tespitler = [{"sinif": self._siniflar[d.class_id], "guven": float(d.confidence), "konum": [float(d.east), float(d.north)] if d.has_position else None} for d in m.detections]
+        self._kabul(int(m.vehicle_id), int(m.frame_number), durum, sonuc_durumu, m.sim_stamp.sec * _NS + m.sim_stamp.nanosec, mono, tespitler)
 
-    def sonuc_ver(self, arac, n, durum, sim_damga_ns):
+    def sonuc_ver(self, arac, n, durum, sim_damga_ns, tespitler=()):
         """Merkezi mod: merkezde üretilen kare sonucunu (durum: tespit | tespit_yok | islem_hatasi | kare_alinamadi) uçta moddaki ile AYNI yoldan (defter + `kullanilabilir` kaydı) teslim eder.
-        Kullanılabilirlik anı = sonucun yer istasyonunda oluştuğu an."""
+        `tespitler`: kayıttaki tespitler (`sinif`, `guven`, `konum`); hedef birleştirme girdisi olarak deftere işlenir. Kullanılabilirlik anı = sonucun yer istasyonunda oluştuğu an."""
         mono = time.monotonic_ns()
         sonuc_durumu = {"tespit": "sonuc", "tespit_yok": "tespit_yok", "islem_hatasi": "islem_hatasi", "kare_alinamadi": "kare_alinamadi"}[durum]
-        self._kabul(int(arac), int(n), durum, sonuc_durumu, int(sim_damga_ns), mono)
+        self._kabul(int(arac), int(n), durum, sonuc_durumu, int(sim_damga_ns), mono,
+                    [{"sinif": t["sinif"], "guven": float(t["guven"]), "konum": t.get("konum")} for t in tespitler])
 
     def olay_ekle(self, kayit):
         """Yer istasyonu kare olay kaydını (ör. merkezi modda `aktarim_tamam`) `kullanilabilir` kayıtlarıyla aynı dosyaya yazar (tek yazıcı)."""
         if self.kayit_yol:
             self._q.put(kayit)
 
-    def _kabul(self, arac, n, durum, sonuc_durumu, sim_damga_ns, mono):
-        sonuc = self.defter.ekle(arac, n, durum, mono)
+    def _kabul(self, arac, n, durum, sonuc_durumu, sim_damga_ns, mono, tespitler=()):
+        sonuc = self.defter.ekle(arac, n, durum, mono, tespitler=list(tespitler), sim_damga_ns=int(sim_damga_ns))   # hedef birleştirme girdisi: tespitler + sıralama anahtarı (sim damgası)
         if sonuc != "kabul" and sonuc != "aralik_disi":
             self.log("sonuc_" + sonuc, arac=arac, n=n, durum=durum)
             return

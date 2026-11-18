@@ -20,6 +20,7 @@ import sys
 
 KOK = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, os.path.join(KOK, "src", "swarm_vehicle"))
+sys.path.insert(0, os.path.join(KOK, "src", "swarm_gcs"))
 
 import numpy as np  # noqa: E402
 from swarm_vehicle import konum_hesap as kh  # noqa: E402
@@ -329,6 +330,39 @@ def mod_rota(klasor, arac, ham, kimlik, baslangic, kayma_ms):
 
 
 # --- iki_mod ----------------------------------------------------------------------------------------------------------------------------------------------
+def nihai_rapor_cevrimdisi(klasor, ham, mod):
+    """Koşunun `nihai_rapor.json` dosyası, aynı koşunun kare sonuç kayıtlarından (`kayit/kare_sonuc_<araç>.jsonl`, görev kaydındaki [n_ilk, n_son] aralığında) ve Gazebo damga kaydından
+    ÇEVRİM DIŞI yeniden birleştirilen raporla karşılaştırılır (iki mod aynı birleştirme fonksiyonunu kullanır). Uçta modda güven `float32`'ye yuvarlanarak (DDS duyarlığı) yeniden birleştirilir; karşılaştırma güvende 1e-6, konumda 1e-9 m toleranslıdır."""
+    from swarm_gcs import hedef_birlestirme as hb
+    gorev = jsonl(os.path.join(klasor, "kayit", "yer_istasyonu_gorev.jsonl"))
+    aralik = {x["arac_kimligi"]: (x["n_ilk"], x["n_son"]) for x in gorev if x["olay"] == "tarama_bitisi"}
+    f32 = (lambda v: float(np.float32(v))) if mod == "ucta" else (lambda v: v)     # uçta modda güven DDS float32 olarak gelir: aynı duyarlıkla yeniden birleştirilir (eşitlikte yanlış "farklı" çıkmasın)
+    kayitlar = []
+    for k, (n1, n2) in sorted(aralik.items()):
+        for r in jsonl(os.path.join(klasor, "kayit", f"kare_sonuc_{k}.jsonl")):
+            if n1 <= r["n"] <= n2 and r["tespitler"]:
+                kayitlar.append({"arac": k, "n": r["n"], "sim_damga_ns": r["sim_damga_ns"], "tespitler": [{"sinif": t["sinif"], "guven": f32(t["guven"]), "konum": t["konum"]} for t in r["tespitler"]]})
+    beklenen, girdi, _ = hb.birlestir_ve_yaz(kayitlar, float(ham["BIRLESTIRME_ARALIK_M"]), None, "k", "s", mod)
+    with open(os.path.join(klasor, "nihai_rapor.json"), encoding="utf-8") as f:
+        yazilan = json.load(f)["raporlar"]
+    farkli = []
+    if len(yazilan) != len(beklenen):
+        farkli.append(f"rapor sayısı {len(yazilan)} ≠ {len(beklenen)}")
+    for a, b in zip(yazilan, beklenen):
+        for alan in ("rapor_kimligi", "sinif", "tespit_sayisi", "ilk_tespit", "en_yuksek_guven_tespiti"):
+            if a[alan] != b[alan]:
+                farkli.append(f"{a['rapor_kimligi']}.{alan}")
+        for alan in ("konum", "ilk_konum"):
+            if (a[alan] is None) != (b[alan] is None) or (a[alan] and max(abs(a[alan][c] - b[alan][c]) for c in ("x_m", "y_m")) > 1e-9):
+                farkli.append(f"{a['rapor_kimligi']}.{alan}")
+        if abs(a["guven"] - b["guven"]) > 1e-6:
+            farkli.append(f"{a['rapor_kimligi']}.guven")
+    sonuc(girdi > 0 and not farkli, f"nihai_rapor_cevrimdisi_{mod}", f"nihai_rapor.json: {len(yazilan)} rapor, {girdi} girdi tespit; çevrim dışı yeniden birleştirmeyle birebir (güven ±1e-6, konum ±1e-9 m); farklı: {farkli[:5]}")
+    from collections import Counter
+    sinif = Counter(r["sinif"] for r in yazilan)
+    print(f"TABLO nihai_{mod} rapor={len(yazilan)} konumsuz={sum(1 for r in yazilan if r['konum'] is None)} girdi_tespit={girdi} siniflar={dict(sinif)}")
+
+
 def mod_iki_mod(klasor, arac, ham, kimlik, baslangic, mod):
     hes = hesaplayici_olustur(ham, kimlik)
     sonuclar = jsonl(os.path.join(klasor, "kayit", f"kare_sonuc_{kimlik}.jsonl"))
@@ -367,6 +401,8 @@ def mod_iki_mod(klasor, arac, ham, kimlik, baslangic, mod):
                 so = ofset_hes.hesapla(t["kutu"], p)
                 if so.konum is not None:
                     yanlis_ofset.append(math.hypot(so.konum[0] - t["konum"][0], so.konum[1] - t["konum"][1]))
+    if arac == 1:
+        nihai_rapor_cevrimdisi(klasor, ham, mod)
     print(f"TABLO iki_mod_{mod}_arac{kimlik} tespit={sayac['tespit']} konumlu={sayac['konumlu']} poz_yok={sayac['poz_yok']} kesisim_yok={sayac['kesisim_yok']} | kare sonucu {len(sonuclar)} | en büyük çevrim dışı sapma {sapma_maks:.3e} m")
     if yanlis_ofset:
         print(f"BILGI iki_mod_{mod}_arac{kimlik} başlangıç ofseti denetimi: 1. aracın başlangıç konumuyla hesaplansaydı sapma ortanca {yuzdelik(yanlis_ofset, 50):.3f} m (beklenen: iki araç başlangıcı arası fark)")

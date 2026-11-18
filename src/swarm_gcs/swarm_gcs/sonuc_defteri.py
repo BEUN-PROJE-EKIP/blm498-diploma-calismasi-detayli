@@ -104,6 +104,11 @@ class SonucDefteri:
         with self._k:
             return self._gelen[int(arac)].get(int(n))
 
+    def kabul_edilenler(self):
+        """Aralıkta kabul edilmiş bütün sonuç kayıtları (hedef birleştirme girdisi; aralık dışı ve tekrarlar yoktur), araç ve numara sırasıyla."""
+        with self._k:
+            return [self._gelen[a][n] for a in sorted(self._gelen) for n in sorted(self._gelen[a])]
+
     def sayilar(self):
         """Araç başına {'beklenen', 'gelen', 'eksik', 'tekrar', 'aralik_disi', 'durumlar': {...}}; aralık bilinmiyorsa beklenen/eksik None."""
         with self._k:

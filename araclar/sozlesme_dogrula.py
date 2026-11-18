@@ -1169,7 +1169,7 @@ def dogrula_kuyruk_durumu_dosyasi(c, satirlar, tur="kuyruk_durumu"):
     return hatalar
 
 
-GOREV_OLAYLARI = ("gorev_atandi", "hazir", "eslesme", "t0", "tarama_bitisi", "son_sonuc", "t1", "tamamlandi", "zaman_asimi", "birlestirme_yok", "yok_sayildi", "hata")
+GOREV_OLAYLARI = ("gorev_atandi", "hazir", "eslesme", "t0", "tarama_bitisi", "son_sonuc", "t1", "tamamlandi", "zaman_asimi", "birlestirme_tamam", "yok_sayildi", "hata")
 GOREV_ARAC_ZORUNLU = ("gorev_atandi", "hazir", "tarama_bitisi", "tamamlandi")
 GOREV_MISSION_ZORUNLU = ("gorev_atandi", "t0", "t1")
 
@@ -1178,7 +1178,8 @@ def dogrula_gorev_olay(c, d):
     """Yer istasyonu görev koordinatörünün görev olay kaydı (JSON Lines'ın bir satırı; taslak sürüm)."""
     h = Hatalar()
     if not alan_denetle(h, "", d, ["surum", "tur", "olay", "mono_ns", "sim_ns"],
-                        ["arac_kimligi", "mission_id", "n_ilk", "n_son", "t_s_ns", "t_b_ns", "yayimci", "t1_eksi_son_bitis_ns", "neden", "ayrinti"]):
+                        ["arac_kimligi", "mission_id", "n_ilk", "n_son", "t_s_ns", "t_b_ns", "yayimci", "t1_eksi_son_bitis_ns",
+                         "rapor_sayisi", "konumsuz_rapor_sayisi", "girdi_tespit_sayisi", "sure_ms", "neden", "ayrinti"]):
         return h.liste
     ust_alanlar(h, d, "gorev_olay")
     olay = d.get("olay")
@@ -1210,6 +1211,25 @@ def dogrula_gorev_olay(c, d):
         h.ekle("yayimci", "yalnız 'eslesme' olayında bulunabilir")
     if "t1_eksi_son_bitis_ns" in d and (olay != "t1" or not tam_sayi_mi(d["t1_eksi_son_bitis_ns"])):
         h.ekle("t1_eksi_son_bitis_ns", "yalnız 't1' olayında ve tam sayı (ns) olarak bulunabilir")
+    BIRLESTIRME_ALANLARI = ("rapor_sayisi", "konumsuz_rapor_sayisi", "girdi_tespit_sayisi", "sure_ms")
+    if olay == "birlestirme_tamam":
+        for k in BIRLESTIRME_ALANLARI:
+            if k not in d:
+                h.ekle(k, "'birlestirme_tamam' olayında zorunlu")
+            elif k == "sure_ms":
+                if not _neg_olmayan_sayi(d[k]):
+                    h.ekle(k, "negatif olmayan sayı (ms) olmalı")
+            elif not _neg_olmayan_tam(d[k]):
+                h.ekle(k, "negatif olmayan tam sayı olmalı")
+        if all(tam_sayi_mi(d.get(k)) for k in ("rapor_sayisi", "konumsuz_rapor_sayisi", "girdi_tespit_sayisi")):
+            if d["konumsuz_rapor_sayisi"] > d["rapor_sayisi"]:
+                h.ekle("konumsuz_rapor_sayisi", "rapor sayısından büyük olamaz")
+            if d["rapor_sayisi"] > d["girdi_tespit_sayisi"]:
+                h.ekle("rapor_sayisi", "girdi tespit sayısından büyük olamaz (her rapor en az bir tespitten oluşur)")
+    else:
+        for k in BIRLESTIRME_ALANLARI:
+            if k in d:
+                h.ekle(k, "yalnız 'birlestirme_tamam' olayında bulunabilir")
     for k in ("neden", "ayrinti"):
         if k in d and not (isinstance(d[k], str) and d[k]):
             h.ekle(k, "boş olmayan metin olmalı")
@@ -1219,7 +1239,7 @@ def dogrula_gorev_olay(c, d):
 
 
 def dogrula_gorev_olay_dosyasi(c, satirlar):
-    """Bir koşunun görev kaydı: tek yazar (yer istasyonu), mono_ns geriye gitmez; en çok bir t0 ve bir t1; t0 → son_sonuc → t1 sırası."""
+    """Bir koşunun görev kaydı: tek yazar (yer istasyonu), mono_ns geriye gitmez; en çok bir t0 ve bir t1; t0 → son_sonuc → birlestirme_tamam → t1 sırası."""
     hatalar = []
     son, dolu = None, 0
     gorulen = {}
@@ -1241,12 +1261,22 @@ def dogrula_gorev_olay_dosyasi(c, satirlar):
             hatalar.append(f"satır {no}: mono_ns: geriye gidiyor ({d['mono_ns']} < {son})")
         son = d["mono_ns"]
         o = d["olay"]
-        if o in ("t0", "t1") and o in gorulen:
+        if o in ("t0", "t1", "birlestirme_tamam") and o in gorulen:
             hatalar.append(f"satır {no}: '{o}' olayı ikinci kez yazılamaz (satır {gorulen[o]})")
         if o == "t1" and "t0" not in gorulen:
             hatalar.append(f"satır {no}: 't1' olayı 't0' olayından önce olamaz")
         if o == "t1" and "son_sonuc" not in gorulen:
             hatalar.append(f"satır {no}: 't1' olayından önce 'son_sonuc' olayı yazılmış olmalı (COMPLETE yalnız bütün sonuçlardan sonra)")
+        if o == "birlestirme_tamam" and "son_sonuc" not in gorulen:
+            hatalar.append(f"satır {no}: 'birlestirme_tamam' olayından önce 'son_sonuc' olayı yazılmış olmalı (birleştirme bütün sonuçlardan sonra)")
+        if o == "hata" and d.get("neden") == "birlestirme_hatasi" and "birlestirme_tamam" in gorulen:
+            hatalar.append(f"satır {no}: 'hata' (birlestirme_hatasi) ile 'birlestirme_tamam' aynı dosyada bulunamaz (satır {gorulen['birlestirme_tamam']})")
+        if o == "birlestirme_tamam" and "birlestirme_hatasi" in gorulen:
+            hatalar.append(f"satır {no}: 'birlestirme_tamam' ile 'hata' (birlestirme_hatasi) aynı dosyada bulunamaz (satır {gorulen['birlestirme_hatasi']})")
+        if o == "hata" and d.get("neden") == "birlestirme_hatasi":
+            gorulen.setdefault("birlestirme_hatasi", no)
+        if o == "t1" and "birlestirme_tamam" not in gorulen:
+            hatalar.append(f"satır {no}: 't1' olayından önce 'birlestirme_tamam' olayı yazılmış olmalı (COMPLETE yalnız nihai hedef birleştirmesi tamamlanınca; t1 birleştirmeyi kapsar)")
         gorulen.setdefault(o, no)
     if dolu == 0 and not hatalar:
         hatalar.append("dosya boş: en az bir kayıt olmalı")
@@ -1288,22 +1318,28 @@ def konum_denetle(h, yol, k):
 
 
 def tespit_kaynagi_denetle(h, c, yol, t):
-    if not alan_denetle(h, yol, t, ["arac_kimligi", "n", "uretim_mono_ns"]):
+    """Tespit kaynağı {arac_kimligi, n, sim_damga_ns}; geçerliyse işleme sırası anahtarı `(sim_damga_ns, arac_kimligi, n)` döner (FR-19: üretim zamanı, araç, kare numarası)."""
+    if not alan_denetle(h, yol, t, ["arac_kimligi", "n", "sim_damga_ns"]):
         return None
+    gecerli = True
     if not tam_sayi_mi(t.get("arac_kimligi")) or t.get("arac_kimligi") not in c.arac_kimlikleri:
         h.ekle(f"{yol}.arac_kimligi", f"UAV_SYS_IDS değerlerinden biri olmalı ({c.arac_kimlikleri}; bulunan: {t.get('arac_kimligi')!r})")
+        gecerli = False
     if not _neg_olmayan_tam(t.get("n")):
         h.ekle(f"{yol}.n", "negatif olmayan tam sayı (kare numarası) olmalı")
-    if not _poz_tam(t.get("uretim_mono_ns")):
-        h.ekle(f"{yol}.uretim_mono_ns", "pozitif tam sayı (CLOCK_MONOTONIC, ns; karenin üretim anı) olmalı")
-        return None
-    return t["uretim_mono_ns"]
+        gecerli = False
+    if not _neg_olmayan_tam(t.get("sim_damga_ns")):
+        h.ekle(f"{yol}.sim_damga_ns", "negatif olmayan tam sayı (ns; karenin ızgara simülasyon damgası, üretim zamanı sırası) olmalı")
+        gecerli = False
+    return (t["sim_damga_ns"], t["arac_kimligi"], t["n"]) if gecerli else None
 
 
-def kosu_ust_alanlari_denetle(h, c, d):
+def kosu_ust_alanlari_denetle(h, c, d, sahne_null_olur=False):
     for k in ("kosu_kimligi", "sahne_kimligi"):
+        if k == "sahne_kimligi" and sahne_null_olur and k in d and d[k] is None:
+            continue                                     # kosu.json'da sahne tanımsızsa (null) olduğu gibi taşınır
         if k in d and not (isinstance(d.get(k), str) and KIMLIK_RE.match(d[k])):
-            h.ekle(k, "1-64 karakter, yalnız harf/rakam/_/- olmalı")
+            h.ekle(k, "1-64 karakter, yalnız harf/rakam/_/- olmalı" + (" (ya da null: sahne tanımsız)" if sahne_null_olur and k == "sahne_kimligi" else ""))
     if "mod" in d and d.get("mod") not in c.mimariler:
         h.ekle("mod", f"KOSU_MIMARILER değerlerinden biri olmalı ({c.mimariler}; bulunan: {d.get('mod')!r})")
 
@@ -1314,7 +1350,7 @@ def dogrula_nihai_rapor(c, d):
     if not alan_denetle(h, "", d, ["surum", "tur", "kosu_kimligi", "sahne_kimligi", "mod", "raporlar"]):
         return h.liste
     ust_alanlar(h, d, "nihai_rapor")
-    kosu_ust_alanlari_denetle(h, c, d)
+    kosu_ust_alanlari_denetle(h, c, d, sahne_null_olur=True)
     r = d.get("raporlar")
     if not isinstance(r, list):
         h.ekle("raporlar", "liste olmalı (hiç rapor üretilmeyen koşuda boş liste)")
@@ -1347,6 +1383,8 @@ def dogrula_nihai_rapor(c, d):
         ts = x.get("tespit_sayisi")
         if not (tam_sayi_mi(ts) and ts >= 1):
             h.ekle(f"{yol}.tespit_sayisi", "en az 1 olan tam sayı olmalı (adaydaki tespit sayısı)")
+        elif x.get("konum") is None and ts != 1:
+            h.ekle(f"{yol}.tespit_sayisi", "konumsuz raporda 1 olmalı (her konumsuz tespit ayrı rapordur, birleştirilmez) [belge FR-18]")
         ilk = tespit_kaynagi_denetle(h, c, f"{yol}.ilk_tespit", x.get("ilk_tespit"))
         yuk = tespit_kaynagi_denetle(h, c, f"{yol}.en_yuksek_guven_tespiti", x.get("en_yuksek_guven_tespiti"))
         if ilk is not None and yuk is not None:

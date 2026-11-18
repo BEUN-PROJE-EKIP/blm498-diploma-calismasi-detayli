@@ -368,6 +368,13 @@ def ana(argv):
                 m = max(r["ileti"] for r in kd)
                 sonuc(m >= 3, f"kuyruk_buyudu_{k}", f"gönderim kuyruğu geri basınçla büyüdü: en çok {m} ileti ({max(r['bayt'] for r in kd) / 1e6:.1f} MB); gönderici bekledi, atılan 0")
     # --- sıra ---------------------------------------------------------------------------------------------------------------------------
+    b_ = (olay("birlestirme_tamam") or [None])[0]
+    sonuc(b_ is not None and son_sonuc is not None and son_sonuc["mono_ns"] <= b_["mono_ns"] < t1["mono_ns"], "birlestirme_t1_oncesi",
+          f"nihai hedef birleştirme son sonuçtan sonra, t1'den ÖNCE tamamlandı: rapor={b_['rapor_sayisi']}, konumsuz={b_['konumsuz_rapor_sayisi']}, girdi tespit={b_['girdi_tespit_sayisi']}, süre={b_['sure_ms']:.2f} ms, t1'den {(t1['mono_ns'] - b_['mono_ns']) / 1e6:.1f} ms önce"
+          if b_ else "'birlestirme_tamam' kaydı yok")
+    from koordinator_kayit import nihai_rapor_hatalari
+    nh_ = nihai_rapor_hatalari(klasor)
+    sonuc(not nh_, "nihai_rapor_gecerli", "nihai_rapor.json yazıldı ve §11.1 doğrulayıcısından geçti" if not nh_ else f"nihai_rapor.json sorunlu: {nh_[:3]}")
     sonuc(son_sonuc_mono <= t1["mono_ns"] and bool(son_sonuc) and son_sonuc["mono_ns"] <= t1["mono_ns"], "complete_son_sonuctan_sonra", f"COMPLETE son sonuçtan {(t1['mono_ns'] - son_sonuc_mono) / 1e6:.1f} ms sonra (t0 → t1 {(t1['mono_ns'] - t0['mono_ns']) / 1e9:.1f} s)")
     for k in kimlikler:
         r = [x for x in olay("tarama_bitisi") if x["arac_kimligi"] == k]

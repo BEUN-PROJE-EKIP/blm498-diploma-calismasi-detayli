@@ -112,7 +112,13 @@ def ana(argv):
     sonuc(t0 is not None and t1 is not None and tamam is not None and bool(ol("bitti")), "koordinator_tamam", "koordinatör t0, sonuclar_tamam, t1 ve bitti kayıtlarını yazdı" if t1 else "t0/t1/sonuclar_tamam/bitti eksik")
     if t0 is None or t1 is None or tamam is None:
         return 1
-    sonuc(bool(ol("birlestirme_yok")), "birlestirme_yok_kaydi", "koordinatör günlüğünde 'birleştirme yok (M3)' kaydı var")
+    b = (ol("birlestirme_tamam") or [None])[0]
+    sonuc(b is not None and b["mono_ns"] < t1["mono_ns"], "birlestirme_t1_oncesi",
+          f"nihai hedef birleştirme t1'den ÖNCE tamamlandı: rapor={b['rapor_sayisi']}, konumsuz={b['konumsuz_rapor_sayisi']}, girdi tespit={b['girdi_tespit_sayisi']}, süre={b['sure_ms']:.2f} ms, t1'den {(t1['mono_ns'] - b['mono_ns']) / 1e6:.1f} ms önce"
+          if b else "'birlestirme_tamam' kaydı yok")
+    from koordinator_kayit import nihai_rapor_hatalari
+    nh = nihai_rapor_hatalari(klasor)
+    sonuc(not nh, "nihai_rapor_gecerli", "nihai_rapor.json yazıldı ve §11.1 doğrulayıcısından geçti" if not nh else f"nihai_rapor.json sorunlu: {nh[:3]}")
     sonuc(eslesme is not None and eslesme["yayimci"] >= n_arac and eslesme["mono_ns"] < t0["mono_ns"], "bariyer_eslesmeden_sonra",
           f"kare sonucu konusunda {eslesme['yayimci'] if eslesme else '-'} yayımcıyla eşleşme t0'dan {(t0['mono_ns'] - eslesme['mono_ns']) / 1e6:.0f} ms önce tamamlandı; eşleşme anları t0'a göre (s): "
           + ", ".join(f"{(m - t0['mono_ns']) / 1e9:+.1f}→{n}" for m, n in eslesme["anlar"]) if eslesme else "eşleşme kaydı yok")
