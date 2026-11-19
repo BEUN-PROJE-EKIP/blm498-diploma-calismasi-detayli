@@ -1,0 +1,3 @@
+# Kontrol paneli: npm bağımlılıkları ve derleme çıktısı depoya girmez
+frontend/node_modules/
+frontend/dist/

@@ -1,0 +1,27 @@
+{
+  "_aciklama": "Kontrol panelinin KENDİ ayarları (projeden bağımsız sunum aracı). Paylaşılan değerler (dünya, model, kimlikler, konu adları, irtifa) config/deney.env'den okunur, burada yinelenmez.",
+  "http_adres": "127.0.0.1",
+  "http_port": 8090,
+  "mavsdk_grpc_portlari": [20061, 20062, 20063],
+  "px4_gcs_udp_taban": 18570,
+  "jpeg_kalite": 75,
+  "harita": {
+    "model_adi": "panel_harita_kamerasi",
+    "konu": "/panel/harita/image",
+    "merkez_m": [0, 0],
+    "yukseklik_m": 230,
+    "hfov_rad": 1.3,
+    "genislik_px": 960,
+    "yukseklik_px": 720,
+    "hz": 2,
+    "uzak_kirpma_m": 600
+  },
+  "manuel": {
+    "maks_yatay_hiz_ms": 5.0,
+    "maks_dikey_hiz_ms": 2.0,
+    "maks_donus_derece_sn": 45.0,
+    "komut_zaman_asimi_sn": 0.5,
+    "gonderim_hz": 20
+  },
+  "kalkis_bekleme_sn": 60
+}
