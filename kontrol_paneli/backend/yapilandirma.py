@@ -1,5 +1,6 @@
 """Panel yapılandırması: paylaşılan değerler config/deney.env'den (tek kaynak), panele özgü değerler panel_ayar.json'dan okunur."""
 import json
+import math
 import os
 import re
 from dataclasses import dataclass, field
@@ -26,7 +27,9 @@ class Arac:
     sys_id: int
     baslangic: tuple     # (x, y, z) dünya ENU, m
     grpc_port: int
-    gcs_udp_port: int
+    gcs_udp_port: int          # PX4'ün GCS bağlantısının dinlediği port (18570 + örnek)
+    aktarma_px4_port: int      # aktarıcının PX4'e konuştuğu SABİT yerel port
+    aktarma_mavsdk_port: int   # mavsdk_server'ın bağlandığı aktarıcı portu
     kamera_konusu: str
     model_adi: str
 
@@ -48,10 +51,30 @@ class Yapilandirma:
         return os.path.join(KOK_DIZIN, "araclar", "kosu.sh")
 
 
+def harita_kapsamini_ayarla(h, kok=KOK_DIZIN):
+    """Harita kamerasını görev alanının tamamını (kenar payıyla) görecek biçimde konumlandırır (yerinde günceller).
+
+    Kamera aşağı bakar; yatay görüş açısı hfov, düşey açı en-boy oranından. Gereken yükseklik iki eksenin büyüğüdür.
+    """
+    if h.get("kapsama", "elle") != "bolge_rota":
+        return h
+    with open(os.path.join(kok, "config", "bolge_rota.json"), encoding="utf-8") as f:
+        alan = json.load(f)["alan"]
+    pay = float(h.get("kenar_payi_m", 0))
+    gen, yuk = float(alan["genislik_m"]) + 2 * pay, float(alan["yukseklik_m"]) + 2 * pay
+    tan_y = math.tan(float(h["hfov_rad"]) / 2)
+    tan_d = tan_y * float(h["yukseklik_px"]) / float(h["genislik_px"])
+    h["merkez_m"] = [float(v) for v in alan["merkez_m"]]
+    h["yukseklik_m"] = round(max(gen / 2 / tan_y, yuk / 2 / tan_d), 1)
+    h["uzak_kirpma_m"] = max(float(h["uzak_kirpma_m"]), h["yukseklik_m"] * 1.5)
+    return h
+
+
 def yukle():
     ham = deney_env_oku(os.environ.get("DENEY_ENV", os.path.join(KOK_DIZIN, "config", "deney.env")))
     with open(os.path.join(PANEL_DIZINI, "panel_ayar.json"), encoding="utf-8") as f:
         ayar = json.load(f)
+    harita_kapsamini_ayarla(ayar["harita"])
     dunya = ham["SIM_WORLD"]
     onek = ham["SIM_MODEL"].removeprefix("gz_")
     kimlikler = [int(x) for x in ham["UAV_SYS_IDS"].split()]
@@ -65,6 +88,8 @@ def yukle():
         araclar.append(Arac(
             no=i + 1, sys_id=sid, baslangic=pozlar[i], grpc_port=int(grpc[i]),
             gcs_udp_port=int(ayar["px4_gcs_udp_taban"]) + i,
+            aktarma_px4_port=int(ayar["px4_tarafi_port_taban"]) + i,
+            aktarma_mavsdk_port=int(ayar["mavsdk_tarafi_port_taban"]) + i,
             kamera_konusu=f"/world/{dunya}/model/{model}/link/{ham['KAMERA_LINK']}/sensor/{ham['KAMERA_ALGILAYICI']}/image",
             model_adi=model))
     return Yapilandirma(ham=ham, ayar=ayar, dunya=dunya, araclar=araclar, kalkis_irtifa_m=float(ham.get("CAM_ALT_M", "30")))

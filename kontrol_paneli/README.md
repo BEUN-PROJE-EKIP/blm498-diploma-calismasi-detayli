@@ -41,6 +41,14 @@ Tarayıcıda: <http://127.0.0.1:8090>. Arayüz üzerinde çalışırken: `cd kon
 
 - **Arka uç** (`backend/`, yalnız standart kitaplık + projede kurulu paketler): HTTP sunucusu, `/api/olaylar` (Server-Sent Events, 2 Hz durum), MJPEG kamera akışları, POST komutları.
 - **Kameralar:** gz-transport ile aracın kamera konusuna doğrudan abone olunur (`ros_gz_bridge` kullanılmaz). Görüntüler JPEG'e çevrilir.
-- **Harita:** koşu başlayınca dünyaya yalnız çalışma anında tepeden bakan bir kamera eklenir (`/world/<dünya>/create`). Sahne dosyalarına dokunulmaz. İHA işaretleri `pose/info` konusundan çizilir.
-- **Uçuş:** panelin kendi `mavsdk_server`'ları (gRPC 20061-20063) PX4'ün GCS bağlantı portuna (18570+i) bağlanır. Projenin `px4_adapter` hattı (14540-14542, gRPC 20051-20053) değişmez. `kosu.sh baslat` başka `mavsdk_server` görünce koşuyu reddettiği için panel bunları yalnız koşu açıkken çalıştırır ve `baslat`'tan önce kapatır.
+- **Harita:** koşu başlayınca dünyaya yalnız çalışma anında tepeden bakan bir kamera eklenir (`/world/<dünya>/create`). Sahne dosyalarına dokunulmaz. Kamera yüksekliği görev alanının (`config/bolge_rota.json`, 300 × 300 m) tamamını ve 15 m kenar payını görecek biçimde kendiliğinden hesaplanır (~289 m). İHA işaretleri `pose/info` konusundan çizilir.
+- **Test pisti:** dokusuz PX4 `default` dünyasında kameraların göreceği bir şey olsun diye 240 × 30 m görsel bir pist eklenir (`panel_ayar.json` → `test_pisti`; başka dünyalarda eklenmez).
+- **Uçuş:** panelin kendi `mavsdk_server`'ları (gRPC 20061-20063) PX4'ün GCS bağlantı portuna (18570+i) bir UDP aktarıcı üzerinden bağlanır. PX4 bu bağlantıda ilk konuşan istemcinin portuna kilitlenir; aktarıcı PX4 ile hep aynı porttan (18590+i) konuştuğu için panel yeniden açılınca bağlantı kopmaz. Projenin `px4_adapter` hattı (14540-14542, gRPC 20051-20053) değişmez. `kosu.sh baslat` başka `mavsdk_server` görünce koşuyu reddettiği için panel bunları yalnız koşu açıkken çalıştırır ve `baslat`'tan önce kapatır.
+
+## Dikkat
+
+- **İHA'lar havadayken paneli kapatmayın.** PX4 yer istasyonu bağlantısı koptuğunda 5 sn bekler, sonra eve dönüp iner (RTL). Bu PX4'ün güvenlik davranışıdır; panel değiştirmez.
+- İHA'lar yerdeyken kameralar düz gri görünür: kamera yere 10 cm yakın, kırpma mesafesi de 10 cm (`CAM_CLIP_NEAR_M`). Kalkıştan sonra görüntü gelir.
+- Ağır sahnelerde (ör. yıkık şehir) PX4 bağlantısı ve konum hazırlığı 1-2 dk sürebilir; kontrol listesi tamamen yeşile dönmeden kalkış vermeyin.
+- Başka bir dünya için: `DENEY_ENV` ile `SIM_WORLD`'ü farklı bir `deney.env` kopyası, `GZ_SIM_RESOURCE_PATH` ile de modellerin yolu verilerek panel açılır (dünya dosyası PX4'ün dünya klasöründe olmalıdır).
 - **Yapılandırma:** paylaşılan değerler (dünya, model, kimlikler, irtifa, konu adları) `config/deney.env`'den okunur. Panele özgü değerler `panel_ayar.json` dosyasındadır.

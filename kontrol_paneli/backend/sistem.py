@@ -1,8 +1,9 @@
 """Sistem yöneticisi: Gazebo + PX4 koşusunu projenin kendi betiğiyle (araclar/kosu.sh) başlatır, durdurur ve izler.
 
 Panel koşuyu kendisi kurmaz; yalnız kosu.sh'ı çağırır ve koşu üst verisini (.generated/kosular/aktif, kosu.json) okur.
-  - "Sistemi başlat":  kosu.sh baslat                      (Gazebo + 3 PX4; görev süreçleri yok)
-  - "Görevi başlat":   kosu.sh durdur → kosu.sh baslat --yer-istasyonu var --mimari <ucta|merkezi>
+  - "Sistemi başlat":  kosu.sh baslat --arac N                      (Gazebo + N PX4; görev süreçleri yok)
+  - "Görevi başlat":   kosu.sh durdur → kosu.sh baslat --arac N --yer-istasyonu var --mimari <ucta|merkezi>
+  N = deney.env UAV_SYS_IDS uzunluğu (3); KOSU_ARAC_SAYISI (testler için 1) kullanılmaz.
     (projenin görev akışı başlangıç bariyeri için araçların yerde, başlangıç konumunda olmasını bekler; bu yüzden temiz bir koşu açılır)
 """
 import collections
@@ -123,7 +124,7 @@ class SistemYoneticisi:
             if self._kosu_oku():
                 self._yaz("(+) Yaşayan koşu bulundu; panel ona bağlanıyor.")
                 return
-            if self._calistir("baslat") != 0:
+            if self._calistir("baslat", "--arac", str(len(self.yap.araclar))) != 0:
                 raise RuntimeError("Sistem başlatılamadı (ayrıntı günlükte)")
         return self._arka_planda("baslat", is_)
 
@@ -147,7 +148,7 @@ class SistemYoneticisi:
                 self._yaz("(i) Görev için temiz koşu açılıyor: mevcut koşu durduruluyor.")
                 if self._calistir("durdur") != 0:
                     raise RuntimeError("Mevcut koşu durdurulamadı")
-            if self._calistir("baslat", "--yer-istasyonu", "var", "--mimari", mimari) != 0:
+            if self._calistir("baslat", "--arac", str(len(self.yap.araclar)), "--yer-istasyonu", "var", "--mimari", mimari) != 0:
                 raise RuntimeError("Görev koşusu başlatılamadı (ayrıntı günlükte)")
         return self._arka_planda("gorev", is_)
 

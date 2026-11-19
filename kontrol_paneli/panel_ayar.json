@@ -2,13 +2,26 @@
   "_aciklama": "Kontrol panelinin KENDİ ayarları (projeden bağımsız sunum aracı). Paylaşılan değerler (dünya, model, kimlikler, konu adları, irtifa) config/deney.env'den okunur, burada yinelenmez.",
   "http_adres": "127.0.0.1",
   "http_port": 8090,
-  "mavsdk_grpc_portlari": [20061, 20062, 20063],
+  "mavsdk_grpc_portlari": [
+    20061,
+    20062,
+    20063
+  ],
   "px4_gcs_udp_taban": 18570,
+  "_aktarma_aciklama": "PX4 GCS bağlantısı ilk istemcinin adresine kilitlenir; panel yeniden açılınca kopmasın diye PX4 ile her zaman SABİT porttan (px4_tarafi_port_taban+i) konuşan UDP aktarıcı kullanılır; mavsdk_server aktarıcıya (mavsdk_tarafi_port_taban+i) bağlanır.",
+  "px4_tarafi_port_taban": 18590,
+  "mavsdk_tarafi_port_taban": 18600,
   "jpeg_kalite": 75,
   "harita": {
     "model_adi": "panel_harita_kamerasi",
     "konu": "/panel/harita/image",
-    "merkez_m": [0, 0],
+    "_kapsama_aciklama": "kapsama 'bolge_rota': merkez ve yükseklik config/bolge_rota.json 'alan'ından + kenar_payi_m ile hesaplanır; 'elle': merkez_m ve yukseklik_m kullanılır.",
+    "kapsama": "bolge_rota",
+    "kenar_payi_m": 15,
+    "merkez_m": [
+      0,
+      0
+    ],
     "yukseklik_m": 230,
     "hfov_rad": 1.3,
     "genislik_px": 960,
@@ -23,5 +36,19 @@
     "komut_zaman_asimi_sn": 0.5,
     "gonderim_hz": 20
   },
-  "kalkis_bekleme_sn": 60
+  "kalkis_bekleme_sn": 60,
+  "test_pisti": {
+    "_aciklama": "Dokusuz dünyalarda (PX4 'default') kameraların göreceği görsel pist; detaylı dünyada eklenmez.",
+    "etkin": true,
+    "dunyalar": [
+      "default"
+    ],
+    "model_adi": "panel_test_pisti",
+    "merkez_m": [
+      0,
+      0
+    ],
+    "boy_m": 240,
+    "en_m": 30
+  }
 }

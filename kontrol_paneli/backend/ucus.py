@@ -1,7 +1,9 @@
 """Uçuş yöneticisi (MAVSDK-Python): toplu kalkış, toplu iniş, manuel (oyun kolu) sürüş ve telemetri.
 
-Bağlantı: her PX4 SITL örneği GCS bağlantısını 18570+örnek UDP portunda dinler (PX4 init.d-posix/px4-rc.mavlink). Panel her araç için kendi
-mavsdk_server'ını (panel_ayar.json: mavsdk_grpc_portlari) `udpout://127.0.0.1:<18570+i>` ile bu porta bağlar; projenin px4_adapter hattı
+Bağlantı: her PX4 SITL örneği GCS bağlantısını 18570+örnek UDP portunda dinler (PX4 init.d-posix/px4-rc.mavlink). PX4 bu bağlantıda İLK
+konuşan istemcinin adres/portuna kilitlenir ve bir daha güncellemez (mavlink_receiver.cpp, client_source_initialized). mavsdk_server her
+açılışta rastgele kaynak port aldığından panel yeniden açılınca PX4 eski porta yazmaya devam eder ve bağlantı kopar. Bu yüzden araya
+`UdpAktarici` girer: PX4 ile her zaman SABİT porttan konuşur; panelin mavsdk_server'ı (gRPC: mavsdk_grpc_portlari) aktarıcıya bağlanır; projenin px4_adapter hattı
 (14540-14542, gRPC 20051-20053) kullanılmaz ve değişmez. Bu panel projeden bağımsız bir sunum aracıdır.
 
 Yaşam döngüsü: panelin mavsdk_server'ları YALNIZ koşu açıkken yaşar. araclar/kosu.sh baslat makinede herhangi bir mavsdk_server görürse
@@ -11,6 +13,8 @@ Manuel sürüş: offboard modunda gövde eksenli hız + sapma hızı (VelocityBo
 içinde yeni eksen gelmezse sıfır hız gönderilir (araç yerinde durur). Bitirince offboard durur, PX4 Hold'a geçer.
 """
 import asyncio
+import select
+import socket
 import subprocess
 import threading
 import time
@@ -20,6 +24,35 @@ with warnings.catch_warnings():
     warnings.simplefilter("ignore", FutureWarning)
     from mavsdk import System
     from mavsdk.offboard import OffboardError, VelocityBodyYawspeed
+
+
+class UdpAktarici:
+    """mavsdk_server ↔ PX4 GCS bağlantısı arasında iki yönlü UDP aktarımı; PX4'e hep aynı yerel porttan gönderir."""
+
+    def __init__(self, px4_port, px4_tarafi_port, mavsdk_tarafi_port):
+        self.px4 = ("127.0.0.1", int(px4_port))
+        self.s_px4 = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        self.s_px4.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        self.s_px4.bind(("127.0.0.1", int(px4_tarafi_port)))
+        self.s_gcs = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        self.s_gcs.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        self.s_gcs.bind(("127.0.0.1", int(mavsdk_tarafi_port)))
+        self.istemci = None            # mavsdk_server'ın son görülen adresi
+        threading.Thread(target=self._dongu, name=f"aktarici-{px4_port}", daemon=True).start()
+
+    def _dongu(self):
+        while True:
+            try:
+                hazir, _, _ = select.select([self.s_px4, self.s_gcs], [], [], 1.0)
+                for s in hazir:
+                    veri, adres = s.recvfrom(65535)
+                    if s is self.s_gcs:
+                        self.istemci = adres
+                        self.s_px4.sendto(veri, self.px4)
+                    elif self.istemci is not None:
+                        self.s_gcs.sendto(veri, self.istemci)
+            except OSError:            # PX4 kapalıyken gelen ICMP hataları vb.: aktarım sürer
+                time.sleep(0.1)
 
 
 class AracDurumu:
@@ -60,6 +93,7 @@ class UcusYoneticisi:
         self._dongu = asyncio.new_event_loop()
         threading.Thread(target=self._dongu.run_forever, name="ucus-asyncio", daemon=True).start()
         self._artiklari_temizle()
+        self.aktaricilar = [UdpAktarici(a.gcs_udp_port, a.aktarma_px4_port, a.aktarma_mavsdk_port) for a in yap.araclar]
 
     def _artiklari_temizle(self):
         """Çöken bir panelden kalmış, panelin KENDİ gRPC portlarındaki mavsdk_server'ları kapatır (projeninkilere dokunmaz)."""
@@ -77,10 +111,17 @@ class UcusYoneticisi:
             for g in d.gorevler:
                 g.cancel()
             if d.system is not None:
+                surec = getattr(d.system, "_server_process", None)
                 try:
                     d.system._stop_mavsdk_server()   # noqa: SLF001 — MAVSDK-Python'da genel kapatma yok
                 except Exception:  # noqa: BLE001
                     pass
+                # kill() sonrası beklenmezse süreç zombi kalır; kosu.sh zombiyi de "yaşayan mavsdk_server" sayıp koşuyu reddeder.
+                if isinstance(surec, subprocess.Popen):
+                    try:
+                        surec.wait(timeout=5)
+                    except subprocess.TimeoutExpired:
+                        pass
             d.sifirla()
 
     def baglantilari_kapat(self):
@@ -96,7 +137,7 @@ class UcusYoneticisi:
             return
         s = d.system = System(port=d.arac.grpc_port)
         try:
-            await s.connect(system_address=f"udpout://127.0.0.1:{d.arac.gcs_udp_port}")
+            await s.connect(system_address=f"udpout://127.0.0.1:{d.arac.aktarma_mavsdk_port}")
         except Exception as e:  # noqa: BLE001
             self._yaz(f"(-) İHA{d.arac.no}: mavsdk_server başlatılamadı: {e}")
             d.sifirla()
@@ -173,12 +214,17 @@ class UcusYoneticisi:
             d.son_islem = f"iniş hatası: {e}"
             self._yaz(f"(-) İHA{d.arac.no}: iniş hatası: {e}")
 
+    @staticmethod
+    async def _hepsi(islem, araclar):
+        # gather olay döngüsünün İÇİNDE kurulmalı: HTTP iş parçacığında çağrılırsa döngü bulunamaz (Python 3.12 hata verir).
+        await asyncio.gather(*(islem(d) for d in araclar))
+
     def toplu_kalkis(self):
         bagli = [d for d in self.araclar.values() if d.bagli]
         if not bagli:
             return False, "Bağlı İHA yok; önce sistemi başlatın."
         self._yaz(f"(i) Toplu kalkış: {', '.join(f'İHA{d.arac.no}' for d in bagli)}")
-        self._calistir(asyncio.gather(*(self._kalkis(d) for d in bagli)))
+        self._calistir(self._hepsi(self._kalkis, bagli))
         return True, "Toplu kalkış başlatıldı"
 
     def toplu_inis(self):
@@ -186,7 +232,7 @@ class UcusYoneticisi:
         if not bagli:
             return False, "Bağlı İHA yok."
         self._yaz("(i) Toplu iniş")
-        self._calistir(asyncio.gather(*(self._inis(d) for d in bagli)))
+        self._calistir(self._hepsi(self._inis, bagli))
         return True, "Toplu iniş başlatıldı"
 
     # ---- manuel sürüş --------------------------------------------------------------------------

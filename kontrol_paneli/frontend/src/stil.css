@@ -261,6 +261,7 @@ kbd {
 /* harita her iki temada da koyu zemin üstündedir: işaret renkleri sabit tutulur */
 .isaret { fill: var(--renk); stroke: #fff; stroke-width: 2.5; }
 .isaret-hale { fill: var(--renk); opacity: .2; }
+.isaret-bag { stroke: #fff; stroke-width: 1.2; opacity: .75; }
 .isaret-yon { stroke: #fff; stroke-width: 2.5; stroke-linecap: round; }
 .isaret-yazi { fill: #fff; font: 600 16px system-ui, sans-serif; paint-order: stroke; stroke: #000b; stroke-width: 4px; }
 .olcek line { stroke: #fff; stroke-width: 2; }

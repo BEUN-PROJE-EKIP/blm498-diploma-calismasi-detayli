@@ -15,6 +15,31 @@ function izdusum(h, x, y, z) {
   };
 }
 
+// İşaretler ve yazıları: araçlar birbirine yakınken (ör. 3 m arayla, ~7 piksel) yazılar üst üste binmesin diye
+// alt alta dizilir; yerinden kayan yazı işaretine ince bir çizgiyle bağlanır.
+const YAZI_GEN = 128;
+const YAZI_YUK = 21;
+function isaretleriYerlestir(araclar, pozlar, h, r) {
+  const liste = araclar
+    .filter((a) => pozlar[a.no])
+    .map((a) => {
+      const p = pozlar[a.no];
+      const { u, v } = izdusum(h, p.x, p.y, p.z);
+      // yaw: dünya +X'ten saat yönünün tersine; ekranda v aşağı arttığı için y bileşeni ters
+      return { no: a.no, u, v, z: p.z, r, ux: Math.cos(p.yaw), uy: -Math.sin(p.yaw) };
+    })
+    .sort((a, b) => a.v - b.v || a.u - b.u);
+  const yerlesen = [];
+  for (const m of liste) {
+    m.lx = m.u + r + 8;
+    m.ly = m.v - r + 4;
+    while (yerlesen.some((y) => Math.abs(y.lx - m.lx) < YAZI_GEN && Math.abs(y.ly - m.ly) < YAZI_YUK)) m.ly += YAZI_YUK;
+    m.ayrik = m.ly - (m.v - r + 4) > 1;
+    yerlesen.push(m);
+  }
+  return liste;
+}
+
 function HaritaGorunum({ durum, buyuk }) {
   const h = durum?.gazebo?.harita;
   const partition = durum?.gazebo?.partition;
@@ -25,6 +50,7 @@ function HaritaGorunum({ durum, buyuk }) {
   const araclar = durum?.araclar ?? [];
   const yer = izdusum(h, h.merkez_m[0], h.merkez_m[1], 0);
   const olcek50 = 50 * yer.olcek; // 50 m ölçek çubuğu
+  const isaretler = isaretleriYerlestir(araclar, pozlar, h, buyuk ? 9 : 11);
 
   return (
     <div className={`harita-ekran ${buyuk ? "buyuk" : ""}`} style={{ aspectRatio: `${W} / ${H}` }}>
@@ -36,32 +62,26 @@ function HaritaGorunum({ durum, buyuk }) {
         </div>
       )}
       <svg viewBox={`0 0 ${W} ${H}`} className="harita-katman" aria-hidden>
-        {araclar.map((a) => {
-          const p = pozlar[a.no];
-          if (!p) return null;
-          const { u, v } = izdusum(h, p.x, p.y, p.z);
-          // yaw: dünya +X'ten saat yönünün tersine; ekranda v aşağı arttığı için y bileşeni ters
-          const ux = Math.cos(p.yaw);
-          const uy = -Math.sin(p.yaw);
-          const r = buyuk ? 9 : 11;
-          return (
-            <g key={a.no} transform={`translate(${u},${v})`} style={{ "--renk": `var(--iha${a.no})` }}>
-              <circle r={r * 1.9} className="isaret-hale" />
-              <circle r={r} className="isaret" />
-              <line x1={0} y1={0} x2={ux * r * 2} y2={uy * r * 2} className="isaret-yon" />
-              <text x={r + 6} y={-r} className="isaret-yazi">
-                İHA {a.no} · {Math.max(0, p.z).toFixed(0)} m
-              </text>
+        {isaretler.map((m) => (
+          <g key={m.no} style={{ "--renk": `var(--iha${m.no})` }}>
+            {m.ayrik && <line x1={m.u + m.r} y1={m.v} x2={m.lx - 3} y2={m.ly - 5} className="isaret-bag" />}
+            <g transform={`translate(${m.u},${m.v})`}>
+              <circle r={m.r * 1.9} className="isaret-hale" />
+              <circle r={m.r} className="isaret" />
+              <line x1={0} y1={0} x2={m.ux * m.r * 2} y2={m.uy * m.r * 2} className="isaret-yon" />
             </g>
-          );
-        })}
+            <text x={m.lx} y={m.ly} className="isaret-yazi">
+              İHA {m.no} · {Math.max(0, m.z).toFixed(0)} m
+            </text>
+          </g>
+        ))}
         <g transform={`translate(${W - olcek50 - 24},${H - 22})`} className="olcek">
           <line x1={0} y1={0} x2={olcek50} y2={0} />
           <line x1={0} y1={-5} x2={0} y2={5} />
           <line x1={olcek50} y1={-5} x2={olcek50} y2={5} />
           <text x={olcek50 / 2} y={-8}>50 m</text>
         </g>
-        <g transform="translate(28,34)" className="pusula">
+        <g transform="translate(32,44)" className="pusula">
           <circle r={16} />
           <path d="M0,-11 L5,4 L0,1 L-5,4 Z" />
           <text y={-20}>K</text>

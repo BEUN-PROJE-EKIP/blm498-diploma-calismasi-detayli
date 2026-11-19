@@ -140,44 +140,70 @@ class GazeboBaglantisi:
             self._konular += [hk, f"/world/{w}/pose/info", f"/world/{w}/clock"]
             self._node = node
         self._yaz(f"(i) Gazebo'ya bağlanıldı (partition {partition})")
-        threading.Thread(target=self._harita_ekle, args=(nesil,), name="harita-ekle", daemon=True).start()
+        threading.Thread(target=self._modelleri_ekle, args=(nesil,), name="model-ekle", daemon=True).start()
 
-    def _harita_ekle(self, nesil):
+    def _modelleri_ekle(self, nesil):
+        """Dünyaya çalışma anında panel modellerini ekler: harita kamerası ve (varsa) test pisti."""
+        h = self.yap.ayar["harita"]
+        self.harita_durum = "ekleniyor"
+        # Harita kamerası her panel açılışında güncel ayarla yeniden kurulur (eski ayarlı kopya kaldırılır).
+        ok = self._model_ekle(nesil, h["model_adi"], _harita_sdf(h["model_adi"], h["konu"], h), yenile=True)
+        if nesil != self._nesil:
+            return
+        self.harita_durum = "eklendi" if ok else "hata"
+        if ok:
+            self._yaz(f"(+) Harita kamerası hazır ({h['yukseklik_m']:g} m yükseklik)")
+        else:
+            self._yaz("(-) Harita kamerası eklenemedi (Gazebo yanıt vermedi)")
+        pist = self.yap.ayar.get("test_pisti", {})
+        if pist.get("etkin") and self.yap.dunya in pist.get("dunyalar", []):
+            from test_pisti import pist_sdf
+            if self._model_ekle(nesil, pist["model_adi"], pist_sdf(pist["model_adi"], pist), yenile=False):
+                self._yaz("(+) Test pisti dünyada")
+
+    def _model_ekle(self, nesil, ad, sdf, yenile):
+        """Modeli ekler; başarılıysa True. KALDIRMA EN FAZLA BİR KEZ yapılır: kameralı model eklemek (render hazırlığı) hizmet
+        zaman aşımından uzun sürebilir; her denemede kaldırılsaydı az önce eklenen model silinirdi. Yeniden deneme güvenlidir:
+        aynı adlı model varsa Gazebo yalnız reddeder (allow_renaming=false)."""
         from gz.msgs10.boolean_pb2 import Boolean
         from gz.msgs10.entity_factory_pb2 import EntityFactory
+        from gz.msgs10.entity_pb2 import Entity
 
-        h = self.yap.ayar["harita"]
+        w = self.yap.dunya
         istek = EntityFactory()
-        istek.sdf = _harita_sdf(h["model_adi"], h["konu"], h)
-        istek.name = h["model_adi"]
-        istek.allow_renaming = False
-        self.harita_durum = "ekleniyor"
-        hizmet = f"/world/{self.yap.dunya}/create"
+        istek.sdf, istek.name, istek.allow_renaming = sdf, ad, False
         son = time.time() + 120
-        while time.time() < son:
+        while self.sim_saat is None:                 # dünya çalışana dek bekle
+            if nesil != self._nesil or time.time() > son:
+                return False
+            time.sleep(1.0)
+        with self._k:
+            node = self._node if nesil == self._nesil else None
+        if node is None:
+            return False
+        if yenile:
+            sil = Entity()
+            sil.name, sil.type = ad, Entity.MODEL
+            try:
+                _, yanit = node.request(f"/world/{w}/remove", sil, Entity, Boolean, 10000)
+                if yanit is not None and yanit.data:
+                    self._yaz(f"(i) Eski {ad} kaldırıldı")
+                    time.sleep(2.0)
+            except Exception:  # noqa: BLE001
+                pass
+        for _ in range(3):
             if nesil != self._nesil:
-                return
-            if self.sim_saat is not None:           # dünya çalışıyor
-                with self._k:
-                    node = self._node if nesil == self._nesil else None
-                if node is None:
-                    return
-                try:
-                    tamam, yanit = node.request(hizmet, istek, EntityFactory, Boolean, 5000)
-                except Exception as e:  # noqa: BLE001
-                    tamam, yanit = False, None
-                    self._yaz(f"(!) Harita kamerası isteği: {e}")
-                if tamam:
-                    if yanit.data:
-                        self.harita_durum = "eklendi"
-                        self._yaz("(+) Harita kamerası dünyaya eklendi")
-                    else:   # büyük olasılıkla aynı adla zaten var (panel yeniden açıldı)
-                        self.harita_durum = "eklendi"
-                        self._yaz("(i) Harita kamerası zaten dünyada (ya da eklenemedi); görüntü bekleniyor")
-                    return
-            time.sleep(2.0)
-        self.harita_durum = "hata"
-        self._yaz("(-) Harita kamerası eklenemedi (Gazebo yanıt vermedi)")
+                return False
+            try:
+                tamam, yanit = node.request(f"/world/{w}/create", istek, EntityFactory, Boolean, 30000)
+            except Exception as e:  # noqa: BLE001
+                tamam, yanit = False, None
+                self._yaz(f"(!) {ad} ekleme isteği: {e}")
+            if tamam:
+                # data=false: aynı adla zaten var (önceki deneme yanıtı geç geldiyse ya da panel yeniden açıldıysa) → yine hazır
+                return True
+            time.sleep(3.0)
+        return False
 
     # ---- geri çağrılar ----------------------------------------------------------------------
     def _kare(self, kaynak, m):

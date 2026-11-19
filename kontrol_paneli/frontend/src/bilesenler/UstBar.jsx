@@ -26,7 +26,9 @@ function saat(sn) {
 
 export default function UstBar({ durum, bagli, tema, temaDegistir }) {
   const d = bagli ? durum?.sistem?.durum ?? "bilinmiyor" : "bilinmiyor";
-  const mimari = durum?.sistem?.kosu?.mimari;
+  // Mimari modu yalnız görev koşusunda anlamlı (kosu.sh görevsiz koşulara da varsayılan "ucta" yazar).
+  const kosu = durum?.sistem?.kosu;
+  const mimari = kosu?.gorev_var ? kosu.mimari : null;
   return (
     <header className="ust-bar">
       <div className="baslik">
